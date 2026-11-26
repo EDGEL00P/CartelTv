@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TV adaptive 16:9 banner (android:banner). The artwork is a full-bleed 16:9 design, so it rides
+     in the background layer edge to edge and the foreground stays clear: launchers that mask or zoom
+     banner layers treat the art as the backdrop, never clipping a logo out of a safe zone. Pre-API-26
+     and bitmap-only launchers resolve the density-bucket mipmap-*/banner.png fallbacks instead. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/tv_banner" />
+    <foreground android:drawable="@drawable/banner_foreground" />
+</adaptive-icon>

@@ -1,0 +1,10 @@
+{
+  "_comment": "Ordered guide codes for the CI epg_ENGLISH_ALL merge (.github/workflows/epg.yml calls tools/merge_guides.py --codes-json with this file). Codes whose epg_<code>.xml.gz is missing from dist are skipped, so adding a code here is safe before its guide is built.",
+  "codes": [
+    "US2", "US_LOCALS1", "US_SPORTS1",
+    "UK1", "IE1", "CA2", "AU1", "NZ1", "ZA1",
+    "IN1", "IN2", "IN4", "SG1", "PH1", "PH2",
+    "PEACOCK1", "PLEX1", "AMCCHANNELS1", "DISTROTV1", "RAKUTEN1",
+    "SPORTS", "STREAMING", "TVMAZE"
+  ]
+}

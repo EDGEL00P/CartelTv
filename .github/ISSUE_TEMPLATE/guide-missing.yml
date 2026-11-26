@@ -1,0 +1,17 @@
+name: Guide missing or wrong
+description: A channel, country or league has no guide data or wrong times
+labels: [epg]
+body:
+  - type: input
+    id: what
+    attributes:
+      label: Channel, country or league
+      placeholder: UK1 / BBC One / Bundesliga
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: What is missing or wrong
+    validations:
+      required: true

@@ -1,0 +1,43 @@
+CartelTV is licensed under GPL-3.0 (see LICENSE).
+
+Parts of the playback engine are derived from GPL-3.0 and GPL-2.0-or-later open-source work. The
+copyright notices and author attributions that the licences require are kept in the headers of the
+affected source files and must not be removed.
+
+engine/mat/MatPacker.kt is a Kotlin port of Kodi's CPackerMAT:
+  Copyright (C) 2024 Team Kodi; Copyright (C) 2010-2021 Hendrik Leppkes (LAV Filters, BitstreamMAT.cpp).
+  SPDX-License-Identifier: GPL-2.0-or-later
+The file header carries these notices and must keep them.
+
+Third-party assets:
+  Phosphor Icons, phosphor-icons/core v2.0.8 (app/src/main/res/drawable/ph_*.xml, converted unchanged from the SVGs).
+    Copyright (c) 2020-2023 Phosphor Icons. MIT License.
+  Backdrop photograph 'Sea sky and clouds, Ibiza, Spain' by Joselodos (app/src/main/res/drawable-nodpi/bg_stage.jpg, cropped and resized).
+    Wikimedia Commons, CC0 1.0 Public Domain Dedication; no attribution required.
+  Meteocons weather icons, @meteocons/svg-static 3.0.0-next.10 by Bas Milius.
+    Original fill-style SVGs: third_party/meteocons-svg-3.0.0-next.10/.
+    Android vector conversions: app/src/main/res/drawable/mc_*_svg.xml. MIT License.
+  Weather photographs (app/src/main/res/drawable-nodpi/wx_*.jpg), cropped to 16:9 and resized.
+    Wikimedia Commons, all CC0 1.0 Public Domain Dedication; no attribution required, credited here anyway:
+    wx_partly.jpg: BlueSkyWhiteClouds21.jpg by Raysonho @ Open Grid Scheduler / Grid Engine
+    wx_cloudy.jpg: Cloudy Sky Background.jpg by Free Nature Stock
+    wx_fog.jpg: Forest sunrise.jpg by Peter Heeling
+    wx_rain.jpg: Raindrops on windshield in Kent, Washington.jpg by Roc0ast3r
+    wx_storm.jpg: Thunderstorm in Berlin 2021-07-14 02.jpg by Leonhard Lenz
+    wx_night.jpg: Moonlit golf 16k – HDR-Panorama (Greg Zaal via Poly Haven).tif by Greg Zaal
+    wx_snow.jpg: Fog covers Hurricane Ridge (Unsplash).jpg by Jeremy Gallman jeremyfilm
+  Holiday photographs (app/src/main/res/drawable-nodpi/hl_*.jpg), real stock photography, cropped/composited to 16:9 and resized.
+    Each backdrop starts as a Pexels photograph (Pexels License, https://www.pexels.com/license/; attribution is not
+    required, credited here anyway), then a posed model in holiday-themed festive dress is composited into the scene
+    with an image-editing model (the model renders at 2048x2048, which is center-cropped to 16:9 and resampled
+    to 3840x2160). Base photographs:
+    hl_christmas.jpg: Christmas Socks Hanging at a Fireplace (6184763) by cottonbro studio, https://www.pexels.com/photo/6184763/
+    hl_thanksgiving.jpg: Autumn Thanksgiving Table Setting with Candles (38933419) by Zion Smith, https://www.pexels.com/photo/38933419/
+    hl_halloween.jpg: Spooky Halloween Night with Fog and Jack-o-lantern (40398551), https://www.pexels.com/photo/40398551/
+    hl_fireworks.jpg: New Year Fireworks at Night (20093607), https://www.pexels.com/photo/20093607/
+    hl_valentine.jpg: Romantic Valentine's Day Cake with Candles (31328163) by Beyza Yalçın, https://www.pexels.com/photo/31328163/
+    hl_stpatrick.jpg: Green Paper Clover on the Background of White and Green Paper (6834999) by alleksana, https://www.pexels.com/photo/6834999/
+    hl_easter.jpg: Easter Eggs in Pastel Colors (4108617) by Polina Zimmerman, https://www.pexels.com/photo/4108617/
+    hl_bonfire.jpg: Vibrant Nighttime Bonfire with Sparks (31323006) by Alisha Harman, https://www.pexels.com/photo/31323006/
+    hl_poppy.jpg: Beautiful Poppy Field at Sunset in Budapest (32637548) by Woods and Lights Photography, https://www.pexels.com/photo/32637548/
+    hl_boxing.jpg: Cozy Winter Scene with Candlelit Cabin Decor (30427067) by Beyzanur K., https://www.pexels.com/photo/30427067/

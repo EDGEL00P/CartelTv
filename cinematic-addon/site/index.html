@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartel Cinematic</title>
+<style>
+  :root { color-scheme: dark; --bg: #101114; --panel: #181a1f; --line: #2a2d35; --text: #e8e9ec; --muted: #9a9ea8; --accent: #e5b94e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, sans-serif; }
+  main { max-width: 42rem; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+  h1 { font-size: 1.75rem; margin: 0 0 .25rem; }
+  h2 { font-size: 1rem; margin: 2rem 0 .5rem; color: var(--muted); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+  p { margin: .25rem 0 1rem; color: var(--muted); }
+  .row { display: flex; flex-wrap: wrap; gap: .75rem; }
+  a.btn, button { font: inherit; padding: .7rem 1.1rem; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; text-decoration: none; }
+  a.primary { background: var(--accent); color: #17130a; border-color: var(--accent); font-weight: 600; }
+  a.btn:focus-visible, button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+  code { display: block; padding: .75rem 1rem; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow-wrap: anywhere; color: var(--text); }
+  ul { padding-left: 1.2rem; color: var(--muted); }
+  li { margin: .25rem 0; }
+  #status { color: var(--muted); }
+  #catalogs li { color: var(--text); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Cartel Cinematic</h1>
+  <p id="status" role="status">Loading catalog details…</p>
+
+  <h2>Install</h2>
+  <div class="row">
+    <a class="btn primary" id="stremio" href="#">Install in Stremio</a>
+    <button id="copy" type="button">Copy manifest URL</button>
+  </div>
+  <p></p>
+  <code id="url"></code>
+
+  <h2>Other apps</h2>
+  <ul>
+    <li>Nuvio, Stremio Web and any Stremio-compatible app: add an addon and paste the manifest URL above.</li>
+    <li>Our app and custom clients: read <a href="cinematic.json" style="color:var(--accent)">cinematic.json</a>, one file with every catalog, title and detail.</li>
+  </ul>
+
+  <h2>Catalogs</h2>
+  <ul id="catalogs"></ul>
+</main>
+<script>
+  const manifestUrl = new URL('manifest.json', location.href).href;
+  const link = document.getElementById('stremio');
+  document.getElementById('url').textContent = manifestUrl;
+  link.href = 'stremio://' + manifestUrl.replace(/^https?:\/\//, '');
+
+  const copy = document.getElementById('copy');
+  copy.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(manifestUrl); copy.textContent = 'Copied'; }
+    catch { copy.textContent = 'Select the URL and copy it'; }
+  });
+
+  fetch(manifestUrl).then((r) => r.json()).then((m) => {
+    document.getElementById('status').textContent = `Version ${m.version}, ${m.catalogs.length} catalogs. Rebuilt automatically every night.`;
+    const list = document.getElementById('catalogs');
+    for (const c of m.catalogs) {
+      const li = document.createElement('li');
+      li.textContent = `${c.name} (${c.type})`;
+      list.append(li);
+    }
+  }).catch(() => {
+    document.getElementById('status').textContent = 'The catalog is still building. Reload in a few minutes.';
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Deliberately empty: the adaptive banner's logo lives in the full-bleed background layer, so the
+     foreground carries no pixels for focus-zoom and parallax effects to pull apart. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#00000000" />
+</shape>

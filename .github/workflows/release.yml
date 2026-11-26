@@ -1,0 +1,101 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: ./.github/actions/setup-android
+
+      - name: Unit tests
+        env:
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Assemble release
+        env:
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Sign
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          [ -n "$KEYSTORE_B64" ] || { echo "KEYSTORE_B64 secret is not set"; exit 1; }
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          # ABI splits + universal both ship: every APK gets signed, the updater's
+          # update.json points at the universal one since it has no ABI matching.
+          n=0
+          find app/build/outputs/apk/release -name '*.apk' | while read -r in; do
+            # Per-ABI outputs are CartelTV-release-<abi>.apk; the universal APK has no
+            # ABI filter and is stamped plain CartelTV-release.apk.
+            abi=$(basename "$in" | sed -E 's/CartelTV-release-(.+)\.apk/\1/;t;s/CartelTV-release\.apk/universal/')
+            "$bt/zipalign" -f -p 4 "$in" "aligned-$abi.apk"
+            "$bt/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$KEY_ALIAS" \
+              --ks-pass env:KEYSTORE_PASSWORD --out "CartelTV-${GITHUB_REF_NAME}-${abi}.apk" "aligned-$abi.apk" \
+              || exit 1
+            "$bt/apksigner" verify "CartelTV-${GITHUB_REF_NAME}-${abi}.apk" || exit 1
+          done
+          rm -f "$RUNNER_TEMP/release.jks"
+          ls CartelTV-${GITHUB_REF_NAME}-*.apk
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            CartelTV-${{ github.ref_name }}-universal.apk
+            CartelTV-${{ github.ref_name }}-arm64-v8a.apk
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk="CartelTV-${GITHUB_REF_NAME}-universal.apk"
+          sha256sum CartelTV-${GITHUB_REF_NAME}-*.apk > SHA256SUMS.txt
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          code=$("$bt/aapt2" dump badging "$apk" | grep -oE "versionCode='[0-9]+'" | grep -oE '[0-9]+')
+          [ -n "$code" ] || { echo "could not read versionCode from $apk"; exit 1; }
+          python3 - "CartelTV-${GITHUB_REF_NAME}" "$code" <<'EOF'
+          import json, os, sys, hashlib
+          stem, code = sys.argv[1], int(sys.argv[2])
+          tag = os.environ["GITHUB_REF_NAME"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          base = f"https://github.com/{repo}/releases/download/{tag}"
+          # Per-ABI map for new builds (the updater matches Build.SUPPORTED_ABIS, falls
+          # back to universal); top-level apkUrl/sha256 keep old builds on universal.
+          abis = ["universal", "arm64-v8a", "armeabi-v7a", "x86", "x86_64"]
+          apks = {}
+          for abi in abis:
+              path = f"{stem}-{abi}.apk"
+              if not os.path.exists(path):
+                  continue
+              apks[abi] = {
+                  "url": f"{base}/{path}",
+                  "sha256": hashlib.sha256(open(path, "rb").read()).hexdigest(),
+              }
+          universal = apks["universal"]
+          json.dump({
+              "versionName": tag.lstrip("v"),
+              "versionCode": code,
+              "apkUrl": universal["url"],
+              "sha256": universal["sha256"],
+              "apks": apks,
+          }, open("update.json", "w"), indent=1)
+          EOF
+          gh release create "$GITHUB_REF_NAME" CartelTV-${GITHUB_REF_NAME}-*.apk SHA256SUMS.txt update.json \
+            --title "$GITHUB_REF_NAME" --generate-notes

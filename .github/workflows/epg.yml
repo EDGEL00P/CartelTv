@@ -1,0 +1,115 @@
+name: epg
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: epg
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+
+      - name: Build worldwide guides
+        run: |
+          mkdir -p dist raw
+          base=https://epgshare01.online/epgshare01
+          codes=$(curl -sSL --fail --retry 3 "$base/" \
+            | grep -oE 'epg_ripper_[A-Z0-9_]+\.xml\.gz' | sed -E 's/epg_ripper_(.*)\.xml\.gz/\1/' | sort -u \
+            | grep -vE '^(ALL_SOURCES1|DUMMY_CHANNELS|DRAFTKINGS1|FANDUEL1)$')
+          [ -n "$codes" ] || { echo "no guide index"; exit 1; }
+          ok=0
+          for c in $codes; do
+            if curl -sSL --fail --retry 3 -A "Mozilla/5.0 CartelTV-epg" -o "raw/$c.xml.gz" "$base/epg_ripper_$c.xml.gz" \
+               && python tools/clean_epg.py "raw/$c.xml.gz" "dist/epg_$c.xml.gz" --max-days 7 --slim --english-only >/dev/null \
+               && [ -s "dist/epg_$c.xml.gz" ]; then
+              ok=$((ok+1))
+            else
+              echo "skipped $c"; rm -f "dist/epg_$c.xml.gz"
+            fi
+          done
+          echo "guides built: $ok"
+          [ "$ok" -ge 20 ] || { echo "too few guides built"; exit 1; }
+
+      - name: Build sports guide
+        run: python tools/sports_guide.py dist/epg_SPORTS.xml.gz --days 7
+
+      - name: Build extra free guides
+        run: python tools/fetch_guides.py tools/guide_sources.json dist raw
+
+      - name: Fetch Kayo fixtures
+        run: |
+          curl -sSL --fail --retry 3 -A "Mozilla/5.0 CartelTV-guide" -o raw/kayo.html \
+            https://kayosports.com.au/en-AU/schedule || echo "Kayo schedule unavailable; continuing without it"
+
+      - name: Build big events
+        run: |
+          python tools/big_events.py dist dist/events.json --days 28 --limit 60 \
+            --sources tools/guide_sources.json \
+            --espn mma/ufc,mma/pfl --espn-daily football/nfl,basketball/nba,hockey/nhl \
+            --kayo raw/kayo.html
+
+      - name: Build streaming platform guide
+        run: python tools/streaming_guide.py dist/epg_STREAMING.xml.gz --days 7
+
+      - name: Build TVmaze linear and streaming-release guide
+        run: python tools/tvmaze_guide.py dist/epg_TVMAZE.xml.gz --days 7
+
+      - name: Combine English guides
+        # The merge list lives in tools/english_guide_codes.json, one source shared with the app's
+        # guide tooling — not duplicated in this workflow.
+        run: |
+          python tools/merge_guides.py dist/epg_ENGLISH_ALL.xml.gz \
+            --codes-json tools/english_guide_codes.json --dist-dir dist
+
+      - name: Manifest
+        run: |
+          python - <<'EOF'
+          import json, os, time
+          files = sorted(f for f in os.listdir("dist") if f.endswith(".xml.gz"))
+          json.dump({"generated": int(time.time()),
+                     "events": os.path.exists("dist/events.json"),
+                     "files": [{"name": f, "bytes": os.path.getsize(f"dist/{f}")} for f in files]},
+                    open("dist/manifest.json", "w"), indent=1)
+          EOF
+
+      - name: Publish rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view epg-latest >/dev/null 2>&1 \
+            || gh release create epg-latest --title "EPG (auto-updated)" --notes "Rolling guides, rebuilt every 6 hours by .github/workflows/epg.yml. URL pattern: https://github.com/${{ github.repository }}/releases/download/epg-latest/epg_<CODE>.xml.gz" --latest=false
+          # One generation at a time: the app fetches these URLs directly, so uploading over the
+          # old assets would let it mix a fresh guide with a stale one mid-batch. The old assets
+          # go first; a fetch during the upload window finds no asset, and the app keeps its last
+          # stored guide and retries — never a mixed generation.
+          ids=$(gh api "repos/${{ github.repository }}/releases/tags/epg-latest" --jq '.assets[].id' 2>/dev/null || true)
+          for id in $ids; do gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$id" || true; done
+          # gh sometimes dies mid-batch with "HTTP 400: Bad Content-Length"; upload
+          # per file with retries so one flake can't leave the release half-empty.
+          fail=0
+          for f in dist/*; do
+            # Empty files make gh's upload die with "HTTP 400: Bad Content-Length";
+            # slim/dead runs leave 0-byte placeholders — nothing to publish.
+            [ -s "$f" ] || continue
+            ok=""
+            for attempt in 1 2 3; do
+              if gh release upload epg-latest "$f" --clobber; then ok=1; break; fi
+              sleep $((attempt * 10))
+            done
+            [ -n "$ok" ] || { echo "WARN: upload failed after retries: $f"; fail=$((fail+1)); }
+          done
+          [ "$fail" -eq 0 ] || { echo "$fail asset(s) failed to upload"; exit 1; }

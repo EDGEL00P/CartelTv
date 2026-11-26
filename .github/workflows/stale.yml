@@ -1,0 +1,27 @@
+name: stale
+
+on:
+  schedule:
+    - cron: "29 3 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9
+        with:
+          days-before-stale: 60
+          days-before-close: 14
+          stale-issue-label: stale
+          stale-pr-label: stale
+          exempt-issue-labels: pinned,security,bug
+          exempt-pr-labels: pinned,security
+          stale-issue-message: This issue has had no activity for 60 days and will close in 14 unless it is updated.
+          stale-pr-message: This PR has had no activity for 60 days and will close in 14 unless it is updated.

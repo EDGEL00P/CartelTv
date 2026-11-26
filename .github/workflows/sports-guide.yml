@@ -1,0 +1,61 @@
+name: Publish sports guide JSON
+
+on:
+  schedule:
+    # Every 30 minutes. Adjust for freshness vs. API politeness.
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Days ahead to include"
+        required: false
+        default: "7"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: sports-guide-pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Build sports guide JSON
+        env:
+          DAYS: ${{ github.event.inputs.days || '7' }}
+        run: |
+          mkdir -p public
+          python tools/export_sports_guide_json.py public/sports-guide.json --days "$DAYS" --pretty
+          # Small index for humans/browsers hitting the Pages root.
+          cat > public/index.html <<'HTML'
+          <!doctype html><meta charset="utf-8"><title>CartelTV Sports Guide</title>
+          <p>Static sports guide feed for CartelTV.</p>
+          <p><a href="./sports-guide.json">sports-guide.json</a></p>
+          HTML
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5.0.0
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3.0.1
+        with:
+          path: public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4.0.5

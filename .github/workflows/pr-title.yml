@@ -1,0 +1,22 @@
+name: pr-title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  conventional:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require a Conventional Commit title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          re='^(feat|fix|perf|refactor|docs|test|build|ci|chore|revert|deps)(\([a-z0-9._/-]+\))?!?: .+'
+          if ! printf '%s' "$TITLE" | grep -Eq "$re"; then
+            echo "::error::PR title must look like 'type(scope): summary', e.g. 'fix(player): stop buffering loop'. Got: $TITLE"
+            exit 1
+          fi

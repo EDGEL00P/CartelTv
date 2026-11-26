@@ -1,0 +1,47 @@
+name: codeql
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 5 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: java-kotlin
+            build-mode: manual
+          - language: python
+            build-mode: none
+          - language: actions
+            build-mode: none
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: ./.github/actions/setup-android
+        if: matrix.language == 'java-kotlin'
+
+      - uses: github/codeql-action/init@d2aacf54c2fbc910db8d7ec338fdb54ea48c692d # v3.39.4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Build
+        if: matrix.language == 'java-kotlin'
+        run: ./gradlew assembleDebug --stacktrace
+
+      - uses: github/codeql-action/analyze@d2aacf54c2fbc910db8d7ec338fdb54ea48c692d # v3.39.4
+        with:
+          category: /language:${{ matrix.language }}

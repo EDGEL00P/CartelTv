@@ -1,0 +1,25 @@
+.gradle/
+.kotlin/
+.serena/
+.idea/
+.cxx/
+build/
+*.iml
+local.properties
+*.jks
+*.keystore
+*.apk
+*.aab
+.DS_Store
+
+__pycache__/
+*.pyc
+
+# Local-only working material
+.opencode/
+refs/
+attic/
+.ork/
+
+# Staged cinematic-addon build output
+cinematic-addon/dist.next/

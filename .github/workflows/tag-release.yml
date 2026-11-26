@@ -1,0 +1,38 @@
+name: tag-release
+
+# Auto-generate releases: when master's versionName changes (by release-please's
+# PR or a manual bump), tag it once. The v* tag then drives release.yml, which
+# builds, signs and publishes the APKs and update.json. No manual tagging.
+on:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Tag the current version if new
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          version=$(grep -oE 'versionName = "[^"]+"' app/build.gradle.kts | grep -oE '"[^"]+"' | tr -d '"')
+          [ -n "$version" ] || { echo "could not read versionName"; exit 1; }
+          tag="v$version"
+          if git ls-remote --tags origin "refs/tags/$tag" | grep -q "$tag"; then
+            echo "$tag already exists; nothing to release"
+          else
+            echo "tagging $tag"
+            # Create the tag via the API with a PAT: pushes made with the workflow's
+            # own GITHUB_TOKEN do NOT trigger other workflows (release.yml), which
+            # is exactly what we want here.
+            gh api repos/$GITHUB_REPOSITORY/git/refs \
+              -f "ref=refs/tags/$tag" -f "sha=$GITHUB_SHA"
+          fi

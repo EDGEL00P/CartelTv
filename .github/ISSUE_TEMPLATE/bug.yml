@@ -1,0 +1,27 @@
+name: Bug report
+description: Something in CartelTV is broken
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      placeholder: 0.8.0-blend
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and Android version
+      placeholder: NVIDIA Shield TV Pro, Android 11
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: Do not paste provider URLs, usernames, passwords or tokens.

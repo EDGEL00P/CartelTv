@@ -1,0 +1,42 @@
+name: epg-health
+
+on:
+  schedule:
+    - cron: "43 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+
+      - name: Check preset guides
+        run: |
+          mkdir -p "$RUNNER_TEMP/opencode"
+          TEMP="$RUNNER_TEMP" python tools/check_epgs.py | tee report.txt
+          grep -c '^DEAD' report.txt > dead.count || true
+
+      - name: Open or update issue
+        if: hashFiles('dead.count') != '' 
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ "$(cat dead.count)" -gt 0 ] || exit 0
+          body="Dead guides in EpgPresets.kt:\n\n\`\`\`\n$(grep '^DEAD' report.txt)\n\`\`\`"
+          n=$(gh issue list --label epg-health --state open --json number --jq '.[0].number')
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --body "$(printf "$body")"
+          else
+            gh label create epg-health --color B60205 2>/dev/null || true
+            gh issue create --label epg-health --title "EPG preset guides are dead" --body "$(printf "$body")"
+          fi

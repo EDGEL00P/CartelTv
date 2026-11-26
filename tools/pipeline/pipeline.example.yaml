@@ -1,0 +1,14 @@
+sources:
+  - name: example
+    url: https://example.com/guide.xml.gz
+    kind: linear
+    max_days: 7
+output_dir: out/guides
+raw_dir: out/raw
+max_days: 7
+retry:
+  attempts: 3
+  backoff_seconds: 2.0
+quality:
+  min_sources_ok: 1
+  max_failed_ratio: 0.05

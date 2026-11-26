@@ -1,0 +1,13 @@
+changelog:
+  exclude:
+    labels: [skip-changelog]
+    authors: [dependabot]
+  categories:
+    - title: Features
+      labels: [feature, enhancement]
+    - title: Fixes
+      labels: [bug, fix]
+    - title: Guides and data
+      labels: [epg, sports]
+    - title: Other
+      labels: ["*"]
