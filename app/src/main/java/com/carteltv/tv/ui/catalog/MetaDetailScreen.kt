@@ -145,7 +145,9 @@ fun MetaDetailScreen(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PagePadding,
                         ) {
-                            item(key = "art") { KeyArtPlate(shown, title) }
+                            item(
+                                key = "art",
+                            ) { DetailHeroPlate(art = shown.backdrop ?: shown.poster, title = shown.name, logo = shown.logo) }
                             item(key = "copy") {
                                 CopyBlock(
                                     details = shown,
@@ -294,65 +296,6 @@ fun MetaDetailScreen(
             initialSeason = at.first,
             initialEpisode = at.second,
         )
-    }
-}
-
-/** The 16:9 key-art plate: backdrop (or the poster), the house veil, and the logo or name across its foot. */
-@Composable
-private fun KeyArtPlate(
-    details: MetaDetails,
-    fallbackTitle: String,
-) {
-    Box(
-        Modifier
-            .fillMaxWidth(0.62f)
-            .height(DetailArtHeight)
-            .clip(RoundedCornerShape(ThemeSpec.Card.corner))
-            .background(ThemeSemantics.surfaceRest),
-    ) {
-        val art = details.backdrop ?: details.poster
-        if (art != null) {
-            AsyncImage(
-                model = art,
-                contentDescription = details.name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
-        } else {
-            CardArtwork(url = null, title = fallbackTitle, modifier = Modifier.fillMaxSize())
-        }
-        Box(
-            Modifier.matchParentSize().background(
-                Brush.verticalGradient(
-                    0f to Color.Transparent,
-                    1f to ThemeSemantics.scrimDeep.copy(alpha = 0.9f),
-                ),
-            ),
-        )
-        val logo = details.logo
-        if (logo != null) {
-            AsyncImage(
-                model = logo,
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(ThemeSpec.Space.md)
-                        .widthIn(max = 320.dp)
-                        .height(90.dp),
-            )
-        } else {
-            Text(
-                details.name,
-                fontSize = ThemeSpec.Type.display,
-                fontWeight = FontWeight.Bold,
-                color = ThemeSemantics.textEmphatic,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.align(Alignment.BottomStart).padding(ThemeSpec.Space.md),
-            )
-        }
     }
 }
 
