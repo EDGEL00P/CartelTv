@@ -1,21 +1,14 @@
 package com.carteltv.tv.ui.catalog
-import com.carteltv.tv.nav.AppLauncher
-import com.carteltv.tv.ui.live.GuideContent
-import com.carteltv.tv.core.suspendRunCatching
-import androidx.compose.foundation.layout.widthIn
-
-import com.carteltv.tv.ui.theme.ThemeSpec
-import com.carteltv.tv.ui.theme.ThemeSemantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.tv.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,41 +25,47 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import com.carteltv.tv.core.suspendRunCatching
 import com.carteltv.tv.data.preferences.AppPreferences
 import com.carteltv.tv.data.xtream.ProviderSession
 import com.carteltv.tv.data.xtream.XtreamClient
+import com.carteltv.tv.nav.AppLauncher
+import com.carteltv.tv.nav.HomeReset
 import com.carteltv.tv.nav.Nav
 import com.carteltv.tv.nav.Route
 import com.carteltv.tv.nav.stateKey
-import com.carteltv.tv.ui.theme.*
-import com.carteltv.tv.ui.components.Chip
-import com.carteltv.tv.ui.components.CardArtwork
-import com.carteltv.tv.ui.components.clickableNoIndication
+import com.carteltv.tv.ui.apps.AppsScreen
 import com.carteltv.tv.ui.components.AutoSizeText
+import com.carteltv.tv.ui.components.CardArtwork
+import com.carteltv.tv.ui.components.Chip
 import com.carteltv.tv.ui.components.GridPoster
 import com.carteltv.tv.ui.components.RailFocusLine
+import com.carteltv.tv.ui.components.SectionTitle
+import com.carteltv.tv.ui.components.StagedScreen
+import com.carteltv.tv.ui.components.clickableNoIndication
+import com.carteltv.tv.ui.components.entryFocus
 import com.carteltv.tv.ui.components.railEdgeFade
 import com.carteltv.tv.ui.components.railWrapItem
 import com.carteltv.tv.ui.components.railWrapToStart
 import com.carteltv.tv.ui.components.rememberRailWrapState
 import com.carteltv.tv.ui.components.restoreRowFocus
-import com.carteltv.tv.ui.components.SectionTitle
-import com.carteltv.tv.ui.components.StagedScreen
 import com.carteltv.tv.ui.hero.readArt
-import com.carteltv.tv.ui.nav.ScreenScaffold
-import com.carteltv.tv.nav.HomeReset
-import com.carteltv.tv.ui.nav.ScreenPage
+import com.carteltv.tv.ui.live.GuideContent
 import com.carteltv.tv.ui.nav.PageChipRow
-import com.carteltv.tv.ui.apps.AppsScreen
-import com.carteltv.tv.ui.components.entryFocus
+import com.carteltv.tv.ui.nav.ScreenPage
+import com.carteltv.tv.ui.nav.ScreenScaffold
+import com.carteltv.tv.ui.nav.cardSurface
 import com.carteltv.tv.ui.recents.RecentsOverlay
 import com.carteltv.tv.ui.search.SearchScreen
 import com.carteltv.tv.ui.settings.LoginScreen
 import com.carteltv.tv.ui.settings.SettingsScreen
 import com.carteltv.tv.ui.sports.ScoresScreen
+import com.carteltv.tv.ui.theme.*
+import com.carteltv.tv.ui.theme.ThemeSemantics
+import com.carteltv.tv.ui.theme.ThemeSpec
 import com.carteltv.tv.ui.youtube.YouTubeScreen
-import com.carteltv.tv.ui.nav.cardSurface
 
 @Composable
 fun RatingBadge(cert: com.carteltv.tv.data.discovery.Classifications.Rating) {
@@ -79,7 +78,13 @@ fun RatingBadge(cert: com.carteltv.tv.data.discovery.Classifications.Rating) {
         horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
     ) {
         Text(cert.code, fontSize = ThemeSpec.Type.label, fontWeight = FontWeight.Bold, color = ThemeSemantics.textEmphatic, maxLines = 1)
-        Text(cert.board, fontSize = ThemeSpec.Type.label, color = ThemeSemantics.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            cert.board,
+            fontSize = ThemeSpec.Type.label,
+            color = ThemeSemantics.textSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -87,33 +92,34 @@ fun RatingBadge(cert: com.carteltv.tv.data.discovery.Classifications.Rating) {
  * The standard chip row pads itself to the page gutter. Inside the detail column that gutter is already paid by the
  * page, so the row borrows the same width back on the left and runs that much further past the column's right edge.
  */
-private fun Modifier.cancelChipGutter(): Modifier = layout { measurable, constraints ->
-    val gutter = ThemeSpec.Space.margin.roundToPx()
-    val placeable = measurable.measure(constraints.copy(maxWidth = constraints.maxWidth + gutter))
-    layout(constraints.maxWidth, placeable.height) { placeable.place(-gutter, 0) }
-}
+private fun Modifier.cancelChipGutter(): Modifier =
+    layout { measurable, constraints ->
+        val gutter = ThemeSpec.Space.margin.roundToPx()
+        val placeable = measurable.measure(constraints.copy(maxWidth = constraints.maxWidth + gutter))
+        layout(constraints.maxWidth, placeable.height) { placeable.place(-gutter, 0) }
+    }
 
 /**
  * The scrim every detail header lays over its key art, in the hero's read: clear at the top so the art
  * carries, deepening toward the foot where the copy sits, so every line reads on a bright frame.
  */
-private fun Modifier.detailVeil(): Modifier = background(
-    Brush.verticalGradient(
-        0f to Color.Transparent,
-        0.5f to ThemeSemantics.scrimDeep.copy(alpha = 0.35f),
-        1f to ThemeSemantics.scrimDeep.copy(alpha = 0.88f),
-    ),
-)
-
-/** The series hero plate's height: the budget the page proves — the season chips and the episode rail still
- *  fit beneath it on the 540dp canvas. Strict 16:9 turns that height into the plate's 398dp leading width. */
-private val SERIES_ART_H = 224.dp
-
-/** One episode tile: the catalog rail width, so a season reads like every other slider on the app. */
-private val EPISODE_TILE_W = 200.dp
+private fun Modifier.detailVeil(): Modifier =
+    background(
+        Brush.verticalGradient(
+            0f to Color.Transparent,
+            0.5f to ThemeSemantics.scrimDeep.copy(alpha = 0.35f),
+            1f to ThemeSemantics.scrimDeep.copy(alpha = 0.88f),
+        ),
+    )
 
 @Composable
-fun MovieDetailScreen(streamId: Long, title: String, ext: String?, icon: String?, rating: String?) {
+fun MovieDetailScreen(
+    streamId: Long,
+    title: String,
+    ext: String?,
+    icon: String?,
+    rating: String?,
+) {
     val client = ProviderSession.current
     var info by remember { mutableStateOf<XtreamClient.VodInfo?>(null) }
     // Null while the description loads, then whether its request failed: a failure must not read as still loading.
@@ -124,7 +130,9 @@ fun MovieDetailScreen(streamId: Long, title: String, ext: String?, icon: String?
         mutableStateOf<com.carteltv.tv.data.discovery.Classifications.Rating?>(null)
     }
     LaunchedEffect(title) {
-        cert = com.carteltv.tv.data.discovery.Classifications.forTitle("movie", title, info?.releasedate?.take(4))
+        cert =
+            com.carteltv.tv.data.discovery.Classifications
+                .forTitle("movie", title, info?.releasedate?.take(4))
     }
 
     LaunchedEffect(streamId) {
@@ -152,8 +160,18 @@ fun MovieDetailScreen(streamId: Long, title: String, ext: String?, icon: String?
                     Box(
                         Modifier.fillMaxSize().clip(RoundedCornerShape(ThemeSpec.Card.corner)).background(ThemeSemantics.surfaceRest),
                     ) {
-                        if (icon != null) AsyncImage(model = icon, contentDescription = title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                        else CardArtwork(url = null, title = title, modifier = Modifier.fillMaxSize())
+                        if (icon !=
+                            null
+                        ) {
+                            AsyncImage(
+                                model = icon,
+                                contentDescription = title,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        } else {
+                            CardArtwork(url = null, title = title, modifier = Modifier.fillMaxSize())
+                        }
                     }
                     // The copy rides the house veil: clear for the art up top, deep toward the foot where every line sits.
                     Box(Modifier.matchParentSize().detailVeil())
@@ -163,24 +181,60 @@ fun MovieDetailScreen(streamId: Long, title: String, ext: String?, icon: String?
                     // and both actions inside the frame. The 860dp reading measure the old beside-poster
                     // column kept remains the column's cap.
                     Column(
-                        Modifier.align(Alignment.BottomStart).widthIn(max = 860.dp).fillMaxWidth().padding(bottom = ThemeSpec.Safe.vertical),
+                        Modifier
+                            .align(
+                                Alignment.BottomStart,
+                            ).widthIn(max = 860.dp)
+                            .fillMaxWidth()
+                            .padding(bottom = ThemeSpec.Safe.vertical),
                     ) {
-                        Text(title, fontSize = ThemeSpec.Type.display, fontWeight = FontWeight.Bold, color = ThemeSemantics.textEmphatic, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            title,
+                            fontSize = ThemeSpec.Type.display,
+                            fontWeight = FontWeight.Bold,
+                            color = ThemeSemantics.textEmphatic,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                         Spacer(Modifier.height(ThemeSpec.Space.sm))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             rating?.let {
-                                Text(it, fontSize = ThemeSpec.Type.body, color = ThemeSemantics.accentBright, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                Text(
+                                    it,
+                                    fontSize = ThemeSpec.Type.body,
+                                    color = ThemeSemantics.accentBright,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                )
                                 Spacer(Modifier.width(ThemeSpec.Space.md))
                             }
-                            Text(androidx.compose.ui.res.stringResource(com.carteltv.tv.R.string.detail_movie_kind), fontSize = ThemeSpec.Type.label, fontFamily = ThemeSpec.Font.broadcast, color = ThemeSemantics.textSecondary, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                            cert?.let { Spacer(Modifier.width(ThemeSpec.Space.md)); RatingBadge(it) }
+                            Text(
+                                androidx.compose.ui.res
+                                    .stringResource(com.carteltv.tv.R.string.detail_movie_kind),
+                                fontSize = ThemeSpec.Type.label,
+                                fontFamily = ThemeSpec.Font.broadcast,
+                                color = ThemeSemantics.textSecondary,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                            cert?.let {
+                                Spacer(Modifier.width(ThemeSpec.Space.md))
+                                RatingBadge(it)
+                            }
                         }
                         Spacer(Modifier.height(ThemeSpec.Space.md))
-                        if (com.carteltv.tv.data.trakt.TraktAuth.isMovieWatched(title)) {
+                        if (com.carteltv.tv.data.trakt.TraktAuth
+                                .isMovieWatched(title)
+                        ) {
                             Text(
                                 "WATCHED",
-                                fontSize = ThemeSpec.Type.label, color = ThemeSemantics.success, fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(bottom = ThemeSpec.Space.cozy), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                fontSize = ThemeSpec.Type.label,
+                                color = ThemeSemantics.success,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(bottom = ThemeSpec.Space.cozy),
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                             )
                         }
                         Text(
@@ -190,8 +244,11 @@ fun MovieDetailScreen(streamId: Long, title: String, ext: String?, icon: String?
                                 true -> "Couldn't load the description."
                                 else -> ""
                             },
-                            fontSize = ThemeSpec.Type.meta, color = ThemeSemantics.textPrimary, lineHeight = 21.sp,
-                            maxLines = 6, overflow = TextOverflow.Ellipsis,
+                            fontSize = ThemeSpec.Type.meta,
+                            color = ThemeSemantics.textPrimary,
+                            lineHeight = 21.sp,
+                            maxLines = 6,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Spacer(Modifier.height(ThemeSpec.Space.cozy))
                         listOfNotNull(
@@ -200,7 +257,14 @@ fun MovieDetailScreen(streamId: Long, title: String, ext: String?, icon: String?
                             info?.director?.let { "Director · $it" },
                             info?.duration?.let { "Duration · $it" },
                         ).forEach {
-                            Text(it, fontSize = ThemeSpec.Type.meta, color = ThemeSemantics.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = ThemeSpec.Space.xs))
+                            Text(
+                                it,
+                                fontSize = ThemeSpec.Type.meta,
+                                color = ThemeSemantics.textSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(bottom = ThemeSpec.Space.xs),
+                            )
                         }
                         Spacer(Modifier.height(ThemeSpec.Space.lg))
                         Row(horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.cozy)) {
@@ -210,7 +274,8 @@ fun MovieDetailScreen(streamId: Long, title: String, ext: String?, icon: String?
                                 Nav.push(Route.Player(c.movieUrl(streamId, ext), title, favKey))
                             }
                             ActionButton(if (fav) "Remove from favourites" else "Add to favourites", filled = false) {
-                                AppPreferences.toggleFav(favKey); fav = AppPreferences.isFav(favKey)
+                                AppPreferences.toggleFav(favKey)
+                                fav = AppPreferences.isFav(favKey)
                             }
                         }
                     }
@@ -221,7 +286,12 @@ fun MovieDetailScreen(streamId: Long, title: String, ext: String?, icon: String?
 }
 
 @Composable
-fun SeriesDetailScreen(seriesId: Long, name: String, cover: String?, plot: String?) {
+fun SeriesDetailScreen(
+    seriesId: Long,
+    name: String,
+    cover: String?,
+    plot: String?,
+) {
     val client = ProviderSession.current
     var seasons by remember { mutableStateOf<Map<Int, List<XtreamClient.Episode>>>(emptyMap()) }
     // Null while the episode list loads, then whether its request failed: a failure must not read as a series with no seasons.
@@ -231,7 +301,9 @@ fun SeriesDetailScreen(seriesId: Long, name: String, cover: String?, plot: Strin
         mutableStateOf<com.carteltv.tv.data.discovery.Classifications.Rating?>(null)
     }
     LaunchedEffect(name) {
-        tvCert = com.carteltv.tv.data.discovery.Classifications.forTitle("tv", name)
+        tvCert =
+            com.carteltv.tv.data.discovery.Classifications
+                .forTitle("tv", name)
     }
 
     LaunchedEffect(seriesId) {
@@ -253,7 +325,13 @@ fun SeriesDetailScreen(seriesId: Long, name: String, cover: String?, plot: Strin
             // The page's rows — the season chips and the episode rail — park their focused card on the one line.
             RailFocusLine {
                 // The frame dissolves its top edge under the masthead, so the page starts below that fade.
-                Column(Modifier.fillMaxSize().padding(start = ThemeSpec.Space.margin, end = ThemeSpec.Safe.horizontal, top = ThemeSpec.Space.xl)) {
+                Column(
+                    Modifier.fillMaxSize().padding(
+                        start = ThemeSpec.Space.margin,
+                        end = ThemeSpec.Safe.horizontal,
+                        top = ThemeSpec.Space.xl,
+                    ),
+                ) {
                     // The series hero is the plate-and-info read of a Prime-style detail page: the payload
                     // carries no backdrop of its own, so the cover stands in on a strict 16:9 plate, cropped
                     // to the landscape read. The episode rail's budget pins that plate 224dp tall (398dp
@@ -263,10 +341,25 @@ fun SeriesDetailScreen(seriesId: Long, name: String, cover: String?, plot: Strin
                     // the episode rail keep their proven space beneath.
                     Row(verticalAlignment = Alignment.Bottom) {
                         Box(
-                            Modifier.height(SERIES_ART_H).aspectRatio(16f / 9f).clip(RoundedCornerShape(ThemeSpec.Card.corner)).background(ThemeSemantics.surfaceRest),
+                            Modifier
+                                .height(
+                                    DetailArtHeight,
+                                ).aspectRatio(16f / 9f)
+                                .clip(RoundedCornerShape(ThemeSpec.Card.corner))
+                                .background(ThemeSemantics.surfaceRest),
                         ) {
-                            if (cover != null) AsyncImage(model = cover, contentDescription = name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                            else CardArtwork(url = null, title = name, modifier = Modifier.fillMaxSize())
+                            if (cover !=
+                                null
+                            ) {
+                                AsyncImage(
+                                    model = cover,
+                                    contentDescription = name,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            } else {
+                                CardArtwork(url = null, title = name, modifier = Modifier.fillMaxSize())
+                            }
                             // The house veil stays on the plate — clear for the art up top, deep toward the
                             // foot — so the still reads like the movie hero even with its copy beside it.
                             Box(Modifier.matchParentSize().detailVeil())
@@ -276,22 +369,50 @@ fun SeriesDetailScreen(seriesId: Long, name: String, cover: String?, plot: Strin
                         Column(
                             Modifier.weight(1f).padding(bottom = ThemeSpec.Space.md),
                         ) {
-                            Text(name, fontSize = ThemeSpec.Type.display, fontWeight = FontWeight.Bold, color = ThemeSemantics.textEmphatic, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                name,
+                                fontSize = ThemeSpec.Type.display,
+                                fontWeight = FontWeight.Bold,
+                                color = ThemeSemantics.textEmphatic,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                             Spacer(Modifier.height(ThemeSpec.Space.sm))
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
+                            ) {
                                 // A list that failed to load says so; only a request still in flight reads as loading.
                                 Text(
                                     when (seasonsFailed) {
-                                        null -> androidx.compose.ui.res.stringResource(com.carteltv.tv.R.string.addon_loading_episodes)
-                                        true -> "Couldn't load the episodes."
-                                        else -> "TV series, ${seasons.size} ${if (seasons.size == 1) "season" else "seasons"}"
+                                        null -> {
+                                            androidx.compose.ui.res
+                                                .stringResource(com.carteltv.tv.R.string.addon_loading_episodes)
+                                        }
+
+                                        true -> {
+                                            "Couldn't load the episodes."
+                                        }
+
+                                        else -> {
+                                            "TV series, ${seasons.size} ${if (seasons.size == 1) "season" else "seasons"}"
+                                        }
                                     },
-                                    fontSize = ThemeSpec.Type.label, color = ThemeSemantics.textSecondary, maxLines = 1,
+                                    fontSize = ThemeSpec.Type.label,
+                                    color = ThemeSemantics.textSecondary,
+                                    maxLines = 1,
                                 )
                                 tvCert?.let { RatingBadge(it) }
                             }
                             Spacer(Modifier.height(ThemeSpec.Space.cozy))
-                            Text(plot ?: "", fontSize = ThemeSpec.Type.meta, color = ThemeSemantics.textPrimary, lineHeight = 21.sp, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                plot ?: "",
+                                fontSize = ThemeSpec.Type.meta,
+                                color = ThemeSemantics.textPrimary,
+                                lineHeight = 21.sp,
+                                maxLines = 4,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
                     }
                     PageChipRow(Modifier.cancelChipGutter()) {
@@ -306,10 +427,11 @@ fun SeriesDetailScreen(seriesId: Long, name: String, cover: String?, plot: Strin
                     val wrapFirst = remember { FocusRequester() }
                     LazyRow(
                         state = rowState,
-                        modifier = Modifier
-                            .restoreRowFocus()
-                            .railEdgeFade(rowState)
-                            .railWrapToStart(wrapState, rowState, episodes.size, wrapFirst),
+                        modifier =
+                            Modifier
+                                .restoreRowFocus()
+                                .railEdgeFade(rowState)
+                                .railWrapToStart(wrapState, rowState, episodes.size, wrapFirst),
                         // Vertical room so a lifted tile is not clipped by the row.
                         // Headroom for the Netflix-scale focus lift: a looming tile is never clipped by its rail.
                         contentPadding = PaddingValues(vertical = 32.dp),
@@ -319,7 +441,8 @@ fun SeriesDetailScreen(seriesId: Long, name: String, cover: String?, plot: Strin
                             val ep = episodes[idx]
                             val epKey = "series:$seriesId/${ep.id}"
                             Box(
-                                Modifier.width(EPISODE_TILE_W)
+                                Modifier
+                                    .width(EpisodeTileWidth)
                                     .railWrapItem(wrapState, idx)
                                     .then(
                                         if (idx == 0) {
@@ -337,12 +460,24 @@ fun SeriesDetailScreen(seriesId: Long, name: String, cover: String?, plot: Strin
                                     imageUrl = ep.art ?: cover,
                                     title = ep.title,
                                     subtitle = "E${ep.episodeNum}",
-                                    badge = if (com.carteltv.tv.data.trakt.TraktAuth.isEpisodeWatched(name, selSeason, ep.episodeNum)) "WATCHED" else null,
+                                    badge =
+                                        if (com.carteltv.tv.data.trakt.TraktAuth.isEpisodeWatched(
+                                                name,
+                                                selSeason,
+                                                ep.episodeNum,
+                                            )
+                                        ) {
+                                            "WATCHED"
+                                        } else {
+                                            null
+                                        },
                                     onClick = {
                                         val c = ProviderSession.current
                                         if (c != null) {
                                             val url = c.episodeUrl(ep.id, ep.ext)
-                                            AppPreferences.addRecent("series:${seriesId}|${"$name S${selSeason}E${ep.episodeNum}: ${ep.title}"}|$url")
+                                            AppPreferences.addRecent(
+                                                "series:$seriesId|${"$name S${selSeason}E${ep.episodeNum}: ${ep.title}"}|$url",
+                                            )
                                             Nav.push(Route.Player(url, "$name S$selSeason E${ep.episodeNum}", epKey))
                                         }
                                     },
@@ -357,24 +492,48 @@ fun SeriesDetailScreen(seriesId: Long, name: String, cover: String?, plot: Strin
 }
 
 @Composable
-fun ActionButton(label: String, filled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun ActionButton(
+    label: String,
+    filled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
     AutoSizeText(
-        label, fontSize = ThemeSpec.Type.meta, fontFamily = ThemeSpec.Font.broadcast, fontWeight = FontWeight.SemiBold,
-        color = if (filled) ThemeSemantics.textInverse else if (focused) ThemeSemantics.textEmphatic else ThemeSemantics.textPrimary,
+        label,
+        fontSize = ThemeSpec.Type.meta,
+        fontFamily = ThemeSpec.Font.broadcast,
+        fontWeight = FontWeight.SemiBold,
+        color =
+            if (filled) {
+                ThemeSemantics.textInverse
+            } else if (focused) {
+                ThemeSemantics.textEmphatic
+            } else {
+                ThemeSemantics.textPrimary
+            },
         minScale = 0.75f,
-        modifier = modifier
-            .widthIn(max = 320.dp)
-            .cardSurface(focused)
-            .background(
-                when {
-                    filled && focused -> BrassSheen
-                    filled -> BrassSolid
-                    else -> androidx.compose.ui.graphics.SolidColor(Color.Transparent)
-                },
-            )
-            .onFocusChanged { focused = it.isFocused }
-            .clickableNoIndication { onClick() }
-            .padding(horizontal = ThemeSpec.Space.lg, vertical = ThemeSpec.Space.cozy),
+        modifier =
+            modifier
+                .widthIn(max = 320.dp)
+                .cardSurface(focused)
+                .background(
+                    when {
+                        filled && focused -> {
+                            BrassSheen
+                        }
+
+                        filled -> {
+                            BrassSolid
+                        }
+
+                        else -> {
+                            androidx.compose.ui.graphics
+                                .SolidColor(Color.Transparent)
+                        }
+                    },
+                ).onFocusChanged { focused = it.isFocused }
+                .clickableNoIndication { onClick() }
+                .padding(horizontal = ThemeSpec.Space.lg, vertical = ThemeSpec.Space.cozy),
     )
 }

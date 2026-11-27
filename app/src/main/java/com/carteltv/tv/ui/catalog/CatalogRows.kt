@@ -29,6 +29,12 @@ private const val ROW_ITEMS = 30
 /** Vertical room a rail keeps above and below its posters so a focused tile's lift is never clipped. */
 internal val RailContentHeadroom = 36.dp
 
+/** The detail hero plate's height, shared by the movie, series and add-on detail pages so they read alike. */
+internal val DetailArtHeight = 224.dp
+
+/** One episode / collection / recommendation tile width — the catalog rail's boxed width. */
+internal val EpisodeTileWidth = 200.dp
+
 /**
  * One catalog shelf shared by every On Demand page: a heading with an optional count, then a horizontal
  * poster rail with the house focus line, feathered edges and focus headroom. The page's own column owns the

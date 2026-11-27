@@ -106,9 +106,6 @@ fun NeedProviderNotice() {
 /** Rail tile width: the Netflix browse rail — 2:3 portrait posters, ~5 across the 960dp canvas and a peek of the next. */
 private val RAIL_TILE_WIDTH = 160.dp
 
-/** Focus headroom: liftPoster (1.28x) grows a focused tile ~34dp past the top and bottom of its 2:3 art; rails keep
- *  this much room above and below their posters — and between each other — so a looming poster never clips. */
-private val RAIL_FOCUS_HEADROOM = 36.dp
 private val CatalogGridPadding =
     PaddingValues(
         start = ThemeSpec.Space.margin + ThemeSpec.Space.sm,
@@ -173,7 +170,7 @@ private fun CatalogGridLoading() {
         modifier = Modifier.shimmer(),
         userScrollEnabled = false,
         contentPadding = CatalogGridPadding,
-        verticalArrangement = Arrangement.spacedBy(RAIL_FOCUS_HEADROOM),
+        verticalArrangement = Arrangement.spacedBy(RailContentHeadroom),
     ) {
         items(3) {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm)) {
@@ -186,7 +183,7 @@ private fun CatalogGridLoading() {
                 )
                 LazyRow(
                     userScrollEnabled = false,
-                    contentPadding = PaddingValues(vertical = RAIL_FOCUS_HEADROOM),
+                    contentPadding = PaddingValues(vertical = RailContentHeadroom),
                     horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.gutter),
                 ) {
                     items(6) {
@@ -627,7 +624,7 @@ private fun <T> CombinedGrid(
                                 state = columnState,
                                 modifier = Modifier.focusGroup().focusRestorer(first),
                                 contentPadding = CatalogGridPadding,
-                                verticalArrangement = Arrangement.spacedBy(RAIL_FOCUS_HEADROOM),
+                                verticalArrangement = Arrangement.spacedBy(RailContentHeadroom),
                             ) {
                                 items(rails, key = { it.key }) { rail ->
                                     if (rail.key == HERO_RAIL_KEY) {
@@ -647,7 +644,7 @@ private fun <T> CombinedGrid(
                                                     .railEdgeFade(rowState)
                                                     .railWrapToStart(wrapState, rowState, rail.count, wrapFirst),
                                             // Focus headroom: the looming poster stays inside the row's own clip bounds.
-                                            contentPadding = PaddingValues(vertical = RAIL_FOCUS_HEADROOM),
+                                            contentPadding = PaddingValues(vertical = RailContentHeadroom),
                                             horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.gutter),
                                         ) {
                                             when {

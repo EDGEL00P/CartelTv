@@ -71,12 +71,6 @@ import com.carteltv.tv.ui.theme.ThemeSpec
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-/** The key-art plate's height, matching the series page so both detail pages read alike. */
-private val META_ART_H = 224.dp
-
-/** One episode tile: the catalog rail width, so a season reads like every other slider on the app. */
-private val EPISODE_TILE_W = 200.dp
-
 @Composable
 fun MetaDetailScreen(
     type: String,
@@ -254,7 +248,7 @@ fun MetaDetailScreen(
                                                 imageUrl = part.poster,
                                                 title = part.name,
                                                 meta = part.year,
-                                                width = EPISODE_TILE_W,
+                                                width = EpisodeTileWidth,
                                                 onClick = { Nav.push(Route.Meta(part.type, part.refId, part.name, part.poster)) },
                                             )
                                         }
@@ -268,7 +262,7 @@ fun MetaDetailScreen(
                                             PosterTile(
                                                 imageUrl = r.poster,
                                                 title = r.name,
-                                                width = EPISODE_TILE_W,
+                                                width = EpisodeTileWidth,
                                                 onClick = {
                                                     Nav.push(
                                                         Route.Meta(
@@ -312,7 +306,7 @@ private fun KeyArtPlate(
     Box(
         Modifier
             .fillMaxWidth(0.62f)
-            .height(META_ART_H)
+            .height(DetailArtHeight)
             .clip(RoundedCornerShape(ThemeSpec.Card.corner))
             .background(ThemeSemantics.surfaceRest),
     ) {
@@ -492,7 +486,7 @@ private fun EpisodeRail(
     val rowState = rememberLazyListState()
     when {
         !settled -> {
-            Box(Modifier.fillMaxWidth().height(EPISODE_TILE_W * 1.5f + ThemeSpec.Space.margin)) { PageLoading() }
+            Box(Modifier.fillMaxWidth().height(EpisodeTileWidth * 1.5f + ThemeSpec.Space.margin)) { PageLoading() }
         }
 
         episodes.isEmpty() -> {
@@ -527,7 +521,7 @@ private fun EpisodeRail(
                             title = e.name?.takeIf { it.isNotBlank() } ?: "Episode ${e.episode}",
                             meta = e.runtimeMinutes?.let { "$it min" },
                             badge = if (watched) "WATCHED" else "S${e.season}E${e.episode}",
-                            width = EPISODE_TILE_W,
+                            width = EpisodeTileWidth,
                             progress = progress,
                             onClick = { onPlay(e) },
                         )
