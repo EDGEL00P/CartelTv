@@ -8,7 +8,7 @@ A Stremio-format addon that builds genre, holiday, seasonal and awards-style cat
 
     npm start
 
-Builds the catalog on first start, serves it on port 7000, and rebuilds every 24 hours (`REBUILD_HOURS`). Open `http://localhost:7000/` for the install page.
+Builds the catalog on first start, serves it on port 7000, and rebuilds every 24 hours (`REBUILD_HOURS`). A failed first build is retried every `RETRY_MINUTES` (default 10). Open `http://localhost:7000/` for the install page; it is served while the first build runs, and "Rebuild now" appears there when the server is local. `GET /health` reports build state; `POST /rebuild` (loopback only) starts a rebuild immediately.
 
 **GitHub Pages (hosted, no server)**
 

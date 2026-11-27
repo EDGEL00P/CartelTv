@@ -32,6 +32,7 @@
   <div class="row">
     <a class="btn primary" id="stremio" href="#">Install in Stremio</a>
     <button id="copy" type="button">Copy manifest URL</button>
+    <button id="rebuild" type="button" hidden>Rebuild now</button>
   </div>
   <p></p>
   <code id="url"></code>
@@ -57,8 +58,29 @@
     catch { copy.textContent = 'Select the URL and copy it'; }
   });
 
+  const rebuild = document.getElementById('rebuild');
+  const status = document.getElementById('status');
+  fetch('health').then((r) => r.json()).then((h) => {
+    if (!h || h.catalogReady === undefined) return;
+    if (h.building) { status.textContent = 'A catalog build is running right now.'; return; }
+    rebuild.hidden = false;
+    rebuild.addEventListener('click', async () => {
+      rebuild.disabled = true;
+      try {
+        const r = await fetch('rebuild', { method: 'POST' });
+        const j = await r.json();
+        status.textContent = j.alreadyBuilding
+          ? 'A build was already running.'
+          : 'Rebuild started; the new catalog appears in a few minutes.';
+      } catch {
+        status.textContent = 'Could not start a rebuild from this machine; use the server console.';
+      }
+      rebuild.disabled = false;
+    });
+  }).catch(() => {});
+
   fetch(manifestUrl).then((r) => r.json()).then((m) => {
-    document.getElementById('status').textContent = `Version ${m.version}, ${m.catalogs.length} catalogs. Rebuilt automatically every night.`;
+    status.textContent = `Version ${m.version}, ${m.catalogs.length} catalogs. Rebuilt automatically every night.`;
     const list = document.getElementById('catalogs');
     for (const c of m.catalogs) {
       const li = document.createElement('li');
@@ -66,7 +88,7 @@
       list.append(li);
     }
   }).catch(() => {
-    document.getElementById('status').textContent = 'The catalog is still building. Reload in a few minutes.';
+    status.textContent = 'The catalog is still building. Reload in a few minutes.';
   });
 </script>
 </body>

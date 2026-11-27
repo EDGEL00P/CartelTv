@@ -331,19 +331,18 @@ async function main() {
         status: extra.status, network: extra.network, country: extra.country, language: extra.language,
         cast: extra.cast, videos: extra.videos,
       });
-      applyExternal(applyFacts(meta, factsFor(it.id)), extFor(it.id));
-      await put(`meta/series/${it.id}.json`, { meta });
       enriched++;
     }
+    applyExternal(applyFacts(meta, factsFor(it.id)), extFor(it.id));
+    await put(`meta/series/${it.id}.json`, { meta });
     cinematic.items[it.id] = meta;
   }
   let enrichedMovies = 0;
   for (const it of topMovies) {
     const meta = applyExternal(applyFacts(toMeta(it), factsFor(it.id)), extFor(it.id));
-    if (!meta.description) continue;
     await put(`meta/movie/${it.id}.json`, { meta });
     cinematic.items[it.id] = meta;
-    enrichedMovies++;
+    if (meta.description) enrichedMovies++;
   }
   for (const it of used.values()) cinematic.items[it.id] ??= toMeta(it);
   await mkdir(dirname(CACHE_FILE), { recursive: true });
