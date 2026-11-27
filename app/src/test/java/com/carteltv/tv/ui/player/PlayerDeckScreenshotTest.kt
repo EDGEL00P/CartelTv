@@ -110,6 +110,7 @@ class PlayerDeckScreenshotTest {
                                 onOpenSchedule = {},
                                 onSourceSwitch = {},
                                 onMultiview = {},
+                                onOpenPictureInPicture = null,
                                 onSearch = {},
                                 aspectName = "Fit",
                                 currentSpeed = 1f,
@@ -157,7 +158,7 @@ class PlayerDeckScreenshotTest {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
                         ) {
-                            PlayerStatusPill("LIVE", PlayerChrome.ink, live = true)
+                            Text("LIVE", fontSize = ThemeSpec.Type.label, color = ThemeSemantics.live, fontWeight = FontWeight.Bold)
                             Text("CHANNEL 12", fontSize = ThemeSpec.Type.micro, color = PlayerChrome.inkDim)
                         }
                     }

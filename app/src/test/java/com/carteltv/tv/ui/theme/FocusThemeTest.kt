@@ -2,12 +2,12 @@ package com.carteltv.tv.ui.theme
 
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FocusThemeTest {
-
     @Test fun pointerHoverIsAQuieterStateThanDpadFocus() {
         assertTrue(ThemeSpec.Focus.hoverLift > 1f)
         assertTrue(ThemeSpec.Focus.hoverLift < ThemeSpec.Focus.liftCompact)
@@ -20,6 +20,16 @@ class FocusThemeTest {
         assertTrue(ThemeSemantics.surfaceFocus.alpha < ThemeSemantics.surfaceSelected.alpha)
         assertTrue(ThemeSemantics.surfaceSelected.alpha < ThemeSemantics.surfaceModal.alpha)
         assertNotEquals(ThemeSemantics.surfaceFocus, ThemeSemantics.surfaceSelected)
+    }
+
+    @Test fun glassIsActuallyTranslucentWithRealFrost() {
+        // The audit regression: 72–98% fills over flat black read as charcoal, not glass.
+        assertTrue("resting glass must let the backdrop through", ThemeSemantics.surfaceRest.alpha <= 0.50f)
+        assertTrue("focused glass must let the backdrop through", ThemeSemantics.surfaceFocus.alpha <= 0.65f)
+        assertTrue("modal glass stays translucent", ThemeSemantics.surfaceModal.alpha <= 0.90f)
+        assertTrue("glass needs a real backdrop blur", ThemeSpec.Glass.blurRadius >= 16.dp)
+        assertTrue("rim is brightest at the top edge", ThemeSpec.Glass.rimTopAlpha > ThemeSpec.Glass.rimBottomAlpha)
+        assertTrue("panes cast a rest shadow", ThemeSpec.Glass.restElevation > 0.dp)
     }
 
     @Test fun focusAndSelectionStayReadableOnTheLightStage() {

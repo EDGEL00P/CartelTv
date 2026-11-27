@@ -1,6 +1,9 @@
 package com.carteltv.tv.nav
 
+import androidx.compose.ui.focus.FocusRequester
+import com.carteltv.tv.ui.nav.ShellChrome
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /** Tab switches must keep each dock section's own back stack: leave a tab, come back, same place. */
@@ -53,6 +56,16 @@ class TabBackStackTest {
         Nav.push(Route.Movie(2L, "T", null, null, null))
         assertEquals(true, Nav.pop())
         assertEquals(Route.Weather, Nav.current)
+    }
+
+    @Test
+    fun `back clears the disposed route focus requester`() {
+        Nav.resetTo(Route.Home)
+        Nav.push(Route.Movie(1L, "T", null, null, null))
+        ShellChrome.lastContentFocus = FocusRequester()
+
+        assertEquals(true, Nav.pop())
+        assertNull(ShellChrome.lastContentFocus)
     }
 
     @Test
