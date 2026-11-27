@@ -311,14 +311,6 @@ private fun CopyBlock(
 ) {
     Column(Modifier.fillMaxWidth()) {
         Spacer(Modifier.height(ThemeSpec.Space.md))
-        Text(
-            details.name,
-            fontSize = ThemeSpec.Type.titleL,
-            fontWeight = FontWeight.Bold,
-            color = ThemeSemantics.textEmphatic,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
         details.originalName?.takeIf { it != details.name }?.let {
             Text(it, fontSize = ThemeSpec.Type.meta, color = ThemeSemantics.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }

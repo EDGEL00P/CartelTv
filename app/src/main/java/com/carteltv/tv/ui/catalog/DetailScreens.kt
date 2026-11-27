@@ -155,15 +155,6 @@ fun MovieDetailScreen(
                     item(key = "art") { DetailHeroPlate(art = icon, title = title) }
                     item(key = "copy") {
                         Column(Modifier.fillMaxWidth()) {
-                            Text(
-                                title,
-                                fontSize = ThemeSpec.Type.display,
-                                fontWeight = FontWeight.Bold,
-                                color = ThemeSemantics.textEmphatic,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Spacer(Modifier.height(ThemeSpec.Space.sm))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 rating?.let {
                                     Text(
@@ -303,15 +294,6 @@ fun SeriesDetailScreen(
                     item(key = "art") { DetailHeroPlate(art = cover, title = name) }
                     item(key = "copy") {
                         Column(Modifier.fillMaxWidth()) {
-                            Text(
-                                name,
-                                fontSize = ThemeSpec.Type.display,
-                                fontWeight = FontWeight.Bold,
-                                color = ThemeSemantics.textEmphatic,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Spacer(Modifier.height(ThemeSpec.Space.sm))
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
