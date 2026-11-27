@@ -22,8 +22,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -42,7 +40,6 @@ import com.carteltv.tv.nav.Nav
 import com.carteltv.tv.nav.Route
 import com.carteltv.tv.nav.SectionNav
 import com.carteltv.tv.recording.RecordingService
-import com.carteltv.tv.ui.components.CardArtwork
 import com.carteltv.tv.ui.components.EmptyState
 import com.carteltv.tv.ui.components.FocusMemoryStore
 import com.carteltv.tv.ui.components.PosterTile
@@ -323,16 +320,7 @@ internal fun CatalogHero(pick: HeroPick) {
             .clip(RoundedCornerShape(ThemeSpec.Card.corner))
             .background(ThemeSemantics.surfaceRest),
     ) {
-        CardArtwork(pick.art, pick.title, Modifier.fillMaxSize())
-        Box(
-            Modifier.matchParentSize().background(
-                Brush.verticalGradient(
-                    0f to Color.Transparent,
-                    0.5f to ThemeSemantics.scrimDeep.copy(alpha = 0.35f),
-                    1f to ThemeSemantics.scrimDeep.copy(alpha = 0.9f),
-                ),
-            ),
-        )
+        HeroArt(pick.art, pick.title, Modifier.fillMaxSize())
         Column(Modifier.align(Alignment.BottomStart).padding(ThemeSpec.Space.lg)) {
             Text(
                 pick.title,

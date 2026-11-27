@@ -25,23 +25,16 @@ import com.carteltv.tv.ui.theme.ThemeSemantics
 import com.carteltv.tv.ui.theme.ThemeSpec
 
 /**
- * The shared detail hero: a [DetailArtHeight] key-art plate under the house veil, with the title (or a logo)
- * across its foot. Movie, series and add-on detail pages all lead with this, so the three read as one design.
+ * The shared hero artwork: key art (or a monogram fallback) under the house veil — clear at the top, deep at the
+ * foot. The billboard and every detail page draw their art through this, so the veil and fallback read identically.
  */
 @Composable
-internal fun DetailHeroPlate(
+internal fun HeroArt(
     art: String?,
     title: String,
     modifier: Modifier = Modifier,
-    logo: String? = null,
 ) {
-    Box(
-        modifier
-            .fillMaxWidth()
-            .height(DetailArtHeight)
-            .clip(RoundedCornerShape(ThemeSpec.Card.corner))
-            .background(ThemeSemantics.surfaceRest),
-    ) {
+    Box(modifier) {
         if (!art.isNullOrBlank()) {
             AsyncImage(
                 model = art,
@@ -61,6 +54,28 @@ internal fun DetailHeroPlate(
                 ),
             ),
         )
+    }
+}
+
+/**
+ * The shared detail hero: a [DetailArtHeight] key-art plate under the house veil, with the title (or a logo)
+ * across its foot. Movie, series and add-on detail pages all lead with this, so the three read as one design.
+ */
+@Composable
+internal fun DetailHeroPlate(
+    art: String?,
+    title: String,
+    modifier: Modifier = Modifier,
+    logo: String? = null,
+) {
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(DetailArtHeight)
+            .clip(RoundedCornerShape(ThemeSpec.Card.corner))
+            .background(ThemeSemantics.surfaceRest),
+    ) {
+        HeroArt(art, title, Modifier.fillMaxSize())
         if (logo != null) {
             AsyncImage(
                 model = logo,
