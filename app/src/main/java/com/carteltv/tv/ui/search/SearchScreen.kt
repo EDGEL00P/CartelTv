@@ -46,6 +46,10 @@ import com.carteltv.tv.ui.components.RailFocusLine
 import com.carteltv.tv.ui.components.SectionTitle
 import com.carteltv.tv.ui.components.TvTextField
 import com.carteltv.tv.ui.components.entryFocus
+import com.carteltv.tv.ui.components.FocusMemoryStore
+import com.carteltv.tv.ui.components.keyFocusTarget
+import com.carteltv.tv.ui.components.rememberKeyFocusRegistry
+import com.carteltv.tv.ui.components.restoreKeyFocus
 import com.carteltv.tv.ui.components.railEdgeFade
 import com.carteltv.tv.ui.components.railWrapItem
 import com.carteltv.tv.ui.components.railWrapToStart
@@ -178,7 +182,8 @@ fun SearchScreen(apps: List<LauncherApp>) {
                     phoneLabel = null,
                     value = query,
                     onValueChange = { query = it },
-                    modifier = Modifier.padding(start = ThemeSpec.Space.margin, end = ThemeSpec.Safe.horizontal).entryFocus(),
+                    modifier = Modifier.padding(start = ThemeSpec.Space.margin, end = ThemeSpec.Safe.horizontal)
+                        .entryFocus(enabled = FocusMemoryStore.peek("search") == null),
                     hint = "Search movies, shows and apps",
                     // Results already follow the typing, so the keyboard's Done only hands the remote to them.
                     keyboardActions = KeyboardActions(onDone = {
@@ -378,7 +383,7 @@ private fun <T> LazyListScope.GroupSection(
     item(key = key) {
         Column(Modifier.fillMaxWidth()) {
             SectionTitle(title, Modifier.fillMaxWidth().padding(top = ThemeSpec.Space.md), note = items.size.toString())
-            ResultRail(items, poster, card)
+            ResultRail(key, items, poster, card)
         }
     }
 }
@@ -389,10 +394,15 @@ private fun <T> LazyListScope.GroupSection(
  * tile's own width with loom headroom; boxed rails keep the quiet [ThemeSpec.Space.sm].
  */
 @Composable
-private fun <T> ResultRail(items: List<T>, poster: Boolean = false, card: @Composable (T) -> Unit) {
+private fun <T> ResultRail(zone: String, items: List<T>, poster: Boolean = false, card: @Composable (T) -> Unit) {
     val rowState = rememberLazyListState()
     val wrapState = rememberRailWrapState()
     val wrapFirst = remember { FocusRequester() }
+    val focusRegistry = rememberKeyFocusRegistry()
+    val itemKeys = items.map { "$zone:${searchItemKey(it)}" }
+    LaunchedEffect(zone, itemKeys) {
+        restoreKeyFocus("search", itemKeys, focusRegistry) { rowState.scrollToItem(it) }
+    }
     LazyRow(
         state = rowState,
         modifier = Modifier
@@ -407,11 +417,22 @@ private fun <T> ResultRail(items: List<T>, poster: Boolean = false, card: @Compo
             Box(
                 Modifier
                     .width(if (poster) RAIL_POSTER_WIDTH else RAIL_CARD_WIDTH)
+                    .keyFocusTarget(focusRegistry, "search", itemKeys[index])
                     .railWrapItem(wrapState, index)
                     .then(if (index == 0) Modifier.focusRequester(wrapFirst) else Modifier),
             ) { card(entry) }
         }
     }
+}
+
+private fun searchItemKey(item: Any?): String = when (item) {
+    is XtreamClient.LiveStream -> "live:${item.streamId}"
+    is com.carteltv.tv.data.xtream.EpgIndexDatabase.ProgramHit -> "epg:${item.streamId}:${item.startMs}"
+    is XtreamClient.VodStream -> "movie:${item.streamId}"
+    is XtreamClient.Series -> "series:${item.seriesId}"
+    is LauncherApp -> "app:${item.packageName}"
+    is SearchResult -> "online:${item.source}:${item.url}"
+    else -> item.toString()
 }
 
 /**

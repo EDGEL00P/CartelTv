@@ -41,7 +41,13 @@ object Nav {
     private val savedStacks = mutableMapOf<AppSection, List<Route>>()
 
     fun push(r: Route) { stack.add(r) }
-    fun pop(): Boolean = if (stack.size > 1) { stack.removeAt(stack.lastIndex); true } else false
+    fun pop(): Boolean {
+        if (stack.size <= 1) return false
+        stack.removeAt(stack.lastIndex)
+        // The disposed route's requester must not win over identity restoration in the restored route.
+        ShellChrome.lastContentFocus = null
+        return true
+    }
     fun resetTo(r: Route) {
         savedStacks.clear()
         stack.clear()

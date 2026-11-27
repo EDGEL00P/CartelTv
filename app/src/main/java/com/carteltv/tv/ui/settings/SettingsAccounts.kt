@@ -95,7 +95,6 @@ import com.carteltv.tv.ui.components.glassRow
 import com.carteltv.tv.ui.components.glassRowDim
 import com.carteltv.tv.ui.components.glassRowText
 internal fun accountsPage(scope: LazyListScope, focus: FocusRequester, onTrakt: () -> Unit, onDebrid: () -> Unit) {
-    pageHead(scope, "Accounts")
     scope.item {
         var tmdbOpen by remember { mutableStateOf(false) }
         var tmdbTick by remember { mutableIntStateOf(0) }
@@ -390,7 +389,6 @@ internal fun accountsPage(scope: LazyListScope, focus: FocusRequester, onTrakt: 
 }
 
 internal fun deviceCarePage(scope: LazyListScope, focus: FocusRequester) {
-    pageHead(scope, "Diagnostics", "Advanced")
     scope.item {
         val ctx = androidx.compose.ui.platform.LocalContext.current
         var assessing by remember { mutableStateOf(false) }
@@ -526,7 +524,6 @@ internal fun deviceCarePage(scope: LazyListScope, focus: FocusRequester) {
 }
 
 internal fun screensaverPage(scope: LazyListScope, focus: FocusRequester) {
-    pageHead(scope, "Standby display")
     scope.item {
         val ctx = androidx.compose.ui.platform.LocalContext.current
         ValueRow(
@@ -550,7 +547,6 @@ internal class ConfigState {
 }
 
 internal fun configPage(scope: LazyListScope, focus: FocusRequester, cfg: ConfigState) {
-    pageHead(scope, "Backup & restore", "Advanced")
     scope.item {
         ValueRow(
             title = "Export configuration",

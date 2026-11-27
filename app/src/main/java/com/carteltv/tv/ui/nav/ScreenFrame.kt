@@ -1,23 +1,23 @@
 package com.carteltv.tv.ui.nav
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.annotation.DrawableRes
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,15 +38,20 @@ import com.carteltv.tv.ui.theme.ThemeSpec
 import com.carteltv.tv.ui.theme.focusLift
 import com.carteltv.tv.ui.theme.focusScaleState
 import com.carteltv.tv.ui.theme.glassSurface
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 
 /**
  * The standard content padding for a dock page: one step above the first row, and a full gutter of bleed
  * below so the last row runs off screen instead of stopping short.
  */
-val PagePadding = PaddingValues(
-    start = ThemeSpec.Space.margin, end = ThemeSpec.Safe.horizontal,
-    top = ThemeSpec.Space.md, bottom = ThemeSpec.Space.margin,
-)
+val PagePadding =
+    PaddingValues(
+        start = ThemeSpec.Space.margin,
+        end = ThemeSpec.Safe.horizontal,
+        top = ThemeSpec.Space.md,
+        bottom = ThemeSpec.Space.margin,
+    )
 
 /**
  * The one frame for every section page: backdrop, rail inset, the masthead with useful actions, then the
@@ -71,10 +76,15 @@ internal fun ScreenPage(
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 content()
                 // A scrolling page dissolves under the masthead instead of being sliced at its rule.
-                if (header) Box(
-                    Modifier.align(Alignment.TopCenter).fillMaxWidth().height(ThemeSpec.Space.xl)
-                        .background(Brush.verticalGradient(0f to ThemeSemantics.stage, 1f to Color.Transparent)),
-                )
+                if (header) {
+                    Box(
+                        Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .height(ThemeSpec.Space.xl)
+                            .background(Brush.verticalGradient(0f to ThemeSemantics.stage, 1f to Color.Transparent)),
+                    )
+                }
             }
         }
     }
@@ -82,13 +92,19 @@ internal fun ScreenPage(
 
 /** The one filter row: chips at the page gutter, one focus group, and focus remembered when you come back. */
 @Composable
-internal fun PageChipRow(modifier: Modifier = Modifier, content: LazyListScope.() -> Unit) {
+internal fun PageChipRow(
+    modifier: Modifier = Modifier,
+    content: LazyListScope.() -> Unit,
+) {
     LazyRow(
         modifier.restoreRowFocus(),
-        contentPadding = PaddingValues(
-            start = ThemeSpec.Space.margin, end = ThemeSpec.Safe.horizontal,
-            top = ThemeSpec.Space.xs, bottom = ThemeSpec.Space.cozy,
-        ),
+        contentPadding =
+            PaddingValues(
+                start = ThemeSpec.Space.margin,
+                end = ThemeSpec.Safe.horizontal,
+                top = ThemeSpec.Space.xs,
+                bottom = ThemeSpec.Space.cozy,
+            ),
         horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.md),
         content = content,
     )
@@ -109,7 +125,12 @@ fun ScreenMasthead(
     Column(
         modifier
             .fillMaxWidth()
-            .padding(start = ThemeSpec.Space.margin, end = ThemeSpec.Safe.horizontal, top = if (inScaffold) ThemeSpec.Space.sm else ThemeSpec.Safe.vertical, bottom = ThemeSpec.Space.sm),
+            .padding(
+                start = ThemeSpec.Space.margin,
+                end = ThemeSpec.Safe.horizontal,
+                top = if (inScaffold) ThemeSpec.Space.sm else ThemeSpec.Safe.vertical,
+                bottom = ThemeSpec.Space.sm,
+            ),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (icon != null) {
@@ -119,11 +140,13 @@ fun ScreenMasthead(
                 val focused by interaction.collectIsFocusedAsState()
                 val pressed by interaction.collectIsPressedAsState()
                 Box(
-                    Modifier.size(64.dp)
+                    Modifier
+                        .size(64.dp)
                         .focusLift(focusScaleState(focused, ThemeSpec.Focus.liftIcon, pressed))
                         .glassSurface(focused, tile, ThemeSemantics.hairline, halo = false)
                         .clickableNoIndication(interaction) {
-                            com.carteltv.tv.nav.SectionNav.go(com.carteltv.tv.nav.AppSection.HOME)
+                            com.carteltv.tv.nav.SectionNav
+                                .go(com.carteltv.tv.nav.AppSection.HOME)
                         },
                     contentAlignment = Alignment.Center,
                 ) {
@@ -132,8 +155,12 @@ fun ScreenMasthead(
                 Spacer(Modifier.width(ThemeSpec.Space.md))
             }
             AutoSizeText(
-                title, fontSize = ThemeSpec.Type.titleL, fontWeight = FontWeight.Bold,
-                fontFamily = ThemeSpec.Font.display, color = ThemeSemantics.textEmphatic, letterSpacing = ThemeSpec.Type.trackHeadline,
+                title,
+                fontSize = ThemeSpec.Type.titleL,
+                fontWeight = FontWeight.Bold,
+                fontFamily = ThemeSpec.Font.display,
+                color = ThemeSemantics.textEmphatic,
+                letterSpacing = ThemeSpec.Type.trackHeadline,
                 modifier = Modifier.weight(1f),
             )
             trailing()
@@ -149,22 +176,35 @@ fun ScreenMasthead(
  * Frame for every top-level section: themed backdrop and the screen beside the sidebar.
  * Content runs to the bottom edge so rows bleed off screen instead of being cut at the overscan line.
  *
- * A screen whose first row should run under the top inset (Home's banner) passes [bleedTop]: the frame then
- * leaves the top edge alone, and the screen keeps the overscan as its own content padding.
+ * A screen whose first row should run under an inset passes [bleedTop] or [bleedStart]: the frame then
+ * leaves that edge alone, and the screen keeps the overscan as its own content padding.
  */
 @Composable
-internal fun ScreenScaffold(bleedTop: Boolean = false, content: @Composable () -> Unit) {
+internal fun ScreenScaffold(
+    bleedTop: Boolean = false,
+    bleedStart: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    // The backdrop is the Haze source every glass surface in the screen frosts over. Blur is
+    // disabled (tint fallback) when the user asked for reduced transparency.
+    val glassState = rememberHazeState(blurEnabled = !com.carteltv.tv.ui.theme.ThemePresets.reduceTransparency)
     Box(Modifier.fillMaxSize()) {
-        com.carteltv.tv.ui.theme.CartelBackdrop()
+        Box(Modifier.fillMaxSize().hazeSource(state = glassState)) {
+            com.carteltv.tv.ui.theme
+                .CartelBackdrop()
+        }
         Column(
             Modifier.fillMaxSize().padding(
-                start = if (ShellChrome.barHidden) 0.dp else ShellInsetStart,
+                start = if (ShellChrome.barHidden || bleedStart) 0.dp else ShellInsetStart,
                 top = if (bleedTop) 0.dp else TopBarClearance,
                 bottom = 0.dp,
             ),
         ) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                androidx.compose.runtime.CompositionLocalProvider(com.carteltv.tv.ui.theme.LocalInScreenScaffold provides true) { content() }
+                androidx.compose.runtime.CompositionLocalProvider(
+                    com.carteltv.tv.ui.theme.LocalInScreenScaffold provides true,
+                    com.carteltv.tv.ui.theme.LocalGlassBackdrop provides glassState,
+                ) { content() }
             }
         }
     }
@@ -178,5 +218,6 @@ fun Modifier.cardSurface(
     idle: Color = Color.Transparent,
     pressed: Boolean = false,
 ): Modifier =
-    this.focusLift(focusScaleState(focused, lift, pressed))
+    this
+        .focusLift(focusScaleState(focused, lift, pressed))
         .glassSurface(focused, RoundedCornerShape(ThemeSpec.Card.corner), idle)

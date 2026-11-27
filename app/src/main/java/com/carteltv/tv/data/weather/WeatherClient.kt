@@ -23,6 +23,8 @@ class WeatherClient : WeatherSource {
         val tempC: Double, val humidity: Int, val label: String, val isDay: Boolean,
         val highC: Double? = null, val lowC: Double? = null,
         val air: AirQuality? = null,
+        /** Open-Meteo's live offset for this location, including its current daylight-saving state. */
+        val utcOffsetSec: Int = 0,
     )
 
     override suspend fun current(lat: Double, lon: Double): Conditions? = withContext(Dispatchers.IO) {
@@ -49,6 +51,7 @@ class WeatherClient : WeatherSource {
                     highC = first("temperature_2m_max"),
                     lowC = first("temperature_2m_min"),
                     air = air.await(),
+                    utcOffsetSec = root["utc_offset_seconds"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
                 )
             }
         }.getOrNull()

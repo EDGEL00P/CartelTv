@@ -32,10 +32,17 @@ import kotlinx.coroutines.delay
  * the user signs in on their phone, and this panel finishes on its own once Real-Debrid confirms.
  */
 @Composable
-fun DebridPairPanel(onLinked: () -> Unit, onCancel: () -> Unit) {
+fun DebridPairPanel(
+    onLinked: () -> Unit,
+    onCancel: () -> Unit,
+) {
     DeviceCodePanel(
         provider = "Real-Debrid",
-        begin = { DebridAuth.begin().let { DeviceCodeView(it.userCode, it.verificationUrl, it.intervalSec, it.expiresIn) to it } },
+        begin = {
+            DebridAuth.begin().let {
+                DeviceCodeView(it.userCode, it.directVerificationUrl.ifBlank { it.verificationUrl }, it.intervalSec, it.expiresIn) to it
+            }
+        },
         poll = { DebridAuth.poll(it as DebridAuth.DeviceCode) },
         onLinked = onLinked,
         onCancel = onCancel,
@@ -44,7 +51,10 @@ fun DebridPairPanel(onLinked: () -> Unit, onCancel: () -> Unit) {
 
 /** Torbox linking: the same code-and-QR screen, finished by the key Torbox hands back after approval. */
 @Composable
-fun TorboxPairPanel(onLinked: () -> Unit, onCancel: () -> Unit) {
+fun TorboxPairPanel(
+    onLinked: () -> Unit,
+    onCancel: () -> Unit,
+) {
     DeviceCodePanel(
         provider = "Torbox",
         begin = { TorboxAuth.begin().let { DeviceCodeView(it.userCode, it.verificationUrl, it.intervalSec, it.expiresIn) to it } },
@@ -54,7 +64,12 @@ fun TorboxPairPanel(onLinked: () -> Unit, onCancel: () -> Unit) {
     )
 }
 
-private data class DeviceCodeView(val userCode: String, val verificationUrl: String, val intervalSec: Int, val expiresIn: Int)
+private data class DeviceCodeView(
+    val userCode: String,
+    val verificationUrl: String,
+    val intervalSec: Int,
+    val expiresIn: Int,
+)
 
 @Composable
 private fun DeviceCodePanel(
@@ -74,7 +89,10 @@ private fun DeviceCodePanel(
             val deadline = System.currentTimeMillis() + d.expiresIn * 1000L
             while (System.currentTimeMillis() < deadline) {
                 delay(d.intervalSec * 1000L)
-                if (poll(handle)) { onLinked(); return@LaunchedEffect }
+                if (poll(handle)) {
+                    onLinked()
+                    return@LaunchedEffect
+                }
             }
             error = "The code expired. Try again."
         } catch (e: CancellationException) {
@@ -87,27 +105,45 @@ private fun DeviceCodePanel(
     Column(verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.cozy)) {
         Text(
             "On your phone, open the link below, sign in and enter this code.",
-            fontSize = ThemeSpec.Type.meta, color = ThemeSemantics.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            fontSize = ThemeSpec.Type.meta,
+            color = ThemeSemantics.textSecondary,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.xl), verticalAlignment = Alignment.CenterVertically) {
             device?.let { QrCode(text = it.verificationUrl, cellSize = 5.dp) }
             Column(verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm)) {
                 Text(
                     device?.userCode ?: "····",
-                    fontSize = ThemeSpec.Type.display, fontWeight = FontWeight.Bold, color = ThemeSemantics.accentBright,
-                    fontFamily = ThemeSpec.Font.mono, maxLines = 1,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(ThemeSpec.Card.cornerLg))
-                        .background(ThemeSemantics.surfaceRaised)
-                        .padding(horizontal = ThemeSpec.Space.xl, vertical = ThemeSpec.Space.md),
+                    fontSize = ThemeSpec.Type.display,
+                    fontWeight = FontWeight.Bold,
+                    color = ThemeSemantics.accentBright,
+                    fontFamily = ThemeSpec.Font.mono,
+                    maxLines = 1,
+                    modifier =
+                        Modifier
+                            .clip(RoundedCornerShape(ThemeSpec.Card.cornerLg))
+                            .background(ThemeSemantics.surfaceRaised)
+                            .padding(horizontal = ThemeSpec.Space.xl, vertical = ThemeSpec.Space.md),
                 )
                 Text(
                     device?.verificationUrl ?: "Contacting $provider…",
-                    fontSize = ThemeSpec.Type.label, color = ThemeSemantics.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    fontSize = ThemeSpec.Type.label,
+                    color = ThemeSemantics.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
-        error?.let { Text(it, color = ThemeSemantics.danger, fontSize = ThemeSpec.Type.meta, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+        error?.let {
+            Text(
+                it,
+                color = ThemeSemantics.danger,
+                fontSize = ThemeSpec.Type.meta,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         ActionButton("Cancel", filled = false) { onCancel() }
     }
 }

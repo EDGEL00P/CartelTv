@@ -1,4 +1,5 @@
 package com.carteltv.tv.ui.hero
+import androidx.annotation.DrawableRes
 import com.carteltv.tv.ui.weather.WeatherIcon
 import com.carteltv.tv.data.espn.GameChannelResolver
 import com.carteltv.tv.data.espn.GameChannelFinder
@@ -15,6 +16,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -67,6 +69,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -98,6 +101,8 @@ import com.carteltv.tv.ui.theme.ThemeSemantics
 import com.carteltv.tv.ui.theme.ThemeSpec
 import com.carteltv.tv.ui.theme.enterScene
 import com.carteltv.tv.ui.components.clickableNoIndication
+import com.carteltv.tv.ui.components.tryFocus
+import com.carteltv.tv.ui.nav.ShellChrome
 import com.carteltv.tv.ui.theme.focusLift
 import com.carteltv.tv.ui.theme.focusScaleState
 import java.time.Instant
@@ -133,6 +138,8 @@ internal data class HeroItem(
     val opens: AppSection? = null,
     /** A direct stream the hero can play muted while it holds focus; null when only art will do. */
     val previewUrl: String? = null,
+    /** Bundled photography, rendered directly without a network/resource-URI decoder. */
+    @param:DrawableRes val artRes: Int? = null,
 )
 
 /** How many shows being watched, and how many films, the banner may pick. */
@@ -285,7 +292,9 @@ internal fun HeroSlider(
             .fillMaxHeight()
             .focusLift(scale)
             .onPreviewKeyEvent { ev ->
-                if (ev.type != KeyEventType.KeyDown || slides.size < 2) return@onPreviewKeyEvent false
+                if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                if (ev.key == Key.DirectionUp && ShellChrome.barFocus.tryFocus()) return@onPreviewKeyEvent true
+                if (slides.size < 2) return@onPreviewKeyEvent false
                 when (ev.key) {
                     // Right wraps round to the first page. Left turns back only through pages the remote turned forward,
                     // so the first page (and any auto-advanced one) hands Left on to the sidebar like the first card of any row.
@@ -336,7 +345,7 @@ internal fun HeroSlider(
                 com.carteltv.tv.R.drawable.ph_caret_right,
                 ThemeSemantics.onMedia.copy(alpha = 0.30f),
                 16.dp,
-                Modifier.align(Alignment.CenterEnd).padding(end = ThemeSpec.Space.xl),
+                Modifier.align(Alignment.CenterEnd).padding(end = ThemeSpec.Safe.horizontal),
             )
         }
     }
@@ -508,14 +517,20 @@ private fun AppSection.sectionLabel(): String =
 private fun MediaSlide(hero: HeroItem, inset: Dp, ctaFocused: Boolean, pressed: Boolean, onAmbient: (Color?) -> Unit = {}) {
     val ctx = LocalContext.current
     val art = hero.art?.takeIf { it.isNotBlank() }
-    // Read once, small: whether it is a frame or a poster, and the colour the sidebar's glass picks up.
-    val read by produceState<ArtRead?>(null, art) { value = art?.let { readArt(ctx, it) } }
+    val artRes = hero.artRes
+    // Remote art is measured once; bundled greeting photography is authored at 16:9 and needs no decoder probe.
+    val read by produceState<ArtRead?>(null, art, artRes) {
+        value = when {
+            artRes != null -> ArtRead(16f / 9f, Color.Transparent)
+            else -> art?.let { readArt(ctx, it) }
+        }
+    }
     // The art's leading colour flows out to the stage behind the shelves, so the banner and the
     // rows below it read as one canvas.
     LaunchedEffect(read) { onAmbient(read?.tint) }
     // One slow push per slide, not an endless loop: the art settles, and nothing keeps animating behind the scenes.
     val push = remember { Animatable(1f) }
-    LaunchedEffect(hero.art) {
+    LaunchedEffect(hero.art, hero.artRes) {
         push.snapTo(1f)
         push.animateTo(1.06f, tween(18_000, easing = LinearEasing))
     }
@@ -524,6 +539,18 @@ private fun MediaSlide(hero: HeroItem, inset: Dp, ctaFocused: Boolean, pressed: 
         SlideGround(Modifier.background(BugBlack)) {
             val r = read
             when {
+                artRes != null -> Image(
+                    painter = painterResource(artRes),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.TopEnd,
+                    modifier = Modifier.fillMaxSize().graphicsLayer {
+                        scaleX = push.value
+                        scaleY = push.value
+                        // The hero runs 99dp under the top bar; keep portrait faces below that chrome.
+                        translationY = 160.dp.toPx()
+                    },
+                )
                 // Still being read, or nothing to show: the field alone, so the band is never a flat black slab.
                 art == null || r == null -> ArtField(BugBlack)
                 r.poster -> {

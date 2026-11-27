@@ -9,6 +9,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -183,7 +185,39 @@ object ReleaseUpdater {
             .putLong(KEY_DL_ID, dlId).putString(KEY_SHA, expectedSha256).apply()
         downloading = true
         status = "Downloading ${release.versionName}…"
+        trackProgress(ctx.applicationContext, dlId, release.versionName)
         return dlId
+    }
+
+    private fun trackProgress(ctx: Context, id: Long, versionName: String) {
+        val dm = ctx.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        com.carteltv.tv.AppScope.io.launch {
+            while (downloading && dlId == id) {
+                val snapshot = dm.query(DownloadManager.Query().setFilterById(id))?.use { cursor ->
+                    if (!cursor.moveToFirst()) null else Triple(
+                        cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)),
+                        cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)),
+                        cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)),
+                    )
+                }
+                if (snapshot != null) {
+                    val (state, downloaded, total) = snapshot
+                    if (total > 0L) {
+                        val percent = (downloaded.coerceIn(0L, total) * 100L / total).toInt()
+                        status = "Downloading $versionName · $percent%"
+                    }
+                    if (state == DownloadManager.STATUS_FAILED) {
+                        downloading = false
+                        dlId = -1L
+                        runCatching { dm.remove(id) }
+                        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
+                        status = "Download failed"
+                        break
+                    }
+                }
+                delay(1_000L)
+            }
+        }
     }
 
     /** BroadcastReceiver for download completion — triggers install. */

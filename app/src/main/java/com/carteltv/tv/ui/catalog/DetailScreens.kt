@@ -140,7 +140,7 @@ fun MovieDetailScreen(streamId: Long, title: String, ext: String?, icon: String?
         ambient?.pageTint = icon?.takeIf { it.isNotBlank() }?.let { readArt(ctx, it)?.tint }
     }
 
-    ScreenPage(title = title) {
+    ScreenPage(title = title, header = false) {
         StagedScreen(section = com.carteltv.tv.nav.AppSection.MOVIES) {
             // The frame dissolves its top edge under the masthead, so the page starts below that fade.
             Box(Modifier.fillMaxSize().padding(start = ThemeSpec.Space.margin, end = ThemeSpec.Safe.horizontal, top = ThemeSpec.Space.xl)) {
@@ -248,7 +248,7 @@ fun SeriesDetailScreen(seriesId: Long, name: String, cover: String?, plot: Strin
         ambient?.pageTint = cover?.takeIf { it.isNotBlank() }?.let { readArt(ctx, it)?.tint }
     }
 
-    ScreenPage(title = name) {
+    ScreenPage(title = name, header = false) {
         StagedScreen(section = com.carteltv.tv.nav.AppSection.TV) {
             // The page's rows — the season chips and the episode rail — park their focused card on the one line.
             RailFocusLine {

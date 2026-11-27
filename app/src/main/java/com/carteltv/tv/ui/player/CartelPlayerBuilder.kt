@@ -75,20 +75,21 @@ fun buildCartelPlayer(
         )
         .setTrackSelector(
             DefaultTrackSelector(context).also { selector ->
-                // Tunneling cannot run through the GL effects pipeline; videoEnhance wins.
+                // Let ABR switch between H.264/HEVC renditions as well as bitrates; sports variants are not
+                // always packaged with one codec. Tunneling cannot run through the GL effects pipeline.
                 val tunneling = AppPreferences.tunneling && !AppPreferences.videoEnhance
                 val audioOffload = AppPreferences.audioOffload
-                if (tunneling || audioOffload) {
-                    val builder = selector.buildUponParameters().setTunnelingEnabled(tunneling)
-                    if (audioOffload) {
-                        builder.setAudioOffloadPreferences(
-                            TrackSelectionParameters.AudioOffloadPreferences.Builder()
-                                .setAudioOffloadMode(TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED)
-                                .build(),
-                        )
-                    }
-                    selector.setParameters(builder)
+                val builder = selector.buildUponParameters()
+                    .setAllowVideoMixedMimeTypeAdaptiveness(true)
+                    .setTunnelingEnabled(tunneling)
+                if (audioOffload) {
+                    builder.setAudioOffloadPreferences(
+                        TrackSelectionParameters.AudioOffloadPreferences.Builder()
+                            .setAudioOffloadMode(TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED)
+                            .build(),
+                    )
                 }
+                selector.setParameters(builder)
             },
         )
         // Audio focus pauses other apps' audio while this player is up; on TV boxes it can also

@@ -81,6 +81,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
                 <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.HOME_MAIN" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.LAUNCHER_APP" />
                 <category android:name="fireos.intent.category.MAIN_HOME" />
@@ -102,11 +103,19 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="carteltv" android:host="say" />
             </intent-filter>
+            <!-- Self deep links from our published Watch Next rows; refs resolve against local recents. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="carteltv" android:host="watch" />
+            </intent-filter>
         </activity>
 
         <activity
             android:name=".PlayerHostActivity"
-            android:exported="true"
+            android:exported="false"
+            android:supportsPictureInPicture="true"
             android:screenOrientation="sensorLandscape"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
             android:configChanges="screenSize|screenLayout|orientation|keyboardHidden|colorMode" />

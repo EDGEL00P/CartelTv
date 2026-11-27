@@ -92,7 +92,6 @@ import com.carteltv.tv.ui.components.glassRow
 import com.carteltv.tv.ui.components.glassRowDim
 import com.carteltv.tv.ui.components.glassRowText
 internal fun aboutPage(scope: LazyListScope, focus: FocusRequester) {
-    pageHead(scope, "About")
     scope.item {
         val ctx = androidx.compose.ui.platform.LocalContext.current
         val ver = remember {
@@ -142,7 +141,6 @@ internal fun aboutPage(scope: LazyListScope, focus: FocusRequester) {
 }
 
 internal fun dnsPage(scope: LazyListScope, focus: FocusRequester) {
-    pageHead(scope, "DNS blocking", "Advanced")
     scope.item {
         val ctx = androidx.compose.ui.platform.LocalContext.current
         val dns = remember(ctx) { com.carteltv.tv.data.network.PrivateDnsController(ctx) }
@@ -188,7 +186,6 @@ internal fun dnsPage(scope: LazyListScope, focus: FocusRequester) {
 }
 
 internal fun sportsPage(scope: LazyListScope, focus: FocusRequester) {
-    pageHead(scope, "Sports")
     scope.item {
         var autoPlay by remember { mutableStateOf(AppPreferences.sportsAutoPlay) }
         var hideEmpty by remember { mutableStateOf(AppPreferences.sportsHideEmptyLeagues) }

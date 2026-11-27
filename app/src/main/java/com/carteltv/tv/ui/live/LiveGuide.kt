@@ -79,6 +79,10 @@ import com.carteltv.tv.ui.sports.DialogFrame
 import com.carteltv.tv.ui.components.FilterChip
 import com.carteltv.tv.ui.components.awaitFocus
 import com.carteltv.tv.ui.components.entryFocus
+import com.carteltv.tv.ui.components.FocusMemoryStore
+import com.carteltv.tv.ui.components.keyFocusTarget
+import com.carteltv.tv.ui.components.rememberKeyFocusRegistry
+import com.carteltv.tv.ui.components.restoreKeyFocus
 import com.carteltv.tv.ui.nav.PageChipRow
 import com.carteltv.tv.ui.nav.ScreenPage
 import com.carteltv.tv.ui.theme.ThemeSemantics
@@ -524,7 +528,11 @@ internal fun GuideContent() {
 
         Column(Modifier.fillMaxSize()) {
             ProviderStatusBanner()
-            GroupChips(groups, pick, trailing = { FilterChip("Multiview", selected = false, icon = R.drawable.ph_monitor_play) { openMultiview() } }) { pick = it }
+            GroupChips(groups, pick, trailing = { FilterChip("Multiview", selected = false, icon = R.drawable.ph_monitor_play) { openMultiview() } }) { newPick ->
+                FocusMemoryStore.remember("live-guide:$pick", selectedChannelId?.toString())
+                pick = newPick
+                selectedChannelId = FocusMemoryStore.peek("live-guide:$newPick")?.toLongOrNull()
+            }
 
             if (shown.isEmpty()) {
                 if (!channelsLoaded) {
@@ -549,6 +557,7 @@ internal fun GuideContent() {
                 TimelineGuide(
                     channels = shown,
                     selectedId = selectedChannelId,
+                    zone = "live-guide:$pick",
                     now = now,
                     client = client,
                     ctx = ctx,
@@ -583,6 +592,7 @@ private fun guideWidth(durationMs: Long): Dp = GUIDE_MINUTE_WIDTH * (durationMs 
 private fun TimelineGuide(
     channels: List<XtreamClient.LiveStream>,
     selectedId: Long?,
+    zone: String,
     now: Long,
     client: XtreamClient,
     ctx: android.content.Context,
@@ -595,6 +605,12 @@ private fun TimelineGuide(
     val timelineState = rememberScrollState()
     val listState = rememberLazyListState()
     val firstFocus = remember { FocusRequester() }
+    val focusRegistry = rememberKeyFocusRegistry()
+    val channelKeys = remember(channels) { channels.map { it.streamId.toString() } }
+    val hasRestorableFocus = FocusMemoryStore.peek(zone) in channelKeys
+    LaunchedEffect(zone, channelKeys) {
+        restoreKeyFocus(zone, channelKeys, focusRegistry) { listState.scrollToItem(it) }
+    }
     val windowStart = now - GUIDE_WINDOW_BEFORE_MS
     val windowEnd = now + GUIDE_WINDOW_AFTER_MS
     var focusedProgram by remember { mutableStateOf<Pair<Long, GuideModel.Slot>?>(null) }
@@ -629,7 +645,12 @@ private fun TimelineGuide(
                     client = client,
                     ctx = ctx,
                     timelineState = timelineState,
-                    modifier = if (index == 0) Modifier.entryFocus(key = "live-guide", requester = firstFocus) else Modifier,
+                    modifier = Modifier
+                        .keyFocusTarget(focusRegistry, zone, stream.streamId.toString())
+                        .then(
+                            if (index == 0) Modifier.entryFocus(key = zone, enabled = !hasRestorableFocus, requester = firstFocus)
+                            else Modifier,
+                        ),
                     onChannelFocus = {
                         focusedProgram = null
                         onSelect(stream)
@@ -654,7 +675,7 @@ private fun GuideFocusSummary(stream: XtreamClient.LiveStream, slot: GuideModel.
     Row(
         Modifier
             .fillMaxWidth()
-            .height(72.dp)
+            .height(88.dp)
             .clip(shape)
             .background(ThemeSemantics.surfaceRaised)
             .border(ThemeSpec.Focus.ringWidth, ThemeSemantics.hairline, shape)
@@ -666,10 +687,10 @@ private fun GuideFocusSummary(stream: XtreamClient.LiveStream, slot: GuideModel.
         Column(Modifier.width(GUIDE_CHANNEL_WIDTH - 56.dp)) {
             Text(
                 GuideModel.displayName(stream.name),
-                fontSize = ThemeSpec.Type.cardTitle,
+                fontSize = ThemeSpec.Type.meta,
                 fontFamily = ThemeSpec.Font.broadcast,
-                fontWeight = FontWeight.Bold,
-                color = ThemeSemantics.textEmphatic,
+                fontWeight = FontWeight.SemiBold,
+                color = ThemeSemantics.textSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -678,7 +699,7 @@ private fun GuideFocusSummary(stream: XtreamClient.LiveStream, slot: GuideModel.
         Spacer(Modifier.width(ThemeSpec.Space.md))
         Column(Modifier.weight(1f)) {
             Text(
-                slot?.title ?: "Programme information unavailable",
+                slot?.title ?: "Guide data unavailable",
                 fontSize = ThemeSpec.Type.title,
                 fontFamily = ThemeSpec.Font.broadcast,
                 fontWeight = FontWeight.SemiBold,
@@ -711,6 +732,16 @@ private fun GuideFocusSummary(stream: XtreamClient.LiveStream, slot: GuideModel.
                     fontFamily = ThemeSpec.Font.mono,
                     color = if (phase == GuideModel.Phase.LIVE) ThemeSemantics.accent else ThemeSemantics.textSecondary,
                     maxLines = 1,
+                )
+            }
+            slot?.description?.takeIf { programFocused && it.isNotBlank() }?.let { description ->
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    description,
+                    fontSize = ThemeSpec.Type.micro,
+                    color = ThemeSemantics.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -994,7 +1025,7 @@ internal fun GuideProgramCell(
                     Spacer(Modifier.width(3.dp))
                 }
                 Text(
-                    if (isCurrent) "LIVE  ·  ${GuideModel.leftLabel(slot, now)}" else "${hhmm(slot.startMs)}  ·  ${((slot.stopMs - slot.startMs) / 60_000L).coerceAtLeast(1)}m",
+                    if (isCurrent) "LIVE  ·  ${GuideModel.leftLabel(slot, now)}" else "${hhmm(slot.startMs)} – ${hhmm(slot.stopMs)}",
                     fontSize = ThemeSpec.Type.micro,
                     fontFamily = ThemeSpec.Font.mono,
                     color = if (isCurrent) ThemeSemantics.accent else ThemeSemantics.textSecondary,

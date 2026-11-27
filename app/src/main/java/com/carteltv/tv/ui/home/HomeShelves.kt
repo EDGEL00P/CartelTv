@@ -20,6 +20,7 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -61,7 +62,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -115,7 +115,6 @@ import com.carteltv.tv.ui.nav.HomePinSpec
 import com.carteltv.tv.ui.nav.MenuKeyHub
 import com.carteltv.tv.ui.nav.NetworkBadge
 import com.carteltv.tv.ui.nav.OverscanV
-import com.carteltv.tv.ui.nav.ShellInsetStart
 import com.carteltv.tv.ui.nav.ShellChrome
 import com.carteltv.tv.ui.nav.appMenuSpec
 import com.carteltv.tv.ui.nav.bleedUnderShell
@@ -200,8 +199,7 @@ internal sealed interface ShelfEntry {
 /** How a row lays its cards out. */
 internal enum class ShelfFace { CARD, CATALOG, LIVE_GAME, UPCOMING, CHANNEL, APP, SERVICE, INFO }
 
-/** One row of Home. A [subheading] row is the second part of the shelf above it (Live Sports' Upcoming);
- *  an unlabelled one is the first thing under the banner, where the cards name themselves beneath. */
+/** One row of Home. A [subheading] row is the second part of the shelf above it (Live Sports' Upcoming). */
 internal data class Shelf(
     val key: String,
     val title: String,
@@ -209,15 +207,15 @@ internal data class Shelf(
     val entries: List<ShelfEntry>,
     val note: String? = null,
     val subheading: Boolean = false,
-    val labelled: Boolean = true,
 )
 
 /* Card sizes from the concept (px ÷ 2). The banner and the Up Next tiles take theirs from the reference picture. */
 /** The banner, measured from the top of the screen: a content-forward share that leaves the shelves room to
  *  breathe, less the overscan. It runs under the sidebar. */
-/** An Up Next tile: the picture's share of the screen width, in its 16:9. */
-private val CardW = 196.dp
-private val CardH = 110.dp
+/** Four cards share the safe viewport width, with the tight gaps and 16:9 art of a Netflix rail. */
+private const val HomeVisibleCards = 4
+private val HomeCardGap = ThemeSpec.Space.md
+private val MinHomeCardW = 160.dp
 private val CardShape = RoundedCornerShape(ThemeSpec.Card.corner)
 /** A catalogue tile: portrait 2:3 at the width every poster rail in the app shares, so Home's rows read as the browse pages'. */
 private val CatalogTileW = 160.dp
@@ -234,8 +232,8 @@ private val UpcomingW = 290.dp
 private val UpcomingH = 60.dp
 private val ChannelW = 260.dp
 private val ChannelH = 72.dp
-private val InfoW = 280.dp
-private val InfoH = 132.dp
+private val InfoW = 192.dp
+private val InfoH = 116.dp
 /** Home is a persistent vertical browse feed: a cinematic hero followed by every shelf. */
 @Composable
 internal fun HomeStage(
@@ -246,7 +244,6 @@ internal fun HomeStage(
     modifier: Modifier = Modifier,
 ) {
     val entryTaken = remember { booleanArrayOf(false) }
-    var activeShelf by remember { mutableStateOf<String?>(null) }
     DisposableEffect(Unit) {
         ShellChrome.lastContentFocus = heroFocus
         onDispose { if (ShellChrome.lastContentFocus === heroFocus) ShellChrome.lastContentFocus = null }
@@ -274,44 +271,49 @@ internal fun HomeStage(
         }
     }
 
-    RailFocusLine {
-        LazyColumn(
-            state = columnState,
-            modifier = modifier
-                .focusGroup()
-                .onFocusChanged { if (it.hasFocus) entryTaken[0] = true },
-            contentPadding = PaddingValues(bottom = ThemeSpec.Safe.vertical),
-        ) {
-            item(key = "home-hero", contentType = "hero") {
-                hero(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(HomeHeroHeight)
-                        .bleedUnderShell()
-                        .onFocusChanged { if (it.hasFocus) ShellChrome.lastContentFocus = heroFocus }
-                        .entryFocus(enabled = entryEnabled && !entryTaken[0], requester = heroFocus),
-                    if (ShellChrome.barHidden) 0.dp else ShellInsetStart + ThemeSpec.Safe.horizontal - ThemeSpec.Space.xl,
-                )
-            }
-            itemsIndexed(shelves, key = { _, shelf -> shelf.key }, contentType = { _, shelf -> shelf.face }) { _, shelf ->
-                val rowState = rememberLazyListState()
-                rowStates[shelf.key] = rowState
-                ShelfBlock(
-                    shelf = shelf,
-                    rowState = rowState,
-                    focusRegistry = focusRegistry,
-                    dimmed = activeShelf != null && activeShelf != shelf.key,
-                    onFocusChanged = { focused ->
-                        activeShelf = if (focused) shelf.key else if (activeShelf == shelf.key) null else activeShelf
-                    },
-                )
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        val cardWidth = (
+            (maxWidth - ThemeSpec.Safe.horizontal * 2 - HomeCardGap * (HomeVisibleCards - 1)) / HomeVisibleCards
+        ).coerceAtLeast(MinHomeCardW)
+        val cardHeight = cardWidth * 9f / 16f
+        RailFocusLine {
+            LazyColumn(
+                state = columnState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .focusGroup()
+                    .onFocusChanged { if (it.hasFocus) entryTaken[0] = true },
+                contentPadding = PaddingValues(bottom = ThemeSpec.Safe.vertical),
+            ) {
+                item(key = "home-hero", contentType = "hero") {
+                    hero(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(HomeHeroHeight)
+                            .bleedUnderShell(underStart = false)
+                            .onFocusChanged { if (it.hasFocus) ShellChrome.lastContentFocus = heroFocus }
+                            .entryFocus(enabled = entryEnabled && !entryTaken[0], requester = heroFocus),
+                        ThemeSpec.Safe.horizontal - ThemeSpec.Space.xl,
+                    )
+                }
+                itemsIndexed(shelves, key = { _, shelf -> shelf.key }, contentType = { _, shelf -> shelf.face }) { _, shelf ->
+                    val rowState = rememberLazyListState()
+                    rowStates[shelf.key] = rowState
+                    ShelfBlock(
+                        shelf = shelf,
+                        rowState = rowState,
+                        focusRegistry = focusRegistry,
+                        cardWidth = cardWidth,
+                        cardHeight = cardHeight,
+                    )
+                }
             }
         }
     }
 }
 
-/** Home is a persistent vertical browse feed: a cinematic hero followed by every shelf. The stage wash anchors here. */
-internal val HomeHeroHeight = 400.dp
+/** The featured area leaves the first shelf and its card captions inside a 540dp-high viewport. */
+internal val HomeHeroHeight = 280.dp
 
 /**
  * One shelf: its heading, then the cards in a row that remembers where focus left them. [firstCard] lets the
@@ -322,31 +324,19 @@ internal fun ShelfBlock(
     shelf: Shelf,
     rowState: LazyListState,
     focusRegistry: MutableMap<String, FocusRequester>,
+    cardWidth: Dp,
+    cardHeight: Dp,
     modifier: Modifier = Modifier,
     firstCard: FocusRequester? = null,
-    dimmed: Boolean = false,
-    onFocusChanged: (Boolean) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val first = firstCard ?: remember { FocusRequester() }
     // The index holding focus, so RIGHT is only claimed on a row's last card.
     val focusedIndex = remember { intArrayOf(-1) }
     val livePulse = if (shelf.face == ShelfFace.LIVE_GAME) rememberLiveEdge() else null
-    val rowAlpha by androidx.compose.animation.core.animateFloatAsState(
-        if (dimmed) 0.55f else 1f,
-        ThemeSpec.Motion.tweenMid(),
-        label = "rowDim",
-    )
-    PrefetchAhead(rowState, remember(shelf.entries) { shelf.entries.mapNotNull { (it as? ShelfEntry.Card)?.art } }, CardW, CardH)
-    Column(
-        modifier
-            .fillMaxWidth()
-            .graphicsLayer { alpha = rowAlpha }
-            .onFocusChanged { onFocusChanged(it.hasFocus) },
-    ) {
+    PrefetchAhead(rowState, remember(shelf.entries) { shelf.entries.mapNotNull { (it as? ShelfEntry.Card)?.art } }, cardWidth, cardHeight)
+    Column(modifier.fillMaxWidth()) {
         when {
-            // The row under the banner carries no heading: its cards name themselves beneath.
-            !shelf.labelled -> Unit
             shelf.subheading -> SubHeading(shelf.title, shelf.note)
             else -> SectionTitle(
                 shelf.title,
@@ -373,9 +363,14 @@ internal fun ShelfBlock(
             contentPadding = when (shelf.face) {
                 ShelfFace.CATALOG -> PaddingValues(start = ThemeSpec.Safe.horizontal, end = ThemeSpec.Safe.horizontal, top = PosterRailLoomRoom, bottom = PosterRailLoomRoom)
                 ShelfFace.CARD -> PaddingValues(start = ThemeSpec.Safe.horizontal, end = ThemeSpec.Safe.horizontal, top = BoxedLoomRoom, bottom = BoxedLoomRoom)
-                else -> PaddingValues(start = ThemeSpec.Safe.horizontal, end = ThemeSpec.Safe.horizontal, top = ThemeSpec.Space.md)
+                else -> PaddingValues(
+                    start = ThemeSpec.Safe.horizontal,
+                    end = ThemeSpec.Safe.horizontal,
+                    top = ThemeSpec.Space.md,
+                    bottom = ThemeSpec.Space.md,
+                )
             },
-            horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.md),
+            horizontalArrangement = Arrangement.spacedBy(HomeCardGap),
         ) {
             itemsIndexed(shelf.entries, key = { _, e -> e.key }, contentType = { _, _ -> shelf.face }) { i, entry ->
                 val itemRequester = remember(entry.key) { if (i == 0) first else FocusRequester() }
@@ -393,7 +388,7 @@ internal fun ShelfBlock(
                 if (app != null && shelf.face == ShelfFace.APP) {
                     AppTile(app.app, app.locked, item, onClick = entry.onClick, onLongClick = app.menu)
                 } else {
-                    ShelfCard(entry, shelf.face, livePulse, item)
+                    ShelfCard(entry, shelf.face, livePulse, item, cardWidth, cardHeight)
                 }
             }
         }
@@ -402,7 +397,14 @@ internal fun ShelfBlock(
 
 /** One shelf card: the glass surface, its focus report to the hero, its options on MENU and hold-OK, and its face. */
 @Composable
-private fun ShelfCard(entry: ShelfEntry, face: ShelfFace, livePulse: State<Float>?, modifier: Modifier) {
+private fun ShelfCard(
+    entry: ShelfEntry,
+    face: ShelfFace,
+    livePulse: State<Float>?,
+    modifier: Modifier,
+    cardWidth: Dp,
+    cardHeight: Dp,
+) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val pressed by interaction.collectIsPressedAsState()
@@ -446,9 +448,9 @@ private fun ShelfCard(entry: ShelfEntry, face: ShelfFace, livePulse: State<Float
             val progress = card?.progress ?: 0f
             // One framed box per card, after the grid's classic card anatomy: art and caption share one
             // frame, so a rail reads as a row of boxes instead of tiles with captions floating beneath.
-            Box(modifier.width(CardW).then(surface)) {
+            Box(modifier.width(cardWidth).then(surface)) {
                 Column(Modifier.fillMaxWidth()) {
-                    Box(Modifier.fillMaxWidth().height(CardH)) {
+                    Box(Modifier.fillMaxWidth().height(cardHeight)) {
                         CardArtwork(card?.art, entry.title, Modifier.fillMaxSize())
                         if (progress > 0f) ResumeBar(Modifier.align(Alignment.BottomStart), progress, 2.dp)
                     }
@@ -461,19 +463,17 @@ private fun ShelfCard(entry: ShelfEntry, face: ShelfFace, livePulse: State<Float
                         verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.xs),
                     ) {
                         Text(
-                            entry.title, fontSize = ThemeSpec.Type.cardTitle, fontFamily = ThemeSpec.Font.broadcast,
+                            entry.title, fontSize = ThemeSpec.Type.title, fontFamily = ThemeSpec.Font.broadcast,
                             fontWeight = FontWeight.SemiBold,
                             color = if (focused) ThemeSemantics.textEmphatic else ThemeSemantics.textPrimary,
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
-                        // The second line says what the card will do: continue, the next episode, a year and a rating.
-                        card?.subtitle?.takeIf { it.isNotBlank() }?.let {
-                            Text(
-                                it, fontSize = ThemeSpec.Type.meta, fontFamily = ThemeSpec.Font.body,
-                                color = ThemeSemantics.textSecondary,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            )
-                        }
+                        // Keep the metadata line even when it is empty so every card in the rail has the same height.
+                        Text(
+                            card?.subtitle.orEmpty(), fontSize = ThemeSpec.Type.meta, fontFamily = ThemeSpec.Font.body,
+                            color = ThemeSemantics.textSecondary,
+                            minLines = 1, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }
@@ -574,7 +574,10 @@ private fun ShelfCard(entry: ShelfEntry, face: ShelfFace, livePulse: State<Float
         ShelfFace.INFO -> {
             val info = entry as? ShelfEntry.Info ?: return
             val tint = ThemeSemantics.textSecondary
-            Box(modifier.width(InfoW).height(InfoH).then(surface).padding(ThemeSpec.Space.cozy)) {
+            Box(
+                modifier.width(InfoW).height(InfoH).then(surface)
+                    .padding(horizontal = ThemeSpec.Space.lg, vertical = ThemeSpec.Space.sm),
+            ) {
                 Column(verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.xs)) {
                     Text(
                         info.title, fontSize = ThemeSpec.Type.label, fontFamily = ThemeSpec.Font.broadcast,
@@ -920,8 +923,8 @@ internal fun buildHomeShelves(
         }
 
     return buildList<Shelf> {
-        // Up Next leads, as the picture has it: the one row without a heading, straight under the banner.
-        if (watching.isNotEmpty()) add(Shelf("continue", "Up Next", ShelfFace.CARD, watching, labelled = false))
+        // The continuation shelf stays labelled: its position and purpose remain clear as the carousel changes.
+        if (watching.isNotEmpty()) add(Shelf("continue", "Continue Watching", ShelfFace.CARD, watching))
         if (glance.isNotEmpty()) add(Shelf("glance", "Today", ShelfFace.INFO, glance))
         if (live.isNotEmpty()) add(Shelf("sports", "Live Sports", ShelfFace.LIVE_GAME, live, note = "${live.size} live"))
         if (comingUp.isNotEmpty()) add(Shelf("sports:upcoming", "Upcoming", ShelfFace.UPCOMING, comingUp, subheading = live.isNotEmpty()))

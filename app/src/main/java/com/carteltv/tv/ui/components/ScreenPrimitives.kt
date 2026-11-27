@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.tv.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -38,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Text
 import com.carteltv.tv.data.apps.AppIconLoader
 import com.carteltv.tv.data.apps.LauncherApp
 import com.carteltv.tv.ui.hero.readArt
@@ -50,6 +50,7 @@ import com.carteltv.tv.ui.theme.ThemeSpec
 import com.carteltv.tv.ui.theme.focusLift
 import com.carteltv.tv.ui.theme.focusRing
 import com.carteltv.tv.ui.theme.focusScaleState
+import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -84,8 +85,7 @@ fun Chip(
                     focused -> ThemeSemantics.surfaceFocus
                     else -> ThemeSemantics.surfaceRest
                 },
-            )
-            .focusRing(focused, shape, idle = if (selected) Color.Transparent else ThemeSemantics.hairline)
+            ).focusRing(focused, shape, idle = if (selected) Color.Transparent else ThemeSemantics.hairline)
             .onFocusChanged { focused = it.isFocused }
             .clickableNoIndication(interaction, onClick)
             .padding(horizontal = if (compact) ThemeSpec.Space.sm else ThemeSpec.Space.lg, vertical = ThemeSpec.Space.sm),
@@ -94,7 +94,9 @@ fun Chip(
     ) {
         leading?.invoke()
         AutoSizeText(
-            label, fontSize = ThemeSpec.Type.meta, minScale = 0.8f,
+            label,
+            fontSize = ThemeSpec.Type.meta,
+            minScale = 0.8f,
             fontFamily = ThemeSpec.Font.broadcast,
             fontWeight = if (selected || focused) FontWeight.Bold else FontWeight.SemiBold,
             color = if (selected) ThemeSemantics.textInverse else ThemeSemantics.textEmphatic,
@@ -105,18 +107,33 @@ fun Chip(
 
 /** A shelf heading: red tag, tracked display caps and a rule. One note in the quiet colour at the right. */
 @Composable
-fun SectionTitle(title: String, modifier: Modifier = Modifier, note: String? = null) {
+fun SectionTitle(
+    title: String,
+    modifier: Modifier = Modifier,
+    note: String? = null,
+) {
     Column(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AutoSizeText(
-                title, fontSize = ThemeSpec.Type.title, fontWeight = FontWeight.Bold,
-                fontFamily = ThemeSpec.Font.display, color = ThemeSemantics.textEmphatic, letterSpacing = (-0.25).sp,
-                modifier = Modifier.weight(1f, fill = false), minScale = 0.6f,
+                title,
+                fontSize = ThemeSpec.Type.title,
+                fontWeight = FontWeight.Bold,
+                fontFamily = ThemeSpec.Font.display,
+                color = ThemeSemantics.textEmphatic,
+                letterSpacing = (-0.25).sp,
+                modifier = Modifier.weight(1f, fill = false),
+                minScale = 0.6f,
             )
             if (note != null) {
                 Spacer(Modifier.width(ThemeSpec.Space.cozy))
-                Text(note.uppercase(), fontSize = ThemeSpec.Type.meta, color = ThemeSemantics.textTertiary,
-                    fontFamily = ThemeSpec.Font.broadcast, letterSpacing = ThemeSpec.Type.trackCaps, maxLines = 1)
+                Text(
+                    note.uppercase(),
+                    fontSize = ThemeSpec.Type.meta,
+                    color = ThemeSemantics.textTertiary,
+                    fontFamily = ThemeSpec.Font.broadcast,
+                    letterSpacing = ThemeSpec.Type.trackCaps,
+                    maxLines = 1,
+                )
             }
         }
     }
@@ -124,7 +141,12 @@ fun SectionTitle(title: String, modifier: Modifier = Modifier, note: String? = n
 
 /** Nothing to show: an optional vector icon, a short statement and, when there is something to do about it, a hint beneath. */
 @Composable
-fun EmptyState(title: String, modifier: Modifier = Modifier, hint: String? = null, @DrawableRes icon: Int? = null) {
+fun EmptyState(
+    title: String,
+    modifier: Modifier = Modifier,
+    hint: String? = null,
+    @DrawableRes icon: Int? = null,
+) {
     Column(
         modifier.fillMaxWidth().padding(vertical = ThemeSpec.Space.margin, horizontal = ThemeSpec.Space.margin),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -133,7 +155,13 @@ fun EmptyState(title: String, modifier: Modifier = Modifier, hint: String? = nul
         if (icon != null) {
             PhosphorIcon(icon, ThemeSemantics.textTertiary, 40.dp, Modifier.padding(bottom = ThemeSpec.Space.xs))
         }
-        Text(title, fontSize = ThemeSpec.Type.body, fontWeight = FontWeight.Bold, color = ThemeSemantics.textEmphatic, textAlign = TextAlign.Center)
+        Text(
+            title,
+            fontSize = ThemeSpec.Type.body,
+            fontWeight = FontWeight.Bold,
+            color = ThemeSemantics.textEmphatic,
+            textAlign = TextAlign.Center,
+        )
         if (hint != null) Text(hint, fontSize = ThemeSpec.Type.meta, color = ThemeSemantics.textSecondary, textAlign = TextAlign.Center)
     }
 }
@@ -142,10 +170,10 @@ fun EmptyState(title: String, modifier: Modifier = Modifier, hint: String? = nul
 fun onAccent(accent: Color): Color = if (accent.luminance() > 0.35f) ThemeSemantics.onMediaInk else ThemeSemantics.onMedia
 
 /** A full screen on the themed stage, so every screen shares Home's backdrop instead of sitting on flat black.
-    [section] tints the backdrop with that dock section's hue, so Sports, Movies and Live read apart.
-    The stage also washes — the full colour-thieving behaviour: a focused poster steals the canvas with its
-    own artwork colour through the same channel Home uses, and the page's key art (set on
-    [LocalAmbientTint]) holds the wash when nothing is focused. */
+ [section] tints the backdrop with that dock section's hue, so Sports, Movies and Live read apart.
+ The stage also washes — the full colour-thieving behaviour: a focused poster steals the canvas with its
+ own artwork colour through the same channel Home uses, and the page's key art (set on
+ [LocalAmbientTint]) holds the wash when nothing is focused. */
 @Composable
 fun StagedScreen(
     section: com.carteltv.tv.nav.AppSection? = null,
@@ -160,8 +188,13 @@ fun StagedScreen(
     LaunchedEffect(focused?.art) {
         ambient.cardTint = focused?.art?.takeIf { it.isNotBlank() }?.let { readArt(ctx, it)?.tint }
     }
+    val glassState = com.carteltv.tv.ui.theme.LocalGlassBackdrop.current
     Box(modifier.fillMaxSize()) {
-        AmbientStage(ambient.tint, from = 0.dp)
+        // The ambient wash joins the backdrop source, so glass over a staged screen frosts
+        // the artwork colour as well as the scaffold's preset glows.
+        Box(Modifier.fillMaxSize().then(if (glassState != null) Modifier.hazeSource(state = glassState) else Modifier)) {
+            AmbientStage(ambient.tint, from = 0.dp)
+        }
         CompositionLocalProvider(
             LocalAmbientTint provides ambient,
             LocalTitleFocus provides { focused = it },

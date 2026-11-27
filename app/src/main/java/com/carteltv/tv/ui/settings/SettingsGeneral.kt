@@ -92,10 +92,9 @@ import com.carteltv.tv.ui.components.glassRow
 import com.carteltv.tv.ui.components.glassRowDim
 import com.carteltv.tv.ui.components.glassRowText
 internal fun assistantPage(scope: LazyListScope, focus: FocusRequester) {
-    pageHead(scope, "Assistant")
     scope.item {
         val ctx = androidx.compose.ui.platform.LocalContext.current
-        var held by remember { mutableStateOf(com.carteltv.tv.voice.AssistantRole.isAssistant(ctx)) }
+        val held = com.carteltv.tv.voice.AssistantRole.isAssistant(ctx)
         var note by remember { mutableStateOf("") }
 
         Section("Assistant")
@@ -110,9 +109,19 @@ internal fun assistantPage(scope: LazyListScope, focus: FocusRequester) {
             value = "", onClick = {
                 val activity = ctx as? android.app.Activity
                 note = if (activity != null) com.carteltv.tv.voice.AssistantRole.claim(activity) else "This option is not available here."
-                held = com.carteltv.tv.voice.AssistantRole.isAssistant(ctx)
             },
         )
+        val homeHeld = com.carteltv.tv.system.HomeRole.isHome(ctx)
+        ValueRow(
+            title = if (homeHeld) "Cartel is the home app" else "Set Cartel as the home app",
+            desc = if (homeHeld) "Android opens Cartel when you press Home." else "Uses Android's home-role confirmation instead of accessibility redirection.",
+            value = "",
+            onClick = {
+                val activity = ctx as? android.app.Activity
+                note = if (activity != null) com.carteltv.tv.system.HomeRole.claim(activity) else "This option is not available here."
+            },
+        )
+        if (note.isNotBlank()) Caption(note)
         Caption("Works with the mic button, the phone companion, carteltv://say links and the voice command “Hey Google, search CartelTV for …”.")
 
         androidx.compose.runtime.LaunchedEffect(Unit) { com.carteltv.tv.voice.VoskModelManager.refresh(ctx) }
@@ -159,7 +168,6 @@ internal fun assistantPage(scope: LazyListScope, focus: FocusRequester) {
 }
 
 internal fun profilesPage(scope: LazyListScope, focus: FocusRequester) {
-    pageHead(scope, "Profiles")
     scope.item {
         val faces = com.carteltv.tv.data.preferences.Profiles.state.value
         var askOnBoot by remember { mutableStateOf(AppPreferences.askProfileOnBoot) }

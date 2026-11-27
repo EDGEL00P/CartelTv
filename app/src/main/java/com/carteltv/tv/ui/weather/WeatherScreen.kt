@@ -113,8 +113,8 @@ fun WeatherScreen() {
     var failed by remember { mutableStateOf(false) }
     var refreshTick by remember { mutableIntStateOf(0) }
     var autoTick by remember { mutableIntStateOf(0) }
-    var mode by remember { mutableStateOf(if (WeatherDeepLink.consumeRadar()) Mode.RADAR else Mode.FORECAST) }
-    var sheet by remember { mutableStateOf<Sheet?>(null) }
+    var mode by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(if (WeatherDeepLink.consumeRadar()) Mode.RADAR else Mode.FORECAST) }
+    var sheet by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<Sheet?>(null) }
     var ambient by remember { mutableStateOf(AppPreferences.weatherAmbient) }
     var showBoltPref by remember { mutableStateOf(AppPreferences.radarLightning) }
     var feedOn by remember { mutableStateOf(AppPreferences.lightningFeed) }
@@ -164,7 +164,12 @@ fun WeatherScreen() {
         }
     }
     LaunchedEffect(started) { if (started) while (true) { delay(AppPreferences.weatherRefreshMin * 60_000L); refreshTick++ } }
-    LaunchedEffect(started) { if (started) { radar.load(); while (true) { delay(4 * 60_000L); radar.load(force = true) } } }
+    LaunchedEffect(started, mode == Mode.RADAR) {
+        if (started && mode == Mode.RADAR) {
+            radar.load()
+            while (true) { delay(4 * 60_000L); radar.load(force = true) }
+        }
+    }
     LaunchedEffect(place.lat, place.lon, refreshTick, stationTick) {
         station = if (AppPreferences.weatherUseStation) WeatherObservations.nearest(place.lat, place.lon, force = refreshTick > 0) else null
     }

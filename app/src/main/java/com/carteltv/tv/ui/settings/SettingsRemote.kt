@@ -92,7 +92,6 @@ import com.carteltv.tv.ui.components.glassRow
 import com.carteltv.tv.ui.components.glassRowDim
 import com.carteltv.tv.ui.components.glassRowText
 internal fun remotePage(scope: LazyListScope, focus: FocusRequester, st: RemapUiState) {
-    pageHead(scope, "Remote keys", "Advanced")
     scope.item {
         val ctx = androidx.compose.ui.platform.LocalContext.current
         val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current

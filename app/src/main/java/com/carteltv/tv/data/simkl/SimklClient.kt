@@ -2,6 +2,7 @@ package com.carteltv.tv.data.simkl
 
 import com.carteltv.tv.data.network.HttpSupport
 import com.carteltv.tv.data.preferences.AppPreferences
+import com.carteltv.tv.data.watch.Scrobble
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
@@ -11,7 +12,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
-import com.carteltv.tv.data.watch.Scrobble
+
 /**
  * Simkl tracker client (SecretVault-backed & API-24 safe).
  *
@@ -20,7 +21,6 @@ import com.carteltv.tv.data.watch.Scrobble
  * change-stamp gating, Continue Watching playback sync, Plan-to-Watch list, and pause scrobbling.
  */
 object SimklClient {
-
     data class PinCode(
         val userCode: String,
         val verifyUrl: String,
@@ -50,10 +50,15 @@ object SimklClient {
         private set
 
     @Volatile private var activityStamp: String? = null
+
     @Volatile private var activityCheckedAt = 0L
+
     @Volatile private var playbackStamp: String? = null
+
     @Volatile private var playbackCache: List<PausedItem>? = null
+
     @Volatile private var planStamp: String? = null
+
     @Volatile private var planCache: List<WatchlistItem>? = null
 
     private val FRACTIONAL_SECONDS = Regex("\\.\\d+Z$")
@@ -65,14 +70,15 @@ object SimklClient {
 
     /** Computes the next UTC midnight + 10 min backoff timestamp for Simkl daily 429 limits (API-24 safe). */
     fun nextUtcResetMs(nowMs: Long = System.currentTimeMillis()): Long {
-        val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-            timeInMillis = nowMs
-            add(Calendar.DAY_OF_YEAR, 1)
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 10)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
+        val cal =
+            Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                timeInMillis = nowMs
+                add(Calendar.DAY_OF_YEAR, 1)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 10)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
         return cal.timeInMillis
     }
 
@@ -80,9 +86,10 @@ object SimklClient {
     fun parseIsoUtcMs(raw: String): Long {
         if (raw.isBlank()) return 0L
         val normalized = raw.trim().replace(FRACTIONAL_SECONDS, "Z")
-        val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
+        val fmt =
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
         return runCatching { fmt.parse(normalized)?.time ?: 0L }.getOrDefault(0L)
     }
 
@@ -104,22 +111,40 @@ object SimklClient {
     private fun recordRateLimit(daily: Boolean) {
         val until = if (daily) nextUtcResetMs() else System.currentTimeMillis() + 5 * 60_000L
         AppPreferences.simklBlockedUntil = until
-        lastError = if (daily) {
-            "Simkl daily limit reached; retrying after UTC reset"
-        } else {
-            "Simkl asked to slow down; retrying in 5 min"
-        }
+        lastError =
+            if (daily) {
+                "Simkl daily limit reached; retrying after UTC reset"
+            } else {
+                "Simkl asked to slow down; retrying in 5 min"
+            }
     }
 
-    private suspend fun postForm(path: String, fields: Map<String, String>): Pair<Int, String> {
-        val body = fields.entries.joinToString("&") { (k, v) ->
-            "$k=${URLEncoder.encode(v, "UTF-8")}"
-        }
+    private suspend fun postForm(
+        path: String,
+        fields: Map<String, String>,
+    ): Pair<Int, String> {
+        val body =
+            fields.entries.joinToString("&") { (k, v) ->
+                "$k=${URLEncoder.encode(v, "UTF-8")}"
+            }
         return HttpSupport.request(
-            "https://api.simkl.com$path", "POST",
+            "https://api.simkl.com$path",
+            "POST",
             headers = mapOf("Content-Type" to "application/x-www-form-urlencoded"),
-            body = body, contentType = "application/x-www-form-urlencoded",
+            body = body,
+            contentType = "application/x-www-form-urlencoded",
         )
+    }
+
+    /** Simkl returns schemeless URIs (`simkl.com/pin?...`); a QR of that scans as plain text, not a link. */
+    internal fun httpsUrl(raw: String): String {
+        val v = raw.trim()
+        return when {
+            v.isBlank() || v.startsWith("https://") || v.startsWith("http://") -> v
+
+            // bughunt:ignore kt-cleartext-http
+            else -> "https://$v"
+        }
     }
 
     private fun saveTokens(obj: JSONObject) {
@@ -133,41 +158,53 @@ object SimklClient {
 
     private val refreshMutex = Mutex()
 
-    private suspend fun refreshToken(): Boolean = runCatching {
-        refreshMutex.withLock {
-            val r = AppPreferences.simklRefresh
-            val cid = AppPreferences.simklClientId
-            if (r.isBlank() || cid.isBlank()) return@withLock false
-            val (code, text) = postForm(
-                "/oauth2/token",
-                mapOf("grant_type" to "refresh_token", "refresh_token" to r, "client_id" to cid),
-            )
-            if (code !in 200..299) return@withLock false
-            saveTokens(JSONObject(text))
-            true
-        }
-    }.getOrDefault(false)
+    private suspend fun refreshToken(): Boolean =
+        runCatching {
+            refreshMutex.withLock {
+                val r = AppPreferences.simklRefresh
+                val cid = AppPreferences.simklClientId
+                if (r.isBlank() || cid.isBlank()) return@withLock false
+                val (code, text) =
+                    postForm(
+                        "/oauth2/token",
+                        mapOf("grant_type" to "refresh_token", "refresh_token" to r, "client_id" to cid),
+                    )
+                if (code !in 200..299) return@withLock false
+                saveTokens(JSONObject(text))
+                true
+            }
+        }.getOrDefault(false)
 
     private suspend fun refreshIfDue() {
         val exp = AppPreferences.simklExpiresAt
         if (exp > 0L && System.currentTimeMillis() > exp - 24 * 3600_000L) refreshToken()
     }
 
-    private suspend fun call(method: String, path: String, body: JSONObject? = null, retried: Boolean = false): Pair<Int, String> {
+    private suspend fun call(
+        method: String,
+        path: String,
+        body: JSONObject? = null,
+        retried: Boolean = false,
+    ): Pair<Int, String> {
         if (isRateLimited) return 429 to lastError
         if (method != "GET") invalidateActivity()
         refreshIfDue()
         val cid = AppPreferences.simklClientId
         val tok = AppPreferences.simklToken
         val sep = if ('?' in path) '&' else '?'
-        val headers = mapOf(
-            "Content-Type" to "application/json",
-            "simkl-api-key" to cid,
-        ) + (if (tok.isNotBlank()) mapOf("Authorization" to "Bearer $tok") else emptyMap())
-        val (code0, text0) = HttpSupport.request(
-            "https://api.simkl.com$path${sep}client_id=$cid&app-name=carteltv&app-version=1.0", method, headers,
-            body = body?.toString(), contentType = "application/json",
-        )
+        val headers =
+            mapOf(
+                "Content-Type" to "application/json",
+                "simkl-api-key" to cid,
+            ) + (if (tok.isNotBlank()) mapOf("Authorization" to "Bearer $tok") else emptyMap())
+        val (code0, text0) =
+            HttpSupport.request(
+                "https://api.simkl.com$path${sep}client_id=$cid&app-name=carteltv&app-version=1.0",
+                method,
+                headers,
+                body = body?.toString(),
+                contentType = "application/json",
+            )
         if (code0 == 429) {
             recordRateLimit(daily = text0.contains("user_limit", true) || text0.contains("daily", true))
             return code0 to text0
@@ -186,20 +223,20 @@ object SimklClient {
         val (dc, dt) = postForm("/oauth2/device", mapOf("client_id" to cid, "scope" to "media:read media:write"))
         if (dc in 200..299) {
             val o = JSONObject(dt)
-            val uri = o.optString("verification_uri", "https://simkl.com/pin")
+            val uri = httpsUrl(o.optString("verification_uri", "https://simkl.com/pin"))
             return PinCode(
                 userCode = o.getString("user_code"),
                 verifyUrl = uri,
                 intervalSec = o.optInt("interval", 5),
                 expiresInSec = o.optInt("expires_in", 900),
                 deviceCode = o.getString("device_code"),
-                qrUrl = o.optString("verification_uri_complete").ifBlank { uri },
+                qrUrl = httpsUrl(o.optString("verification_uri_complete")).ifBlank { uri },
             )
         }
         val (code, text) = call("GET", "/oauth/pin")
         check(code in 200..299) { "Simkl pairing HTTP $dc / $code" }
         val o = JSONObject(text)
-        val u = o.optString("verification_url", "https://simkl.com/pin/")
+        val u = httpsUrl(o.optString("verification_url", "https://simkl.com/pin/"))
         val userCode = o.getString("user_code")
         return PinCode(userCode, u, o.optInt("interval", 5), o.optInt("expires_in", 900), qrUrl = "${u.trimEnd('/')}/$userCode")
     }
@@ -212,16 +249,17 @@ object SimklClient {
         while (System.currentTimeMillis() < deadline) {
             kotlinx.coroutines.delay(interval * 1000L)
             if (pin.deviceCode != null) {
-                val (code, text) = runCatching {
-                    postForm(
-                        "/oauth2/token",
-                        mapOf(
-                            "grant_type" to "urn:ietf:params:oauth:grant-type:device_code",
-                            "client_id" to cid,
-                            "device_code" to pin.deviceCode,
-                        ),
-                    )
-                }.getOrNull() ?: continue
+                val (code, text) =
+                    runCatching {
+                        postForm(
+                            "/oauth2/token",
+                            mapOf(
+                                "grant_type" to "urn:ietf:params:oauth:grant-type:device_code",
+                                "client_id" to cid,
+                                "device_code" to pin.deviceCode,
+                            ),
+                        )
+                    }.getOrNull() ?: continue
                 val o = runCatching { JSONObject(text) }.getOrNull() ?: continue
                 if (code in 200..299 && o.optString("access_token").isNotBlank()) {
                     saveTokens(o)
@@ -229,9 +267,19 @@ object SimklClient {
                     return true
                 }
                 when (o.optString("error")) {
-                    "slow_down" -> interval += 5
-                    "expired_token" -> { lastError = "Code expired"; return false }
-                    "invalid_client" -> { lastError = "Invalid Simkl Client ID"; return false }
+                    "slow_down" -> {
+                        interval += 5
+                    }
+
+                    "expired_token" -> {
+                        lastError = "Code expired"
+                        return false
+                    }
+
+                    "invalid_client" -> {
+                        lastError = "Invalid Simkl Client ID"
+                        return false
+                    }
                 }
             } else {
                 val (code, text) = runCatching { call("GET", "/oauth/pin/${pin.userCode}") }.getOrNull() ?: continue
@@ -254,5 +302,4 @@ object SimklClient {
             JSONObject(body).optJSONObject("user")?.optString("name")
         }.getOrNull()?.takeIf { it.isNotBlank() }?.let { AppPreferences.simklUser = it }
     }
-
 }

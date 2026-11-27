@@ -178,6 +178,7 @@ fun PlayerOverlay(
     onOpenSchedule: (() -> Unit)? = null,
     onSourceSwitch: (() -> Unit)? = null,
     onMultiview: (() -> Unit)? = null,
+    onOpenPictureInPicture: (() -> Unit)? = null,
     onSearch: (() -> Unit)? = null,
     /** Optional extra deck action (e.g. comments). */
     onToggleComments: (() -> Unit)? = null,
@@ -451,6 +452,7 @@ fun PlayerOverlay(
                     onOpenSchedule = onOpenSchedule,
                     onSourceSwitch = onSourceSwitch,
                     onMultiview = onMultiview,
+                    onOpenPictureInPicture = onOpenPictureInPicture,
                     onSearch = onSearch,
                     onToggleComments = onToggleComments,
                     commentsActive = commentsActive,

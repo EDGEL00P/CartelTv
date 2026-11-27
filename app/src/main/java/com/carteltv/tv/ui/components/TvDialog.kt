@@ -1,5 +1,6 @@
 package com.carteltv.tv.ui.components
 
+import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -10,8 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -19,7 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.tv.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -45,13 +45,14 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.tv.material3.Text
 import com.carteltv.tv.ui.nav.cardSurface
-import android.view.KeyEvent
 import com.carteltv.tv.ui.theme.BrassSheen
 import com.carteltv.tv.ui.theme.BrassSolid
 import com.carteltv.tv.ui.theme.ThemeSemantics
 import com.carteltv.tv.ui.theme.ThemeSpec
 import com.carteltv.tv.ui.theme.focusRing
+import com.carteltv.tv.ui.theme.glassPane
 
 /*
  * The one dialog for the whole app: menus, confirmations, text entry, multi-choice and notices.
@@ -134,7 +135,9 @@ object TvDialogs {
         cancelLabel: String = "Cancel",
         onCancel: (() -> Unit)? = null,
         onPick: (Int) -> Unit,
-    ) { current = TvMenuSpec(title, message, items, cancelLabel, onCancel, onPick) }
+    ) {
+        current = TvMenuSpec(title, message, items, cancelLabel, onCancel, onPick)
+    }
 
     fun confirm(
         title: String,
@@ -144,7 +147,9 @@ object TvDialogs {
         cancelLabel: String = "Cancel",
         onCancel: (() -> Unit)? = null,
         onConfirm: () -> Unit,
-    ) { current = TvConfirmSpec(title, message, confirmLabel, cancelLabel, destructive, onCancel, onConfirm) }
+    ) {
+        current = TvConfirmSpec(title, message, confirmLabel, cancelLabel, destructive, onCancel, onConfirm)
+    }
 
     fun input(
         title: String,
@@ -157,7 +162,9 @@ object TvDialogs {
         onExtra: (() -> Unit)? = null,
         onCancel: (() -> Unit)? = null,
         onSubmit: (String) -> Unit,
-    ) { current = TvInputSpec(title, message, initial, hint, confirmLabel, cancelLabel, extraLabel, onExtra, onCancel, onSubmit) }
+    ) {
+        current = TvInputSpec(title, message, initial, hint, confirmLabel, cancelLabel, extraLabel, onExtra, onCancel, onSubmit)
+    }
 
     fun multiChoice(
         title: String,
@@ -168,14 +175,22 @@ object TvDialogs {
         cancelLabel: String = "Cancel",
         onCancel: (() -> Unit)? = null,
         onSave: (Set<Int>) -> Unit,
-    ) { current = TvChoiceSpec(title, message, items, selected, confirmLabel, cancelLabel, onCancel, onSave) }
+    ) {
+        current = TvChoiceSpec(title, message, items, selected, confirmLabel, cancelLabel, onCancel, onSave)
+    }
 
-    fun info(title: String, message: String?, okLabel: String = "OK") {
+    fun info(
+        title: String,
+        message: String?,
+        okLabel: String = "OK",
+    ) {
         current = TvInfoSpec(title, message, okLabel)
     }
 
     /** Closes the dialog without running a callback. Callers use it before they run their own. */
-    internal fun close() { current = null }
+    internal fun close() {
+        current = null
+    }
 
     /** Back or a click on the scrim: close, then let the dialog say what cancelling means. */
     fun cancel() {
@@ -192,12 +207,13 @@ fun TvDialogHost() {
     key(spec) {
         // Selection-driven, not focus-driven: TV D-pad keys are forwarded by MainActivity, so the
         // dialog never depends on Compose focus landing inside the modal (unreliable on-device).
-        val rows = when (spec) {
-            is TvMenuSpec -> spec.items.size + 1
-            is TvConfirmSpec -> 2
-            is TvInfoSpec -> 1
-            else -> 0
-        }
+        val rows =
+            when (spec) {
+                is TvMenuSpec -> spec.items.size + 1
+                is TvConfirmSpec -> 2
+                is TvInfoSpec -> 1
+                else -> 0
+            }
         var sel by remember(spec) {
             val start = if (spec is TvConfirmSpec && spec.destructive) 1 else 0
             mutableIntStateOf(start)
@@ -205,22 +221,58 @@ fun TvDialogHost() {
         DisposableEffect(spec) {
             TvDialogs.keyHandler = { keyCode ->
                 when (keyCode) {
-                    KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_RIGHT ->
-                        if (rows > 0) { sel = (sel + 1) % rows; true } else false
-                    KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_LEFT ->
-                        if (rows > 0) { sel = (sel + rows - 1) % rows; true } else false
+                    KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                        if (rows > 0) {
+                            sel = (sel + 1) % rows
+                            true
+                        } else {
+                            false
+                        }
+                    }
+
+                    KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_LEFT -> {
+                        if (rows > 0) {
+                            sel = (sel + rows - 1) % rows
+                            true
+                        } else {
+                            false
+                        }
+                    }
+
                     KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
                         when (spec) {
-                            is TvMenuSpec ->
-                                if (sel < spec.items.size) { TvDialogs.close(); spec.onPick(sel) } else TvDialogs.cancel()
-                            is TvConfirmSpec ->
-                                if (sel == 0) { TvDialogs.close(); spec.onConfirm() } else TvDialogs.cancel()
-                            is TvInfoSpec -> TvDialogs.close()
-                            else -> false
+                            is TvMenuSpec -> {
+                                if (sel < spec.items.size) {
+                                    TvDialogs.close()
+                                    spec.onPick(sel)
+                                } else {
+                                    TvDialogs.cancel()
+                                }
+                            }
+
+                            is TvConfirmSpec -> {
+                                if (sel == 0) {
+                                    TvDialogs.close()
+                                    spec.onConfirm()
+                                } else {
+                                    TvDialogs.cancel()
+                                }
+                            }
+
+                            is TvInfoSpec -> {
+                                TvDialogs.close()
+                            }
+
+                            else -> {
+                                false
+                            }
                         }
                         true
                     }
-                    else -> false
+
+                    else -> {
+                        false
+                    }
                 }
             }
             onDispose { TvDialogs.keyHandler = null }
@@ -234,17 +286,26 @@ fun TvDialogHost() {
                     .swallowTaps()
                     .trapFocus()
                     .widthIn(max = 680.dp)
-                    .clip(RoundedCornerShape(ThemeSpec.Card.cornerLg))
-                    .background(ThemeSemantics.surfaceModal)
+                    .glassPane(RoundedCornerShape(ThemeSpec.Card.cornerLg))
                     .padding(ThemeSpec.Space.lg),
                 verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
             ) {
                 Text(
-                    spec.title, fontSize = ThemeSpec.Type.title, fontWeight = FontWeight.Bold, color = ThemeSemantics.textEmphatic,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    spec.title,
+                    fontSize = ThemeSpec.Type.title,
+                    fontWeight = FontWeight.Bold,
+                    color = ThemeSemantics.textEmphatic,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 spec.message?.let {
-                    Text(it, fontSize = ThemeSpec.Type.meta, color = ThemeSemantics.textSecondary, maxLines = 6, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        it,
+                        fontSize = ThemeSpec.Type.meta,
+                        color = ThemeSemantics.textSecondary,
+                        maxLines = 6,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
                 when (spec) {
                     is TvMenuSpec -> MenuBody(spec, sel)
@@ -259,7 +320,10 @@ fun TvDialogHost() {
 }
 
 @Composable
-private fun MenuBody(spec: TvMenuSpec, sel: Int) {
+private fun MenuBody(
+    spec: TvMenuSpec,
+    sel: Int,
+) {
     LazyVerticalGrid(
         GridCells.Fixed(1),
         Modifier.heightIn(max = 400.dp),
@@ -276,10 +340,14 @@ private fun MenuBody(spec: TvMenuSpec, sel: Int) {
 }
 
 @Composable
-private fun ConfirmBody(spec: TvConfirmSpec, sel: Int) {
+private fun ConfirmBody(
+    spec: TvConfirmSpec,
+    sel: Int,
+) {
     Row(horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.cozy)) {
         DialogAction(
-            spec.confirmLabel, if (spec.destructive) Emphasis.Danger else Emphasis.Primary,
+            spec.confirmLabel,
+            if (spec.destructive) Emphasis.Danger else Emphasis.Primary,
             selected = sel == 0,
         ) {
             TvDialogs.close()
@@ -332,18 +400,18 @@ fun TvTextField(
                 inner()
             }
         },
-        modifier = modifier
-            .fillMaxWidth()
-            .then(if (requester != null) Modifier.focusRequester(requester) else Modifier)
-            .onFocusChanged {
-                focused = it.isFocused
-                if (phoneLabel == null) return@onFocusChanged
-                if (it.isFocused) PhoneTyping.enter(self, phoneLabel.ifBlank { "this field" }) else PhoneTyping.leave(self)
-            }
-            .clip(shape)
-            .background(if (focused) ThemeSemantics.surfaceFocus else ThemeSemantics.surfaceRaised)
-            .focusRing(focused, shape, idle = ThemeSemantics.hairline)
-            .padding(horizontal = ThemeSpec.Space.md, vertical = ThemeSpec.Space.cozy),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .then(if (requester != null) Modifier.focusRequester(requester) else Modifier)
+                .onFocusChanged {
+                    focused = it.isFocused
+                    if (phoneLabel == null) return@onFocusChanged
+                    if (it.isFocused) PhoneTyping.enter(self, phoneLabel.ifBlank { "this field" }) else PhoneTyping.leave(self)
+                }.clip(shape)
+                .background(if (focused) ThemeSemantics.surfaceFocus else ThemeSemantics.surfaceRaised)
+                .focusRing(focused, shape, idle = ThemeSemantics.hairline)
+                .padding(horizontal = ThemeSpec.Space.md, vertical = ThemeSpec.Space.cozy),
     )
 }
 
@@ -404,7 +472,13 @@ private fun ChoiceBody(spec: TvChoiceSpec) {
 }
 
 @Composable
-private fun DialogRow(label: String, modifier: Modifier = Modifier, leading: String? = null, selected: Boolean = false, onClick: () -> Unit) {
+private fun DialogRow(
+    label: String,
+    modifier: Modifier = Modifier,
+    leading: String? = null,
+    selected: Boolean = false,
+    onClick: () -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
     val hot = focused || selected
     Row(
@@ -420,8 +494,12 @@ private fun DialogRow(label: String, modifier: Modifier = Modifier, leading: Str
             Text(leading, fontSize = ThemeSpec.Type.body, color = ThemeSemantics.accent, modifier = Modifier.width(28.dp), maxLines = 1)
         }
         Text(
-            label, fontSize = ThemeSpec.Type.body, fontWeight = if (hot) FontWeight.SemiBold else FontWeight.Medium,
-            color = if (hot) ThemeSemantics.textEmphatic else ThemeSemantics.textPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            label,
+            fontSize = ThemeSpec.Type.body,
+            fontWeight = if (hot) FontWeight.SemiBold else FontWeight.Medium,
+            color = if (hot) ThemeSemantics.textEmphatic else ThemeSemantics.textPrimary,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -429,24 +507,35 @@ private fun DialogRow(label: String, modifier: Modifier = Modifier, leading: Str
 private enum class Emphasis { Primary, Quiet, Danger }
 
 @Composable
-private fun DialogAction(label: String, emphasis: Emphasis, modifier: Modifier = Modifier, selected: Boolean = false, onClick: () -> Unit) {
+private fun DialogAction(
+    label: String,
+    emphasis: Emphasis,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    onClick: () -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
     val hot = focused || selected
     Text(
-        label, fontSize = ThemeSpec.Type.meta, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-        color = when (emphasis) {
-            Emphasis.Primary -> ThemeSemantics.textInverse
-            Emphasis.Danger -> ThemeSemantics.danger
-            Emphasis.Quiet -> if (hot) ThemeSemantics.textEmphatic else ThemeSemantics.textPrimary
-        },
-        modifier = modifier
-            .widthIn(max = 320.dp)
-            .cardSurface(hot)
-            .then(
-                if (emphasis == Emphasis.Primary) Modifier.background(if (hot) BrassSheen else BrassSolid) else Modifier,
-            )
-            .onFocusChanged { focused = it.isFocused }
-            .clickableNoIndication(onClick = onClick)
-            .padding(horizontal = ThemeSpec.Space.lg, vertical = ThemeSpec.Space.cozy),
+        label,
+        fontSize = ThemeSpec.Type.meta,
+        fontWeight = FontWeight.SemiBold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        color =
+            when (emphasis) {
+                Emphasis.Primary -> ThemeSemantics.textInverse
+                Emphasis.Danger -> ThemeSemantics.danger
+                Emphasis.Quiet -> if (hot) ThemeSemantics.textEmphatic else ThemeSemantics.textPrimary
+            },
+        modifier =
+            modifier
+                .widthIn(max = 320.dp)
+                .cardSurface(hot)
+                .then(
+                    if (emphasis == Emphasis.Primary) Modifier.background(if (hot) BrassSheen else BrassSolid) else Modifier,
+                ).onFocusChanged { focused = it.isFocused }
+                .clickableNoIndication(onClick = onClick)
+                .padding(horizontal = ThemeSpec.Space.lg, vertical = ThemeSpec.Space.cozy),
     )
 }

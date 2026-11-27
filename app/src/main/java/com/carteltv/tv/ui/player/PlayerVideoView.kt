@@ -3,6 +3,7 @@
 package com.carteltv.tv.ui.player
 
 import android.content.Context
+import android.view.accessibility.CaptioningManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -14,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.Player
 import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import androidx.media3.ui.SubtitleView
 import com.carteltv.tv.data.preferences.AppPreferences
@@ -103,7 +105,14 @@ internal fun PlayerVideoView(
             // Slight zoom for mode 2
             view.scaleX = if (aspectMode == 2) 1.08f else 1f
             view.scaleY = if (aspectMode == 2) 1.08f else 1f
-            view.subtitleView?.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * (subtitleScale / 100f))
+            view.subtitleView?.let { subs ->
+                // The user's system caption style is the default look; an in-app per-title scale
+                // (anything other than the default 100) overrides the system font scale for size.
+                val captions = com.carteltv.tv.engine.captions.SystemCaptions.defaults(view.context)
+                captions.style?.let { subs.setStyle(CaptionStyleCompat.createFromCaptionStyle(it)) }
+                val scale = if (subtitleScale != 100) subtitleScale / 100f else captions.fontScale
+                subs.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * scale)
+            }
         },
         modifier = modifier,
     )

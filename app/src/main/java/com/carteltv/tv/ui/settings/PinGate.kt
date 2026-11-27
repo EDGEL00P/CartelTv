@@ -62,6 +62,13 @@ fun PinGate(
 ) {
     var entered by remember { mutableStateOf("") }
     var error by remember { mutableStateOf(false) }
+    val lockSec by produceState(0L, error) {
+        while (error) {
+            value = (com.carteltv.tv.data.preferences.AppPreferences.pinLockRemainingMs() + 999) / 1000
+            if (value <= 0L) break
+            kotlinx.coroutines.delay(1_000L)
+        }
+    }
     val firstKeyRef = remember { FocusRequester() }
 
     LaunchedEffect(Unit) { suspendRunCatching { firstKeyRef.awaitFocus() } }
@@ -133,7 +140,6 @@ fun PinGate(
             Spacer(Modifier.height(ThemeSpec.Space.xs))
             Text(
                 if (error) {
-                    val lockSec = (com.carteltv.tv.data.preferences.AppPreferences.pinLockRemainingMs() + 999) / 1000
                     if (lockSec > 0) "Too many attempts. Try again in ${lockSec} s" else "Incorrect PIN"
                 } else "Enter PIN",
                 fontSize = ThemeSpec.Type.label,

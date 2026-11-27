@@ -16,6 +16,7 @@ import android.provider.Settings
  * handles Intent.ACTION_ASSIST, so keep voice_interaction_service empty.
  */
 object AssistantRole {
+    const val REQUEST_CODE = 4712
 
     private fun assistComponent(ctx: Context): ComponentName =
         ComponentName(ctx.packageName, "com.carteltv.tv.MainActivity")
@@ -43,7 +44,7 @@ object AssistantRole {
             } else if (rm.isRoleHeld(RoleManager.ROLE_ASSISTANT)) {
                 "Cartel is already the assistant"
             } else {
-                activity.startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_ASSISTANT), 4712)
+                activity.startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_ASSISTANT), REQUEST_CODE)
                 "Confirm the Cartel Assistant dialog"
             }
         } else {
@@ -52,6 +53,10 @@ object AssistantRole {
             if (isAssistant(activity)) "Cartel is now the assistant" else "Could not set Cartel as assistant"
         }
     }
+
+    fun resultMessage(ctx: Context, resultCode: Int): String =
+        if (resultCode == Activity.RESULT_OK && isAssistant(ctx)) "Cartel is now the TV assistant"
+        else "TV assistant was not changed"
 
     private fun writeAssistantSetting(ctx: Context): Boolean = runCatching {
         Settings.Secure.putString(ctx.contentResolver, "assistant", assistComponent(ctx).flattenToString())

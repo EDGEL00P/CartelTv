@@ -123,7 +123,7 @@ fun MetaDetailScreen(type: String, id: String, title: String, poster: String?) {
         episodesSettled = true
     }
 
-    ScreenPage(title = details?.name ?: title) {
+    ScreenPage(title = details?.name ?: title, header = false) {
         StagedScreen(section = if (type == "series" || type == "tv") AppSection.TV else AppSection.MOVIES) {
             val shown = details
             when {
@@ -185,7 +185,7 @@ fun MetaDetailScreen(type: String, id: String, title: String, poster: String?) {
                     if (shown.cast.isNotEmpty()) {
                         item(key = "cast-title") { SectionTitle("Cast", Modifier.padding(top = ThemeSpec.Space.lg)) }
                         item(key = "cast-rail") {
-                            LazyRow(Modifier.restoreRowFocus(), horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.md)) {
+                            LazyRow(Modifier.restoreRowFocus(), horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.gutter)) {
                                 items(shown.cast.take(24), key = { it.name }) { person ->
                                     Column(Modifier.width(110.dp)) {
                                         AsyncImage(

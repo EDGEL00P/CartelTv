@@ -30,6 +30,8 @@ object DebridAuth {
         val verificationUrl: String,
         val intervalSec: Int,
         val expiresIn: Int,
+        /** One-tap authorize URL for the QR code; scanning it skips typing [userCode]. */
+        val directVerificationUrl: String = "",
     )
 
     private val refreshLock = Mutex()
@@ -42,9 +44,10 @@ object DebridAuth {
 
     /** True once the user has approved and the tokens are saved; false while still waiting. */
     suspend fun poll(device: DeviceCode): Boolean {
-        val (code, body) = HttpSupport.request(
-            "$OAUTH/device/credentials?client_id=$OPEN_CLIENT_ID&code=${enc(device.deviceCode)}",
-        )
+        val (code, body) =
+            HttpSupport.request(
+                "$OAUTH/device/credentials?client_id=$OPEN_CLIENT_ID&code=${enc(device.deviceCode)}",
+            )
         if (code != 200) return false
         val creds = JSONObject(body)
         val clientId = creds.optString("client_id")
@@ -75,14 +78,20 @@ object DebridAuth {
             ensureFresh()
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
-        } catch (_: Exception) { // bughunt:ignore kt-empty-catch
+        } catch (_: Exception) {
+            // bughunt:ignore kt-empty-catch
         }
     }
 
     internal fun parseDeviceCode(body: String): DeviceCode {
         val j = Json.parseToJsonElement(body).jsonObject
+
         fun str(k: String) = j[k]?.jsonPrimitive?.contentOrNull.orEmpty()
-        fun num(k: String, d: Int) = j[k]?.jsonPrimitive?.intOrNull ?: d
+
+        fun num(
+            k: String,
+            d: Int,
+        ) = j[k]?.jsonPrimitive?.intOrNull ?: d
         val device = str("device_code")
         val user = str("user_code")
         require(device.isNotBlank() && user.isNotBlank()) { "Real-Debrid sent an incomplete code" }
@@ -92,16 +101,30 @@ object DebridAuth {
             verificationUrl = str("verification_url").ifBlank { "https://real-debrid.com/device" },
             intervalSec = num("interval", 5).coerceAtLeast(1),
             expiresIn = num("expires_in", 600),
+            directVerificationUrl = str("direct_verification_url"),
         )
     }
 
-    private class Grant(val access: String, val refresh: String, val expiresInSec: Long)
+    private class Grant(
+        val access: String,
+        val refresh: String,
+        val expiresInSec: Long,
+    )
 
-    private suspend fun tokenRequest(clientId: String, secret: String, code: String, grantType: String): Grant {
+    private suspend fun tokenRequest(
+        clientId: String,
+        secret: String,
+        code: String,
+        grantType: String,
+    ): Grant {
         val form = "client_id=${enc(clientId)}&client_secret=${enc(secret)}&code=${enc(code)}&grant_type=${enc(grantType)}"
-        val (status, body) = HttpSupport.request(
-            "$OAUTH/token", method = "POST", body = form, contentType = "application/x-www-form-urlencoded",
-        )
+        val (status, body) =
+            HttpSupport.request(
+                "$OAUTH/token",
+                method = "POST",
+                body = form,
+                contentType = "application/x-www-form-urlencoded",
+            )
         check(status == 200) { "Real-Debrid refused the sign-in ($status)" }
         val j = JSONObject(body)
         val access = j.optString("access_token")
@@ -109,11 +132,19 @@ object DebridAuth {
         return Grant(access, j.optString("refresh_token"), j.optLong("expires_in", 3600))
     }
 
-    private fun save(grant: Grant, clientId: String, secret: String) {
-        AppPreferences.debridOauth = DebridOauth(
-            clientId, secret, grant.refresh, grant.access,
-            System.currentTimeMillis() + grant.expiresInSec * 1000L,
-        )
+    private fun save(
+        grant: Grant,
+        clientId: String,
+        secret: String,
+    ) {
+        AppPreferences.debridOauth =
+            DebridOauth(
+                clientId,
+                secret,
+                grant.refresh,
+                grant.access,
+                System.currentTimeMillis() + grant.expiresInSec * 1000L,
+            )
         AppPreferences.debridToken = grant.access
     }
 

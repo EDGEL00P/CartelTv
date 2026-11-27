@@ -24,6 +24,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import com.carteltv.tv.ui.theme.ThemePresets
 import com.carteltv.tv.ui.theme.ThemeSemantics
 import com.carteltv.tv.ui.theme.ThemeSpec
 
@@ -32,21 +34,25 @@ private const val SWEEP_MS = 1400
 /** A soft highlight sweeping across a placeholder; the sweep is read in the draw phase, so nothing recomposes. */
 @Composable
 internal fun Modifier.shimmer(): Modifier {
+    // System "remove animations": one static highlight instead of the sweep, so a placeholder still reads as loading.
+    if (ThemePresets.systemAnimationsRemoved) return drawWithContent { drawContent(); highlight(0.35f) }
     val x by rememberInfiniteTransition(label = "shimmer").animateFloat(
         initialValue = -1f, targetValue = 2f,
         animationSpec = infiniteRepeatable(tween(SWEEP_MS, easing = LinearEasing), RepeatMode.Restart), label = "sweep",
     )
-    return drawWithContent {
-        drawContent()
-        val w = size.width
-        val start = x * w
-        drawRect(
-            Brush.linearGradient(
-                listOf(Color.Transparent, ThemeSemantics.textEmphatic.copy(alpha = 0.07f), Color.Transparent),
-                start = Offset(start, 0f), end = Offset(start + w * 0.5f, size.height * 0.4f),
-            ),
-        )
-    }
+    return drawWithContent { drawContent(); highlight(x) }
+}
+
+/** The sweep's soft diagonal band, drawn at [x] fractions of the width (−1..2 while animating). */
+private fun DrawScope.highlight(x: Float) {
+    val w = size.width
+    val start = x * w
+    drawRect(
+        Brush.linearGradient(
+            listOf(Color.Transparent, ThemeSemantics.textEmphatic.copy(alpha = 0.07f), Color.Transparent),
+            start = Offset(start, 0f), end = Offset(start + w * 0.5f, size.height * 0.4f),
+        ),
+    )
 }
 
 /** A game card's shape while its scores load: a block where the bug goes and two short lines of text. */

@@ -10,8 +10,11 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 
-/** One Phosphor icon (MIT, phosphor-icons/core v2.0.8) as a vector drawable, tinted from the theme. */
+/**
+ * One Phosphor icon (MIT, phosphor-icons/core v2.0.8) as a vector drawable, tinted from the theme.
+ * Decorative by default ([label] null); pass a label to name the glyph for TalkBack.
+ */
 @Composable
-fun PhosphorIcon(@DrawableRes id: Int, tint: Color, size: Dp, modifier: Modifier = Modifier) {
-    Image(painterResource(id), contentDescription = null, modifier = modifier.size(size), colorFilter = ColorFilter.tint(tint))
+fun PhosphorIcon(@DrawableRes id: Int, tint: Color, size: Dp, modifier: Modifier = Modifier, label: String? = null) {
+    Image(painterResource(id), contentDescription = label, modifier = modifier.size(size), colorFilter = ColorFilter.tint(tint))
 }

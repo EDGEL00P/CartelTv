@@ -21,6 +21,7 @@
     <string name="nav_search">Search</string>
     <string name="nav_settings">Settings</string>
     <string name="nav_movies_tv">On Demand</string>
+    <string name="nav_more">More</string>
 
     <!-- Schedule and live filters -->
     <string name="filter_all">All</string>
@@ -92,6 +93,7 @@
     <string name="youtube_sign_in">Sign in</string>
     <string name="youtube_open_other_device">Open on another device</string>
     <string name="youtube_scan_or_enter">Scan the QR code or enter it at</string>
+    <string name="youtube_device_hint">Use Chrome on your phone, signed in to a personal Google account — work or school accounts can\'t connect devices.</string>
     <string name="youtube_enter_auth_code">Then enter this code</string>
     <string name="youtube_back_close">Press Back to close</string>
     <string name="youtube_switching_angle">Switching camera angle…</string>

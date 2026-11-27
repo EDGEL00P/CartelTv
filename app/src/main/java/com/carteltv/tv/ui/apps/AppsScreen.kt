@@ -116,24 +116,19 @@ internal fun AppsScreen() {
      * All apps.
      */
     val railTitle = if (earned) "Most used" else "Recently installed"
-    val mostUsed = if (earned) used.take(MOST_USED_TILES) else shelfApps.take(MOST_USED_TILES)
-    val rest = if (earned) {
-        val mostUsedKeys = mostUsed.mapTo(HashSet()) { it.packageName }
-        shelfApps.filter { it.packageName !in mostUsedKeys }
-    } else shelfApps
+    val recentKeys = recents.orEmpty().mapTo(HashSet()) { it.packageName }
+    val mostUsed = (if (earned) used else shelfApps)
+        .filterNot { it.packageName in recentKeys }
+        .take(MOST_USED_TILES)
+    val mostUsedKeys = mostUsed.mapTo(HashSet()) { it.packageName }
+    val rest = shelfApps.filter { it.packageName !in recentKeys && it.packageName !in mostUsedKeys }
     val activeMenu = remember { androidx.compose.runtime.mutableStateOf<HomeMenuSpec?>(null) }
     val activePin = remember { androidx.compose.runtime.mutableStateOf<HomePinSpec?>(null) }
     val entryTile = remember { FocusRequester() }
 
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
         ScreenPage(
-            "Apps", icon = com.carteltv.tv.R.drawable.ph_squares_four,
-            trailing = {
-                Text(
-                    "${shelfApps.size} apps, most used first",
-                    fontSize = ThemeSpec.Type.meta, color = ThemeSemantics.textSecondary, maxLines = 1,
-                )
-            },
+            "Apps", icon = com.carteltv.tv.R.drawable.ph_squares_four, header = false,
         ) {
             // InstalledAppsCache counts finished loads, so zero means the boot load is still running.
             if (InstalledAppsCache.version == 0) {
@@ -164,7 +159,7 @@ internal fun AppsScreen() {
                     }
                     item(key = "rail:all-apps") {
                         AppsRail(
-                            title = "All apps", apps = rest, ctx = ctx,
+                            title = "Other apps", apps = rest, ctx = ctx,
                             entry = if (mostUsed.isEmpty()) entryTile else null,
                             onPin = { activePin.value = it }, onMenu = { activeMenu.value = it },
                             onChanged = { recentsHash.value++ },

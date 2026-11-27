@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.carteltv.tv.ui.theme.ThemeSpec
+import com.carteltv.tv.ui.theme.glassFill
 
 /**
  * The player is dark whatever the app theme is: the picture is the content and the controls sit on a
@@ -43,11 +44,11 @@ internal object PlayerChrome {
     val chip = Color.Black.copy(alpha = 0.42f)
     val hairline = Color.White.copy(alpha = 0.14f)
 
-    /** Glass skin: smoked pane that lets the frame through. */
-    val glassTop = Color(0xA8141418)
-    val glassBottom = Color(0xD008080A)
-    val glassHeavyTop = Color(0xB817171C)
-    val glassHeavyBottom = Color(0xE008080B)
+    /** Glass skin: frosted pane over the frame — backdrop blur plus this tint. */
+    val glassTop = Color(0x80141418)
+    val glassBottom = Color(0xA608080A)
+    val glassHeavyTop = Color(0x9917171C)
+    val glassHeavyBottom = Color(0xB808080B)
 
     /** Specular rim along the top edge, fading at the sides. */
     val rim = Color.White.copy(alpha = 0.20f)
@@ -66,59 +67,60 @@ internal fun Modifier.playerGlass(
     shape: Shape,
     heavy: Boolean = false,
     elevation: Dp = 18.dp,
-): Modifier = this
-	.shadow(elevation, shape, clip = false, ambientColor = Color.Black, spotColor = Color.Black)
-	.clip(shape)
-	.background(
-		Brush.verticalGradient(
-			listOf(
-				if (heavy) PlayerChrome.glassHeavyTop else PlayerChrome.glassTop,
-				if (heavy) PlayerChrome.glassHeavyBottom else PlayerChrome.glassBottom,
-			),
-		),
-	)
-	.border(1.dp, Brush.verticalGradient(listOf(PlayerChrome.rim, PlayerChrome.rimSoft, Color.Transparent)), shape)
-	.drawWithContent {
-		drawContent()
-		drawRect(
-			Brush.verticalGradient(listOf(PlayerChrome.rimSoft, Color.Transparent), startY = 0f, endY = 44f),
-			size = Size(size.width, 44f),
-		)
-	}
+): Modifier =
+    this
+        .shadow(elevation, shape, clip = false, ambientColor = Color.Black, spotColor = Color.Black)
+        .clip(shape)
+        .glassFill(if (heavy) PlayerChrome.glassHeavyTop else PlayerChrome.glassTop, blur = true)
+        .border(1.dp, Brush.verticalGradient(listOf(PlayerChrome.rim, PlayerChrome.rimSoft, Color.Transparent)), shape)
+        .drawWithContent {
+            drawContent()
+            drawRect(
+                Brush.verticalGradient(listOf(PlayerChrome.rimSoft, Color.Transparent), startY = 0f, endY = 44f),
+                size = Size(size.width, 44f),
+            )
+        }
 
 /**
  * The deck: a bottom sheet, not a card. It has no shadow, no outline and no corner, and its scrim
  * fades in from the picture, so the frame keeps showing through the top of the controls.
  */
 @Composable
-internal fun Modifier.playerDeck(): Modifier = this
-	.background(
-		Brush.verticalGradient(
-			colorStops = arrayOf(
-				0f to Color.Transparent,
-				0.16f to Color.Black.copy(alpha = 0.38f),
-				0.5f to Color.Black.copy(alpha = 0.76f),
-				1f to Color.Black.copy(alpha = 0.95f),
-			),
-		),
-	)
+internal fun Modifier.playerDeck(): Modifier =
+    this
+        .background(
+            Brush.verticalGradient(
+                colorStops =
+                    arrayOf(
+                        0f to Color.Transparent,
+                        0.16f to Color.Black.copy(alpha = 0.38f),
+                        0.5f to Color.Black.copy(alpha = 0.76f),
+                        1f to Color.Black.copy(alpha = 0.95f),
+                    ),
+            ),
+        )
 
 /** A small glass control well; focus turns it into the solid light pill. */
 @Composable
-internal fun Modifier.playerWell(focused: Boolean, shape: Shape): Modifier = this
-    .clip(shape)
-    .background(if (focused) PlayerChrome.focusFill else PlayerChrome.well, shape)
-    .border(1.dp, if (focused) PlayerChrome.focusFill else PlayerChrome.hairline, shape)
+internal fun Modifier.playerWell(
+    focused: Boolean,
+    shape: Shape,
+): Modifier =
+    this
+        .clip(shape)
+        .background(if (focused) PlayerChrome.focusFill else PlayerChrome.well, shape)
+        .border(1.dp, if (focused) PlayerChrome.focusFill else PlayerChrome.hairline, shape)
 
 /** A softly pulsing live dot: the only ambient motion on the deck. */
 @Composable
 internal fun LiveDot(modifier: Modifier = Modifier) {
-    val pulse = rememberInfiniteTransition(label = "liveDot").animateFloat(
-        initialValue = 0.40f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1_100, easing = LinearEasing), RepeatMode.Reverse),
-        label = "liveDotPulse",
-    )
+    val pulse =
+        rememberInfiniteTransition(label = "liveDot").animateFloat(
+            initialValue = 0.40f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(1_100, easing = LinearEasing), RepeatMode.Reverse),
+            label = "liveDotPulse",
+        )
     Box(modifier.size(6.dp).clip(CircleShape).background(PlayerChrome.ink.copy(alpha = pulse.value)))
 }
 

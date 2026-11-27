@@ -206,6 +206,16 @@ class LauncherPreferences(private val sp: SharedPreferences) {
         get() = sp.getFloat("media_card_focus_scale", 1.06f).coerceIn(1.0f, 1.2f)
         set(v) = sp.edit().putFloat("media_card_focus_scale", v.coerceIn(1.0f, 1.2f)).apply()
 
+    /** Saved accent preset id; unknown values fall back to Cartel Red in ThemePresets. */
+    var themePreset: String
+        get() = sp.getString("theme_preset", "cartel") ?: "cartel"
+        set(v) = sp.edit().putString("theme_preset", v).apply()
+
+    /** Solid glass surfaces for viewers who need steadier contrast. */
+    var reduceTransparency: Boolean
+        get() = sp.getBoolean("glass_reduce_transparency", false)
+        set(v) = sp.edit().putBoolean("glass_reduce_transparency", v).apply()
+
     /** Active ADW/Nova/Go icon pack package name; empty = stock app icons. */
     var iconPack: String
         get() = sp.getString("icon_pack", "") ?: ""

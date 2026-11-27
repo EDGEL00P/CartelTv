@@ -28,6 +28,7 @@ import com.carteltv.tv.nav.Nav
 import com.carteltv.tv.nav.Route
 import com.carteltv.tv.ui.components.EmptyState
 import com.carteltv.tv.ui.components.FilterChip
+import com.carteltv.tv.ui.components.PageLoading
 import com.carteltv.tv.ui.components.PosterTile
 import com.carteltv.tv.ui.components.RailFocusLine
 import com.carteltv.tv.ui.components.SectionTitle
@@ -54,9 +55,11 @@ fun DiscoverScreen() {
     var media by remember { mutableStateOf(DiscoverMedia.MIXED) }
     var genre by remember { mutableStateOf<Pair<String, Int>?>(null) }
     var rows by remember { mutableStateOf<List<DiscoverRow>?>(null) }
+    var loadFailed by remember { mutableStateOf(false) }
 
     LaunchedEffect(key, media, genre) {
         rows = null
+        loadFailed = false
         if (key.isBlank()) {
             rows = emptyList()
             return@LaunchedEffect
@@ -67,7 +70,8 @@ fun DiscoverScreen() {
                 DiscoverMedia.MIXED -> listOf("movie" to "Movies", "tv" to "Shows")
             }
             kinds.mapNotNull { (g, label) ->
-                val cards = suspendRunCatching { DiscoveryFeeds.discover(key, g, genre?.second) }.getOrDefault(emptyList())
+                val cards = suspendRunCatching { DiscoveryFeeds.discover(key, g, genre?.second) }
+                    .getOrElse { loadFailed = true; emptyList() }
                 DiscoverRow("genre:$g", "${genre?.first} · $label", cards).takeIf { cards.isNotEmpty() }
             }
         } else {
@@ -80,7 +84,7 @@ fun DiscoverScreen() {
                             ?: DiscoveryFeeds.discover(key, "tv", null)
                         else -> DiscoveryFeeds.row(key, feed)
                     }
-                }.getOrDefault(emptyList()).distinctBy { it.id }
+                }.getOrElse { loadFailed = true; emptyList() }.distinctBy { it.id }
                 DiscoverRow("${feed.name}:${media.name}", feed.label, cards).takeIf { cards.isNotEmpty() }
             }
         }
@@ -114,7 +118,12 @@ fun DiscoverScreen() {
                             hint = "Add a free TMDB key in Settings › Accounts to fill these rows.",
                             modifier = Modifier.fillMaxSize(),
                         )
-                        shown == null -> Box(Modifier.fillMaxSize())
+                        shown == null -> PageLoading(Modifier.fillMaxSize())
+                        shown.isEmpty() && loadFailed -> EmptyState(
+                            "Couldn't load Discover.",
+                            hint = "Check the connection and try again.",
+                            modifier = Modifier.fillMaxSize(),
+                        )
                         shown.isEmpty() -> EmptyState("Nothing to discover.", modifier = Modifier.fillMaxSize())
                         else -> RailFocusLine {
                             LazyColumn(

@@ -156,9 +156,9 @@ data class TitleFocus(
 val LocalTitleFocus = staticCompositionLocalOf<((TitleFocus?) -> Unit)?> { null }
 
 /**
- * Card artwork with a broadcast-plate treatment: a quiet gradient ground while loading, a
- * crossfade on arrival, and a monogram fallback when art is missing or the source fails, so no
- * tile is ever a blank rectangle. Fills its parent; call from a clipped Box.
+ * Card artwork with a quiet ground while loading, a crossfade on arrival, and a readable title
+ * fallback when art is missing or the source fails, so no tile is ever a blank rectangle.
+ * Fills its parent; call from a clipped Box.
  */
 @Composable
 fun CardArtwork(
@@ -175,11 +175,11 @@ fun CardArtwork(
             ),
         )
         if (url.isNullOrBlank() || failed) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().padding(ThemeSpec.Space.xl), contentAlignment = Alignment.Center) {
                 Text(
-                    monogramOf(title), fontSize = 30.sp, fontFamily = ThemeSpec.Font.broadcast,
-                    fontWeight = FontWeight.Black, letterSpacing = ThemeSpec.Type.trackCaps,
-                    color = ThemeSemantics.onMediaMuted, maxLines = 1,
+                    title, fontSize = ThemeSpec.Type.cardTitle, fontFamily = ThemeSpec.Font.broadcast,
+                    fontWeight = FontWeight.SemiBold, color = ThemeSemantics.onMediaMuted,
+                    textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
             }
         } else {
@@ -193,10 +193,6 @@ fun CardArtwork(
         }
     }
 }
-
-/** First letter or digit of a title, for the fallback plate. */
-private fun monogramOf(title: String): String =
-    title.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "?"
 
 /**
  * The one title tile used by every row and grid. Artwork only at rest; on focus it lifts, takes a

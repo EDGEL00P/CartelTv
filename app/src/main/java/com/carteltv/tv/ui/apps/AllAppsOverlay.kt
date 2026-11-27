@@ -124,7 +124,7 @@ fun AllAppsOverlay() {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = ThemeSpec.Safe.horizontal, vertical = ThemeSpec.Space.md),
+                    .padding(start = ThemeSpec.Space.margin, top = ThemeSpec.Space.md, end = ThemeSpec.Safe.horizontal, bottom = ThemeSpec.Space.md),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 AutoSizeText(
@@ -141,7 +141,7 @@ fun AllAppsOverlay() {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(start = ThemeSpec.Safe.horizontal, end = ThemeSpec.Safe.horizontal, bottom = ThemeSpec.Space.cozy)
+                    .padding(start = ThemeSpec.Space.margin, end = ThemeSpec.Safe.horizontal, bottom = ThemeSpec.Space.cozy)
                     .clip(RoundedCornerShape(ThemeSpec.Card.corner))
                     .background(ThemeSemantics.textEmphatic.copy(alpha = 0.06f))
                     .border(1.dp, ThemeSemantics.hairline, RoundedCornerShape(ThemeSpec.Card.corner))

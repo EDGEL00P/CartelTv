@@ -19,6 +19,9 @@ object AppPreferences {
     private lateinit var sp: SharedPreferences
     private val json get() = HttpSupport.json
 
+    /** App context for Watch Next publishing hooks; null in JVM tests that call install() directly. */
+    private var appContext: Context? = null
+
     /* ── domain instances (lazy; sp is set by init() / install()) ── */
 
     private val providerPreferences by lazy { ProviderPreferences(sp, json) }
@@ -47,7 +50,10 @@ object AppPreferences {
     private val streamPreferences by lazy { StreamPreferences(sp) }
     private val shelfPreferences by lazy { ShelfPreferences(sp, json) }
 
-    fun init(ctx: Context) = install(ctx.getSharedPreferences("carteltv", Context.MODE_PRIVATE))
+    fun init(ctx: Context) {
+        appContext = ctx.applicationContext
+        install(ctx.getSharedPreferences("carteltv", Context.MODE_PRIVATE))
+    }
 
     /** Binds the backing store; tests pass an in-memory SharedPreferences. */
     internal fun install(store: SharedPreferences) {
@@ -240,10 +246,22 @@ object AppPreferences {
 
     fun recents(): List<String> = watchHistoryPreferences.recents()
 
-    fun removeRecent(entry: String) = watchHistoryPreferences.removeRecent(entry)
+    fun removeRecent(entry: String) {
+        watchHistoryPreferences.removeRecent(entry)
+        removeWatchNextFor(parseRecent(entry).ref)
+    }
 
     /** Drops a continue-watching card by ref, whatever entry grammar stored it. */
-    fun removeRecentByRef(ref: String) = watchHistoryPreferences.removeRecentByRef(ref)
+    fun removeRecentByRef(ref: String) {
+        watchHistoryPreferences.removeRecentByRef(ref)
+        removeWatchNextFor(ref)
+    }
+
+    /** A dismissed recent must not survive in the system Watch Next row. No-op for non-publishable refs. */
+    private fun removeWatchNextFor(ref: String) {
+        if (ref.isBlank()) return
+        appContext?.let { com.carteltv.tv.data.watch.WatchNextPublisher.recentRemoved(it, ref) }
+    }
 
     fun hiddenWatchNext(): Set<String> = watchHistoryPreferences.hiddenWatchNext()
 
@@ -271,6 +289,10 @@ object AppPreferences {
     fun notePlayback(ref: String, title: String, url: String, poster: String,
                      positionMs: Long, durationMs: Long) {
         watchHistoryPreferences.notePlayback(ref, title, url, poster, positionMs, durationMs)
+        // Google TV Watch Next: publish/remove the system row for this ref, off the main thread.
+        val app = appContext ?: return
+        val entry = watchHistoryPreferences.recentEntries().firstOrNull { it.ref == ref } ?: return
+        com.carteltv.tv.data.watch.WatchNextPublisher.notePlayback(app, entry)
     }
 
     /** 0.25..4.0, 1f when unset (per-title speed). */
@@ -754,6 +776,14 @@ object AppPreferences {
     var mediaCardFocusScale: Float
         get() = launcherPreferences.mediaCardFocusScale
         set(v) { launcherPreferences.mediaCardFocusScale = v }
+
+    var themePreset: String
+        get() = launcherPreferences.themePreset
+        set(v) { launcherPreferences.themePreset = v }
+
+    var reduceTransparency: Boolean
+        get() = launcherPreferences.reduceTransparency
+        set(v) { launcherPreferences.reduceTransparency = v }
 
     var iconPack: String
         get() = launcherPreferences.iconPack

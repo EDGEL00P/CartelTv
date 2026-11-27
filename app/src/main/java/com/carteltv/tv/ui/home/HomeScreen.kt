@@ -4,30 +4,59 @@
 )
 
 package com.carteltv.tv.ui.home
-import com.carteltv.tv.data.espn.GameChannelFinder
-import kotlinx.coroutines.launch
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Text
+import com.carteltv.tv.alert.KickoffAlertScheduler
+import com.carteltv.tv.core.suspendRunCatching
+import com.carteltv.tv.data.apps.InstalledAppsCache
+import com.carteltv.tv.data.discovery.DiscoveryFeeds
+import com.carteltv.tv.data.espn.EspnScoreboardClient
+import com.carteltv.tv.data.espn.GameChannelFinder
 import com.carteltv.tv.data.espn.LeagueCatalog
 import com.carteltv.tv.data.espn.ScoreboardRepository
-import com.carteltv.tv.alert.KickoffAlertScheduler
-import com.carteltv.tv.data.apps.InstalledAppsCache
-import com.carteltv.tv.data.espn.EspnScoreboardClient
-import com.carteltv.tv.data.discovery.DiscoveryFeeds
 import com.carteltv.tv.data.events.Holidays
 import com.carteltv.tv.data.events.MajorEvent
 import com.carteltv.tv.data.events.MajorEvents
-import com.carteltv.tv.data.finance.ExchangeRates
 import com.carteltv.tv.data.finance.ExchangeRateService
+import com.carteltv.tv.data.finance.ExchangeRates
 import com.carteltv.tv.data.preferences.AppPreferences
 import com.carteltv.tv.data.stremio.StremioClient
+import com.carteltv.tv.data.watch.WatchNextItem
+import com.carteltv.tv.data.watch.WatchNextRepository
 import com.carteltv.tv.data.weather.AirQuality
 import com.carteltv.tv.data.weather.AirQualityService
 import com.carteltv.tv.data.weather.Forecast
 import com.carteltv.tv.data.weather.Place
-import com.carteltv.tv.data.weather.WeatherService
+import com.carteltv.tv.data.weather.VenueWeather
 import com.carteltv.tv.data.weather.WeatherClient
-import com.carteltv.tv.data.watch.WatchNextItem
-import com.carteltv.tv.data.watch.WatchNextRepository
+import com.carteltv.tv.data.weather.WeatherService
 import com.carteltv.tv.data.xtream.GuideModel
 import com.carteltv.tv.data.xtream.LiveChannels
 import com.carteltv.tv.data.xtream.ProviderSession
@@ -57,55 +86,21 @@ import com.carteltv.tv.ui.hero.HeroSlide
 import com.carteltv.tv.ui.hero.HeroSlider
 import com.carteltv.tv.ui.hero.HeroWeather
 import com.carteltv.tv.ui.hero.bigEvents
-import com.carteltv.tv.ui.sports.GameSheet
-import java.text.SimpleDateFormat
-import java.util.Locale
-import java.util.TimeZone
 import com.carteltv.tv.ui.hero.buildHeroItems
-import com.carteltv.tv.ui.hero.readArt
 import com.carteltv.tv.ui.live.GuideMetadata
 import com.carteltv.tv.ui.nav.AppOverlayHost
 import com.carteltv.tv.ui.nav.HomeMenuSpec
 import com.carteltv.tv.ui.nav.HomePinSpec
 import com.carteltv.tv.ui.nav.ShellChrome
-import com.carteltv.tv.ui.nav.TopBarClearance
+import com.carteltv.tv.ui.sports.GameSheet
 import com.carteltv.tv.ui.theme.*
-
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.tv.material3.Text
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusProperties
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
-import com.carteltv.tv.core.suspendRunCatching
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 private const val FOCUS_SETTLE_MS = 350L
 
@@ -139,9 +134,10 @@ fun HomeScreen(
     var activePin by remember { mutableStateOf<HomePinSpec?>(null) }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) recentsHash++
-        }
+        val observer =
+            androidx.lifecycle.LifecycleEventObserver { _, event ->
+                if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) recentsHash++
+            }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
@@ -162,23 +158,26 @@ fun HomeScreen(
         }
     }
 
-    val hourNow = remember(now) { java.util.Calendar.getInstance().apply { time = now }.get(java.util.Calendar.HOUR_OF_DAY) }
+    val hourNow =
+        remember(now) {
+            java.util.Calendar
+                .getInstance()
+                .apply { time = now }
+                .get(java.util.Calendar.HOUR_OF_DAY)
+        }
     // Up Next owns what is being watched, so the banner takes none of it: the same title twice, one above the
     // other, reads as a repeat.
-    val upNextKeys = remember(recentsV2, watchNext) {
-        resumeRecents(recentsV2, Int.MAX_VALUE).map { titleKey(splitTitle(it.title).name) } + watchNext.map { titleKey(it.title) }
-    }
-    val heroItems = remember(recentsHash, channels.hashCode(), movies.hashCode(), hourNow, cwArt, upNextKeys) {
-        buildHeroItems(recentsV2, channels, movies, hourNow, cwArt, shown = upNextKeys.toSet())
-    }
+    val upNextKeys =
+        remember(recentsV2, watchNext) {
+            resumeRecents(recentsV2, Int.MAX_VALUE).map { titleKey(splitTitle(it.title).name) } + watchNext.map { titleKey(it.title) }
+        }
+    val heroItems =
+        remember(recentsHash, channels.hashCode(), movies.hashCode(), hourNow, cwArt, upNextKeys) {
+            buildHeroItems(recentsV2, channels, movies, hourNow, cwArt, shown = upNextKeys.toSet())
+        }
 
     var heroIndex by remember { mutableIntStateOf(0) }
 
-    // The colour of the artwork holding the banner; the stage washes with it so the banner and the shelves blend.
-    var ambientTint by remember { mutableStateOf<Color?>(null) }
-
-    // The focused row card steals the stage instead — the full colour-thieving behaviour.
-    var cardTint by remember { mutableStateOf<Color?>(null) }
     // The game whose options sheet OK opened from the hero; the sheet lives at the root beside StreamPickerHost.
     var heroGame by remember { mutableStateOf<Pair<String, EspnScoreboardClient.Score>?>(null) }
     var movieRows by remember { mutableStateOf<List<CatalogRow>>(emptyList()) }
@@ -195,40 +194,62 @@ fun HomeScreen(
     }
     LaunchedEffect(started) {
         if (!started) return@LaunchedEffect
-        ytTrending = suspendRunCatching { YouTubeApiClient.homeFeed().firstOrNull()?.videos.orEmpty() }.getOrDefault(emptyList())
+        ytTrending =
+            suspendRunCatching {
+                YouTubeApiClient
+                    .homeFeed()
+                    .firstOrNull()
+                    ?.videos
+                    .orEmpty()
+            }.getOrDefault(emptyList())
     }
     LaunchedEffect(started) {
         if (!started) return@LaunchedEffect
         val key = AppPreferences.tmdbKey
-        recommended = if (key.isBlank()) emptyList() else suspendRunCatching {
-            DiscoveryFeeds.row(key, DiscoveryFeeds.Feed.NOW_PLAYING, mixTv = false).map { c ->
-                StremioClient.Metum(
-                    id = "tmdb:${c.media}:${c.id}",
-                    type = c.media,
-                    name = c.title,
-                    poster = DiscoveryFeeds.posterUrl(c.poster),
-                    background = null,
-                    releaseInfo = c.year,
-                    imdbRating = c.rating?.let { "%.1f".format(it) },
-                )
+        recommended =
+            if (key.isBlank()) {
+                emptyList()
+            } else {
+                suspendRunCatching {
+                    DiscoveryFeeds.row(key, DiscoveryFeeds.Feed.NOW_PLAYING, mixTv = false).map { c ->
+                        StremioClient.Metum(
+                            id = "tmdb:${c.media}:${c.id}",
+                            type = c.media,
+                            name = c.title,
+                            poster = DiscoveryFeeds.posterUrl(c.poster),
+                            background = null,
+                            releaseInfo = c.year,
+                            imdbRating = c.rating?.let { "%.1f".format(it) },
+                        )
+                    }
+                }.getOrDefault(emptyList())
             }
-        }.getOrDefault(emptyList())
     }
     val movieItems = remember(movieRows) { movieRows.flatMap { it.items } }
     // With nothing of its own to open, the greeting's OK goes where its text points: to setup, or to the provider's own sections.
-    val fallbackHero = movieItems.firstOrNull { !(it.background ?: it.poster).isNullOrBlank() }?.toHero() ?: HeroItem(
-        title = cartelGreeting(hourNow),
-        art = null,
-        description = if (ProviderSession.current != null) "Pick something to watch." else "Connect a TV provider in Settings to fill this screen.",
-        badge = null,
-        refId = "",
-        url = "",
-        opens = when {
-            ProviderSession.current == null -> AppSection.SETUP
-            channels.isNotEmpty() -> AppSection.LIVE
-            else -> AppSection.MOVIES
-        },
-    )
+    val greetingLocale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+    val greetingDate = SimpleDateFormat("EEEE d MMMM", greetingLocale).format(now).uppercase(greetingLocale)
+    val fallbackHero =
+        movieItems.firstOrNull { !(it.background ?: it.poster).isNullOrBlank() }?.toHero() ?: HeroItem(
+            title = cartelGreeting(hourNow),
+            art = null,
+            artRes = cartelGreetingArt(hourNow),
+            description =
+                if (ProviderSession.current == null) {
+                    "Connect a TV provider in Settings to fill this screen."
+                } else {
+                    cartelGreetingTagline(hourNow)
+                },
+            badge = greetingDate,
+            refId = "",
+            url = "",
+            opens =
+                when {
+                    ProviderSession.current == null -> AppSection.SETUP
+                    channels.isNotEmpty() -> AppSection.LIVE
+                    else -> AppSection.MOVIES
+                },
+        )
     val place = remember(AppPreferences.weatherLat, AppPreferences.weatherLon) { Place.current() }
     var forecast by remember { mutableStateOf<Forecast?>(null) }
     var fallbackWeather by remember { mutableStateOf<WeatherClient.Conditions?>(null) }
@@ -280,49 +301,58 @@ fun HomeScreen(
     }
     val crewTick = KickoffAlertScheduler.version
     val minuteMs = now.time / 60_000L * 60_000L
-    val bigGames = remember(scores, crewTick, minuteMs) {
-        bigEvents(
-            scores, AppPreferences.sportsFavoriteLeague, minuteMs,
-            involvesCrew = { league, game -> KickoffAlertScheduler.involvesCrew(ctx, league, game) },
-        )
-    }
+    val bigGames =
+        remember(scores, crewTick, minuteMs) {
+            bigEvents(
+                scores,
+                AppPreferences.sportsFavoriteLeague,
+                minuteMs,
+                involvesCrew = { league, game -> KickoffAlertScheduler.involvesCrew(ctx, league, game) },
+            )
+        }
     val eventPicks = remember(guideEvents, minuteMs) { MajorEvents.picks(guideEvents, minuteMs) }
     // Each league's own mark, from the feeds on show, for an event that belongs to one of them.
-    val leagueLogos = remember(scores) { scores.entries.mapNotNull { (league, games) -> games.firstNotNullOfOrNull { it.leagueLogo }?.let { league to it } }.toMap() }
+    val leagueLogos =
+        remember(scores) {
+            scores.entries
+                .mapNotNull { (league, games) ->
+                    games.firstNotNullOfOrNull { it.leagueLogo }?.let {
+                        league to
+                            it
+                    }
+                }.toMap()
+        }
     val holiday = remember(minuteMs / HOUR_MS, country) { Holidays.next(java.time.LocalDate.now(), Holidays.regionOf(country)) }
     val mediaHeroes = heroItems.ifEmpty { listOf(fallbackHero) }
     // What you must not miss leads the carousel: live games first, then the soonest kickoffs, then event
     // picks, then media; the holiday countdown trails — it may be weeks out, so it never fronts what to
     // watch tonight. Games never sit in the media carousel.
-    val slides = remember(eventPicks, leagueLogos, holiday, mediaHeroes, forecast != null, bigGames) {
-        // A plain live game must never sit behind a favourite that has not started: live first, then by kickoff.
-        val orderedGames = bigGames.sortedWith(compareBy({ !it.live }, { if (it.live) 0L else it.game.startMs }))
-        orderedGames.take(2).map { HeroSlide.Game(it) } +
-            eventPicks.map { HeroSlide.Event(it, leagueMark(leagueLogos, it.sport)) } +
-            mediaHeroes.map { HeroSlide.Media(it) } +
-            listOfNotNull(holiday?.let { HeroSlide.HolidayCountdown(it) }) +
-            listOfNotNull(HeroSlide.Outlook.takeIf { forecast != null })
-    }
+    val slides =
+        remember(eventPicks, leagueLogos, holiday, mediaHeroes, forecast != null, bigGames) {
+            // A plain live game must never sit behind a favourite that has not started: live first, then by kickoff.
+            val orderedGames = bigGames.sortedWith(compareBy({ !it.live }, { if (it.live) 0L else it.game.startMs }))
+            orderedGames.take(2).map { HeroSlide.Game(it) } +
+                eventPicks.map { HeroSlide.Event(it, leagueMark(leagueLogos, it.sport)) } +
+                mediaHeroes.map { HeroSlide.Media(it) } +
+                listOfNotNull(holiday?.let { HeroSlide.HolidayCountdown(it) }) +
+                listOfNotNull(HeroSlide.Outlook.takeIf { forecast != null })
+        }
 
     /* ── Focus-settle: the hero follows a focused game card once focus rests. A title card never doubles up
        there, because its card right beneath already shows it. ── */
     var focusedTitle by remember { mutableStateOf<TitleFocus?>(null) }
 
-    // Colour-thieving from the rows: every card reports its art on focus, and the stage re-tints
-    // from it while focus is on it — the reads are cached and 24px small, so browsing stays free.
-    LaunchedEffect(focusedTitle?.art) {
-        cardTint = focusedTitle?.art?.takeIf { it.isNotBlank() }?.let { readArt(ctx, it)?.tint }
-    }
     var settledGame by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(focusedTitle?.gameKey) {
         delay(FOCUS_SETTLE_MS)
         settledGame = focusedTitle?.gameKey
     }
-    val focusedGame = settledGame?.let { key ->
-        scores.firstNotNullOfOrNull { (league, list) ->
-            list.firstOrNull { "$league:${it.name}" == key }?.let { BigEvent(league, it, EventReason.LIVE) }
+    val focusedGame =
+        settledGame?.let { key ->
+            scores.firstNotNullOfOrNull { (league, list) ->
+                list.firstOrNull { "$league:${it.name}" == key }?.let { BigEvent(league, it, EventReason.LIVE) }
+            }
         }
-    }
     var rotateTick by remember { mutableIntStateOf(0) }
     LaunchedEffect(bigGames.firstOrNull()?.key) {
         heroIndex = 0
@@ -356,12 +386,20 @@ fun HomeScreen(
         if (!started) return@LaunchedEffect
         var maxAge = 45_000L
         while (true) {
-            scores = coroutineScope {
-                LeagueCatalog.DEFAULT_LEAGUES.map { (l, p) -> async { l to ScoreboardRepository.scoreboard(p, maxAgeMs = maxAge) } }.awaitAll().toMap()
-            }
+            scores =
+                coroutineScope {
+                    LeagueCatalog.DEFAULT_LEAGUES
+                        .map { (l, p) ->
+                            async { l to ScoreboardRepository.scoreboard(p, maxAgeMs = maxAge) }
+                        }.awaitAll()
+                        .toMap()
+                }
             scoresSettled = true
             maxAge = com.carteltv.tv.data.espn.ScoreRefreshPolicy.SHARE_MS
-            delay(com.carteltv.tv.data.espn.ScoreRefreshPolicy.nextDelayMs(scores.values.flatten(), System.currentTimeMillis()))
+            delay(
+                com.carteltv.tv.data.espn.ScoreRefreshPolicy
+                    .nextDelayMs(scores.values.flatten(), System.currentTimeMillis()),
+            )
         }
     }
     // Initial load: channels go through the shared cached copy, movies through the provider.
@@ -387,19 +425,31 @@ fun HomeScreen(
     val guideSlot = now.time / GUIDE_SLOT_MS
     LaunchedEffect(channels, guideSlot) {
         val c = ProviderSession.current ?: return@LaunchedEffect
-        guide = coroutineScope {
-            channels.take(LIVE_SHELF_CHANNELS).map { s ->
-                async {
-                    val e = suspendRunCatching { c.shortEpg(s.streamId, 2).firstOrNull() }.getOrNull()
-                    val title = e?.title?.takeIf { it.isNotBlank() } ?: return@async null
-                    val from = e.startTs?.toLongOrNull()
-                    val to = e.stopTs?.toLongOrNull()
-                    val nowS = System.currentTimeMillis() / 1000
-                    val p = if (from != null && to != null && to > from) ((nowS - from).toFloat() / (to - from)).coerceIn(0f, 1f) else 0f
-                    s.streamId to NowOn(GuideModel.cleanTitle(title), p)
-                }
-            }.awaitAll().filterNotNull().toMap()
-        }
+        guide =
+            coroutineScope {
+                channels
+                    .take(LIVE_SHELF_CHANNELS)
+                    .map { s ->
+                        async {
+                            val e = suspendRunCatching { c.shortEpg(s.streamId, 2).firstOrNull() }.getOrNull()
+                            val title = e?.title?.takeIf { it.isNotBlank() } ?: return@async null
+                            val from = e.startTs?.toLongOrNull()
+                            val to = e.stopTs?.toLongOrNull()
+                            val nowS = System.currentTimeMillis() / 1000
+                            val p =
+                                if (from != null && to != null &&
+                                    to > from
+                                ) {
+                                    ((nowS - from).toFloat() / (to - from)).coerceIn(0f, 1f)
+                                } else {
+                                    0f
+                                }
+                            s.streamId to NowOn(GuideModel.cleanTitle(title), p)
+                        }
+                    }.awaitAll()
+                    .filterNotNull()
+                    .toMap()
+            }
     }
 
     var onboard by remember { mutableStateOf(if (AppPreferences.onboardingDone()) -1 else 0) }
@@ -417,143 +467,213 @@ fun HomeScreen(
     // The live games the glance row leads with, read once so the card and its label stay in step.
     val liveNow = remember(scores) { scores.values.flatten().filter { it.state == "in" } }
     val liveLabel = stringResource(com.carteltv.tv.R.string.live_action, liveNow.size)
-    val glance = remember(air, rates, place.name, fallbackWeather, liveNow, liveLabel, now) {
-        buildList {
-            val zone = TimeZone.getDefault()
-            val localTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now)
-            val zoneLabel = zone.getDisplayName(zone.inDaylightTime(now), TimeZone.SHORT)
-            /* ── Sports: one card with the scores that are live now, leading the row's live data ── */
-            if (liveNow.isNotEmpty()) {
-                // The card reads three lines: when more than three games are on, two scores plus "+N more live".
-                fun scoreLine(g: EspnScoreboardClient.Score): String {
-                    val status = com.carteltv.tv.ui.sports.stateLabel(g, now.time).removePrefix("LIVE ")
-                    return "${g.abbrB ?: "?"} ${g.scoreB ?: "0"}\u2013${g.scoreA ?: "0"} ${g.abbrA ?: "?"}" +
-                        status.takeIf { it.isNotBlank() }?.let { " \u00b7 $it" }.orEmpty()
-                }
-                val crowded = liveNow.size > 3
-                val lines = liveNow.take(if (crowded) 2 else 3).map(::scoreLine) +
-                    if (crowded) listOf("+${liveNow.size - 2} more live") else emptyList()
-                add(
-                    ShelfEntry.Info(
-                        "glance:sports", "Sports", { SectionNav.go(AppSection.SPORTS) },
-                        liveLabel, lines, ThemeSemantics.live,
-                    ),
-                )
-            }
-            fallbackWeather?.let { w ->
-                add(
-                    ShelfEntry.Info(
-                        "glance:weather", "Weather", { SectionNav.go(AppSection.WEATHER) },
-                        "%.0f°".format(w.tempC),
-                        listOf("${place.name.ifBlank { "Your location" }} · $localTime $zoneLabel", w.label, "Humidity ${w.humidity}%"),
-                        ThemeSemantics.info,
-                    ),
-                )
-            }
-            rates?.let { r ->
-                // Three lines on the card: two rates, then when the numbers were current.
-                val lines = r.rates.take(2).map { rate ->
-                    val move = rate.changePct?.let { " ${ExchangeRateService.signedPercent(it)}" }.orEmpty()
-                    "${rate.code} ${ExchangeRateService.format(rate.value)}$move"
-                } + "Updated ${r.date}"
-                add(ShelfEntry.Info("glance:fx", "Exchange rates", { SectionNav.go(AppSection.WEATHER) }, "1 ${r.base}", lines, ThemeSemantics.info))
-            }
-            air?.takeIf { AppPreferences.weatherAqi }?.let { a ->
-                add(
-                    ShelfEntry.Info(
-                        "glance:aqi", "Air quality", { SectionNav.go(AppSection.WEATHER) },
-                        "AQI ${a.usAqi}",
-                        listOf(a.level.label, a.pm25?.let { "PM2.5 %.1f µg/m³".format(it) } ?: "Live reading"),
-                        when (a.level) {
-                            com.carteltv.tv.data.weather.AirLevel.GOOD -> ThemeSemantics.success
-                            com.carteltv.tv.data.weather.AirLevel.MODERATE -> ThemeSemantics.warning
-                            else -> ThemeSemantics.danger
-                        },
+    val glance =
+        remember(air, rates, place.name, fallbackWeather, liveNow, liveLabel, now) {
+            buildList {
+                // ── Sports: one card with the scores that are live now, leading the row's live data ──
+                if (liveNow.isNotEmpty()) {
+                    // The card reads three lines: when more than three games are on, two scores plus "+N more live".
+                    fun scoreLine(g: EspnScoreboardClient.Score): String {
+                        val status =
+                            com.carteltv.tv.ui.sports
+                                .stateLabel(g, now.time)
+                                .removePrefix("LIVE ")
+                        return "${g.abbrB ?: "?"} ${g.scoreB ?: "0"}\u2013${g.scoreA ?: "0"} ${g.abbrA ?: "?"}" +
+                            status.takeIf { it.isNotBlank() }?.let { " \u00b7 $it" }.orEmpty()
+                    }
+                    val crowded = liveNow.size > 3
+                    val lines =
+                        liveNow.take(if (crowded) 2 else 3).map(::scoreLine) +
+                            if (crowded) listOf("+${liveNow.size - 2} more live") else emptyList()
+                    add(
+                        ShelfEntry.Info(
+                            "glance:sports",
+                            "Sports",
+                            { SectionNav.go(AppSection.SPORTS) },
+                            liveLabel,
+                            lines,
+                            ThemeSemantics.live,
+                        ),
                     )
-                )
+                }
+                fallbackWeather?.let { w ->
+                    val localTime = VenueWeather.localTime(now.time, w.utcOffsetSec, AppPreferences.clock24)
+                    val zoneLabel = VenueWeather.utcLabel(w.utcOffsetSec)
+                    add(
+                        ShelfEntry.Info(
+                            "glance:weather",
+                            "Weather",
+                            { SectionNav.go(AppSection.WEATHER) },
+                            "%.0f°".format(w.tempC),
+                            listOf("${place.name.ifBlank { "Your location" }} · $localTime $zoneLabel", w.label, "Humidity ${w.humidity}%"),
+                            ThemeSemantics.info,
+                        ),
+                    )
+                }
+                rates?.let { r ->
+                    // Three lines on the card: two rates, then when the numbers were current.
+                    val lines =
+                        r.rates.take(2).map { rate ->
+                            val move = rate.changePct?.let { " ${ExchangeRateService.signedPercent(it)}" }.orEmpty()
+                            "${rate.code} ${ExchangeRateService.format(rate.value)}$move"
+                        } + "Updated ${r.date}"
+                    add(
+                        ShelfEntry.Info(
+                            "glance:fx",
+                            "Exchange rates",
+                            { SectionNav.go(AppSection.WEATHER) },
+                            "1 ${r.base}",
+                            lines,
+                            ThemeSemantics.info,
+                        ),
+                    )
+                }
+                air?.takeIf { AppPreferences.weatherAqi }?.let { a ->
+                    add(
+                        ShelfEntry.Info(
+                            "glance:aqi",
+                            "Air quality",
+                            { SectionNav.go(AppSection.WEATHER) },
+                            "AQI ${a.usAqi}",
+                            listOf(a.level.label, a.pm25?.let { "PM2.5 %.1f µg/m³".format(it) } ?: "Live reading"),
+                            when (a.level) {
+                                com.carteltv.tv.data.weather.AirLevel.GOOD -> ThemeSemantics.success
+                                com.carteltv.tv.data.weather.AirLevel.MODERATE -> ThemeSemantics.warning
+                                else -> ThemeSemantics.danger
+                            },
+                        ),
+                    )
+                }
             }
         }
-    }
-    val shelves = remember(recentsHash, recentsV2, scores, bigGames, channels, movies, vodCategories, guide, watchNext, movieRows, cwArt, apps, ytTrending, recommended, glance) {
-        buildHomeShelves(
-            ctx = ctx, recents = recentsV2, watchNext = watchNext, scores = scores, bigGames = bigGames,
-            channels = channels, onNow = guide, vodCategories = vodCategories, movies = movies, cine = movieRows,
-            apps = apps, cwArt = cwArt, ytTrending = ytTrending, recommended = recommended, glance = glance,
-            onPlay = onPlay, onCine = { m -> Nav.push(Route.Meta(m.type ?: "movie", m.id, m.name, m.poster)) }, onChanged = { recentsHash++ },
-            onAppMenu = { activeMenu = it }, onAppPin = { activePin = it },
-        )
-    }
-
-    Box(Modifier.fillMaxSize()) {
-        // The colour-thief canvas: the focused row card's artwork colour covers the whole screen,
-        // and back on the hero the wash anchors at the banner's foot, rising from its art with no
-        // seam. The anchor travels with the house scene curve, so the two read as one move.
-        val stageAnchor by animateDpAsState(
-            targetValue = if (cardTint != null) 0.dp else HomeHeroHeight - TopBarClearance,
-            animationSpec = tween(ThemeSpec.Motion.DUR_SLOW, easing = ThemeSpec.Motion.easeStandard),
-            label = "stageAnchor",
-        )
-        AmbientStage(cardTint ?: ambientTint, from = stageAnchor)
-        // Nothing of Home composes behind the first-run tour, so no app row shows until it is finished.
-        if (onboard < 0) CompositionLocalProvider(LocalTitleFocus provides { focusedTitle = it }) {
-            HomeStage(
-                hero = { m, inset ->
-                    HeroSlider(
-                        slides = slides,
-                        index = heroIndex.coerceIn(0, (slides.size - 1).coerceAtLeast(0)),
-                        onIndexChange = { heroIndex = it; rotateTick++ },
-                        onOpen = { slide ->
-                            when (slide) {
-                                // An add-on title has no stream URL of its own: OK opens its detail page.
-                                is HeroSlide.Media -> if (slide.item.url.isNotBlank()) {
-                                    onPlay(slide.item.url, slide.item.title, slide.item.refId)
-                                } else {
-                                    movieItems.firstOrNull { it.name == slide.item.title }?.let { m ->
-                                        Nav.push(Route.Meta(m.type ?: "movie", m.id, m.name, m.poster))
-                                    }
-                                        // Failing that it is the greeting, which opens the section it points to.
-                                        ?: slide.item.opens?.let(SectionNav::go)
-                                }
-                                is HeroSlide.Event -> SectionNav.go(AppSection.SPORTS)
-                                // A game plays on the viewer's own channel that carries it; only with no match does OK open Sports.
-                                is HeroSlide.Game ->
-                                    if (slide.game.live) homeScope.launch {
-                                        val match = GameChannelFinder.best(ctx, slide.game.game, slide.game.league)
-                                        val client = ProviderSession.current
-                                        if (match != null && client != null) {
-                                            onPlay(client.liveUrl(match.stream.streamId), match.stream.name, "live:${match.stream.streamId}")
-                                        } else {
-                                            SectionNav.go(AppSection.SPORTS)
-                                        }
-                                    } else {
-                                        // An upcoming game has nothing to play yet: OK opens its options sheet, where a
-                                        // kickoff alert and the channel pick live.
-                                        heroGame = slide.game.league to slide.game.game
-                                    }
-                                is HeroSlide.HolidayCountdown -> Unit
-                                else -> SectionNav.go(AppSection.WEATHER)
-                            }
-                        },
-                        // Up reaches the always-visible top navigation. Left and Right turn the hero
-                        // pages when there is more than one slide.
-                        modifier = m.focusProperties {
-                            if (slides.size < 2) {
-                                left = FocusRequester.Cancel
-                                right = FocusRequester.Cancel
-                            }
-                            up = ShellChrome.barFocus
-                        },
-                        contentInset = inset,
-                        focusedGame = focusedGame,
-                        weather = HeroWeather(forecast, place),
-                        onAmbient = { ambientTint = it },
-                    )
+    val shelves =
+        remember(
+            recentsHash,
+            recentsV2,
+            scores,
+            bigGames,
+            channels,
+            movies,
+            vodCategories,
+            guide,
+            watchNext,
+            movieRows,
+            cwArt,
+            apps,
+            ytTrending,
+            recommended,
+            glance,
+        ) {
+            buildHomeShelves(
+                ctx = ctx,
+                recents = recentsV2,
+                watchNext = watchNext,
+                scores = scores,
+                bigGames = bigGames,
+                channels = channels,
+                onNow = guide,
+                vodCategories = vodCategories,
+                movies = movies,
+                cine = movieRows,
+                apps = apps,
+                cwArt = cwArt,
+                ytTrending = ytTrending,
+                recommended = recommended,
+                glance = glance,
+                onPlay = onPlay,
+                onCine = { m ->
+                    Nav.push(Route.Meta(m.type ?: "movie", m.id, m.name, m.poster))
                 },
-                heroFocus = heroFocus,
-                shelves = shelves,
-                entryEnabled = !overlayActive,
-                modifier = Modifier.fillMaxSize(),
+                onChanged = { recentsHash++ },
+                onAppMenu = { activeMenu = it },
+                onAppPin = { activePin = it },
             )
+        }
+
+    Box(Modifier.fillMaxSize().background(ThemeSemantics.stage)) {
+        // Nothing of Home composes behind the first-run tour, so no app row shows until it is finished.
+        if (onboard < 0) {
+            CompositionLocalProvider(LocalTitleFocus provides { focusedTitle = it }) {
+                HomeStage(
+                    hero = { m, inset ->
+                        HeroSlider(
+                            slides = slides,
+                            index = heroIndex.coerceIn(0, (slides.size - 1).coerceAtLeast(0)),
+                            onIndexChange = {
+                                heroIndex = it
+                                rotateTick++
+                            },
+                            onOpen = { slide ->
+                                when (slide) {
+                                    // An add-on title has no stream URL of its own: OK opens its detail page.
+                                    is HeroSlide.Media -> {
+                                        if (slide.item.url.isNotBlank()) {
+                                            onPlay(slide.item.url, slide.item.title, slide.item.refId)
+                                        } else {
+                                            movieItems.firstOrNull { it.name == slide.item.title }?.let { m ->
+                                                Nav.push(Route.Meta(m.type ?: "movie", m.id, m.name, m.poster))
+                                            }
+                                                // Failing that it is the greeting, which opens the section it points to.
+                                                ?: slide.item.opens?.let(SectionNav::go)
+                                        }
+                                    }
+
+                                    is HeroSlide.Event -> {
+                                        SectionNav.go(AppSection.SPORTS)
+                                    }
+
+                                    // A game plays on the viewer's own channel that carries it; only with no match does OK open Sports.
+                                    is HeroSlide.Game -> {
+                                        if (slide.game.live) {
+                                            homeScope.launch {
+                                                val match = GameChannelFinder.best(ctx, slide.game.game, slide.game.league)
+                                                val client = ProviderSession.current
+                                                if (match != null && client != null) {
+                                                    onPlay(
+                                                        client.liveUrl(match.stream.streamId),
+                                                        match.stream.name,
+                                                        "live:${match.stream.streamId}",
+                                                    )
+                                                } else {
+                                                    SectionNav.go(AppSection.SPORTS)
+                                                }
+                                            }
+                                        } else {
+                                            // An upcoming game has nothing to play yet: OK opens its options sheet, where a
+                                            // kickoff alert and the channel pick live.
+                                            heroGame = slide.game.league to slide.game.game
+                                        }
+                                    }
+
+                                    is HeroSlide.HolidayCountdown -> {
+                                        Unit
+                                    }
+
+                                    else -> {
+                                        SectionNav.go(AppSection.WEATHER)
+                                    }
+                                }
+                            },
+                            // Up uses Compose's native 2D search to reach the top navigation. Left and Right
+                            // turn the hero pages when there is more than one slide.
+                            modifier =
+                                m.focusProperties {
+                                    if (slides.size < 2) {
+                                        left = FocusRequester.Cancel
+                                        right = FocusRequester.Cancel
+                                    }
+                                },
+                            contentInset = inset,
+                            focusedGame = focusedGame,
+                            weather = HeroWeather(forecast, place),
+                        )
+                    },
+                    heroFocus = heroFocus,
+                    shelves = shelves,
+                    entryEnabled = !overlayActive,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
         // Follow and alert changes from the sheet land with the next scores poll; nothing on Home needs them sooner.
         heroGame?.let { (lg, g) ->
@@ -585,20 +705,37 @@ fun HomeScreen(
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                     Row(
-                        Modifier.padding(top = 96.dp).clip(RoundedCornerShape(ThemeSpec.Card.corner))
-                            .background(Brush.verticalGradient(listOf(ThemeSemantics.surfaceModal.copy(alpha = 0.98f), ThemeSemantics.surfaceRaised.scaleAlpha(0.96f))))
-                            .border(1.dp, ThemeSemantics.hairline, RoundedCornerShape(ThemeSpec.Card.corner))
+                        Modifier
+                            .padding(top = 96.dp)
+                            .clip(RoundedCornerShape(ThemeSpec.Card.corner))
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(ThemeSemantics.surfaceModal.copy(alpha = 0.98f), ThemeSemantics.surfaceRaised.scaleAlpha(0.96f)),
+                                ),
+                            ).border(1.dp, ThemeSemantics.hairline, RoundedCornerShape(ThemeSpec.Card.corner))
                             .padding(horizontal = ThemeSpec.Space.md, vertical = ThemeSpec.Space.sm),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column {
-                            Text(n.title.ifBlank { n.pkg }, fontSize = ThemeSpec.Type.meta,
-                                color = ThemeSemantics.textEmphatic, fontWeight = FontWeight.SemiBold,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.widthIn(max = 520.dp))
-                            if (n.text.isNotBlank()) Text(n.text, fontSize = ThemeSpec.Type.label,
-                                color = ThemeSemantics.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.widthIn(max = 520.dp))
+                            Text(
+                                n.title.ifBlank { n.pkg },
+                                fontSize = ThemeSpec.Type.meta,
+                                color = ThemeSemantics.textEmphatic,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.widthIn(max = 520.dp),
+                            )
+                            if (n.text.isNotBlank()) {
+                                Text(
+                                    n.text,
+                                    fontSize = ThemeSpec.Type.label,
+                                    color = ThemeSemantics.textSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.widthIn(max = 520.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -606,36 +743,57 @@ fun HomeScreen(
         }
 
         AppOverlayHost(
-            menu = activeMenu, onMenuDismiss = { activeMenu = null },
-            pin = activePin, onPinClose = { activePin = null },
+            menu = activeMenu,
+            onMenuDismiss = { activeMenu = null },
+            pin = activePin,
+            onPinClose = { activePin = null },
             onChanged = { recentsHash++ },
         )
 
         if (onboard >= 0) {
             OnboardingVeil(step = onboard, onNext = { next -> onboard = next }) {
-                AppPreferences.setOnboardingDone(); onboard = -1
+                AppPreferences.setOnboardingDone()
+                onboard = -1
             }
         }
     }
 }
 
 @Composable
-private fun OnboardingVeil(step: Int, onNext: (Int) -> Unit, onFinish: () -> Unit) {
-    val lessons = listOf(
-        Triple("01", "Quick options",
-            "Press and hold OK on any app or show for quick options such as App info, PIN and Hide app."),
-        Triple("02", "Sidebar",
-            "Press Up from the top of the screen to reach the sidebar. Press Menu anywhere to go back to Home."),
-        Triple("03", "Settings & accounts",
-            "Sign in to your TV provider, set up profiles, and customize playback at any time in Settings."),
-    )
+private fun OnboardingVeil(
+    step: Int,
+    onNext: (Int) -> Unit,
+    onFinish: () -> Unit,
+) {
+    val lessons =
+        listOf(
+            Triple(
+                "01",
+                "Quick options",
+                "Press and hold OK on any app or show for quick options such as App info, PIN and Hide app.",
+            ),
+            Triple(
+                "02",
+                "Sidebar",
+                "Press Up from the top of the screen to reach the sidebar. Press Menu anywhere to go back to Home.",
+            ),
+            Triple(
+                "03",
+                "Settings & accounts",
+                "Sign in to your TV provider, set up profiles, and customize playback at any time in Settings.",
+            ),
+        )
     val (glyph, head, body) = lessons[step.coerceIn(0, lessons.lastIndex)]
     val ctaReq = remember { FocusRequester() }
     LaunchedEffect(Unit) { suspendRunCatching { ctaReq.awaitFocus() } }
     androidx.activity.compose.BackHandler(enabled = true) { onFinish() }
 
     Box(
-        Modifier.fillMaxSize().trapFocus().background(ThemeSemantics.scrimModal).enterScene(),
+        Modifier
+            .fillMaxSize()
+            .trapFocus()
+            .background(ThemeSemantics.scrimModal)
+            .enterScene(),
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -648,15 +806,39 @@ private fun OnboardingVeil(step: Int, onNext: (Int) -> Unit, onFinish: () -> Uni
                         Modifier
                             .width(if (i == step) 34.dp else 18.dp)
                             .height(5.dp)
-                            .background(if (i == step) ThemeSemantics.accent else ThemeSemantics.hairline, RoundedCornerShape(ThemeSpec.Card.cornerSm)),
+                            .background(
+                                if (i ==
+                                    step
+                                ) {
+                                    ThemeSemantics.accent
+                                } else {
+                                    ThemeSemantics.hairline
+                                },
+                                RoundedCornerShape(ThemeSpec.Card.cornerSm),
+                            ),
                     )
                 }
             }
             Spacer(Modifier.height(42.dp))
             // A deco numeral, not a selection: accent stays for the active step marker above it.
-            Text(glyph, fontSize = ThemeSpec.Type.display, color = ThemeSemantics.textSecondary, fontWeight = FontWeight.Thin, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Text(
+                glyph,
+                fontSize = ThemeSpec.Type.display,
+                color = ThemeSemantics.textSecondary,
+                fontWeight = FontWeight.Thin,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
             Spacer(Modifier.height(ThemeSpec.Space.lg))
-            Text(head, fontSize = ThemeSpec.Type.display, fontWeight = FontWeight.Bold, color = ThemeSemantics.textEmphatic, textAlign = TextAlign.Center, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Text(
+                head,
+                fontSize = ThemeSpec.Type.display,
+                fontWeight = FontWeight.Bold,
+                color = ThemeSemantics.textEmphatic,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
             Spacer(Modifier.height(ThemeSpec.Space.cozy))
             Text(body, fontSize = ThemeSpec.Type.body, color = ThemeSemantics.textPrimary, textAlign = TextAlign.Center, lineHeight = 28.sp)
             Spacer(Modifier.height(46.dp))
@@ -664,20 +846,30 @@ private fun OnboardingVeil(step: Int, onNext: (Int) -> Unit, onFinish: () -> Uni
             val isLast = step == lessons.lastIndex
             Text(
                 if (isLast) "Get started" else "Continue",
-                fontSize = ThemeSpec.Type.meta, fontWeight = FontWeight.Bold,
+                fontSize = ThemeSpec.Type.meta,
+                fontWeight = FontWeight.Bold,
                 color = if (ctaFocused) ThemeSemantics.textInverse else ThemeSemantics.accent,
-                modifier = Modifier
-                    .focusRequester(ctaReq)
-                    .focusLift(focusScaleState(ctaFocused, ThemeSpec.Focus.liftCompact))
-                    .clip(RoundedCornerShape(ThemeSpec.Card.cornerLg))
-                    .background(if (ctaFocused) ThemeSemantics.accent else Color.Transparent)
-                    .focusRing(ctaFocused, RoundedCornerShape(ThemeSpec.Card.cornerLg))
-                    .onFocusChanged { ctaFocused = it.isFocused }
-                    .clickableNoIndication { if (isLast) onFinish() else onNext(step + 1) }
-                    .padding(horizontal = 34.dp, vertical = ThemeSpec.Space.cozy), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier =
+                    Modifier
+                        .focusRequester(ctaReq)
+                        .focusLift(focusScaleState(ctaFocused, ThemeSpec.Focus.liftCompact))
+                        .clip(RoundedCornerShape(ThemeSpec.Card.cornerLg))
+                        .background(if (ctaFocused) ThemeSemantics.accent else Color.Transparent)
+                        .focusRing(ctaFocused, RoundedCornerShape(ThemeSpec.Card.cornerLg))
+                        .onFocusChanged { ctaFocused = it.isFocused }
+                        .clickableNoIndication { if (isLast) onFinish() else onNext(step + 1) }
+                        .padding(horizontal = 34.dp, vertical = ThemeSpec.Space.cozy),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(ThemeSpec.Space.sm))
-            Text(stringResource(com.carteltv.tv.R.string.home_continue_skip), fontSize = ThemeSpec.Type.label, color = ThemeSemantics.textSecondary, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Text(
+                stringResource(com.carteltv.tv.R.string.home_continue_skip),
+                fontSize = ThemeSpec.Type.label,
+                color = ThemeSemantics.textSecondary,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
         }
     }
 }

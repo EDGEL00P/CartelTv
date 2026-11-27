@@ -75,6 +75,7 @@ internal fun PlayerControlBar(
     onOpenSchedule: (() -> Unit)? = null,
     onSourceSwitch: (() -> Unit)? = null,
     onMultiview: (() -> Unit)? = null,
+    onOpenPictureInPicture: (() -> Unit)? = null,
     onSearch: (() -> Unit)? = null,
     onToggleComments: (() -> Unit)? = null,
     commentsActive: Boolean = false,
@@ -170,7 +171,6 @@ internal fun PlayerControlBar(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
                 ) {
-                    PlayerStatusPill("LIVE", PlayerChrome.ink, live = true)
                     if (meta.channelNumber > 0) {
                         Text(
                             "CHANNEL ${meta.channelNumber}",
@@ -242,49 +242,41 @@ internal fun PlayerControlBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
             ) {
+                PlayerBarIconButton(glyph = PlayerGlyph.INFO, label = "Info", onClick = onInfo)
+                if (meta.isLive && onLastChannel != null) {
+                    PlayerBarIconButton(glyph = PlayerGlyph.HISTORY, label = "Last channel", onClick = { onLastChannel(); onResetHide() })
+                }
+
+                Spacer(Modifier.weight(1f))
                 PlayerPrimaryButton(
                     playing = isPlaying,
                     modifier = Modifier.focusRequester(playFocus),
                     onClick = onPlayPause,
                 )
-                PlayerBarIconButton(
-                    glyph = PlayerGlyph.BACK,
-                    label = "Back 10s",
-                    onClick = { player.seekBack(); onResetHide() },
-                )
-                PlayerBarIconButton(
-                    glyph = PlayerGlyph.FORWARD,
-                    label = "Forward 10s",
-                    onClick = { player.seekForward(); onResetHide() },
-                )
+                if (!meta.isLive) {
+                    PlayerBarIconButton(
+                        glyph = PlayerGlyph.BACK,
+                        label = "Back 10s",
+                        onClick = { player.seekBack(); onResetHide() },
+                    )
+                    PlayerBarIconButton(
+                        glyph = PlayerGlyph.FORWARD,
+                        label = "Forward 10s",
+                        onClick = { player.seekForward(); onResetHide() },
+                    )
+                }
                 onPlayNext?.let {
                     PlayerBarIconButton(glyph = PlayerGlyph.SKIP_NEXT, label = "Next", onClick = it)
                 }
+                Spacer(Modifier.weight(1f))
 
                 if (!meta.isLive) {
                     PlayerBarIconButton(glyph = PlayerGlyph.VOICE, label = "Audio", onClick = { onShowTracks(TrackType.AUDIO) })
                     PlayerBarIconButton(glyph = PlayerGlyph.SUBS, label = "Subtitles", onClick = { onShowTracks(TrackType.SUBTITLE) })
-                } else if (onLastChannel != null) {
-                    PlayerBarIconButton(glyph = PlayerGlyph.HISTORY, label = "Last channel", onClick = { onLastChannel(); onResetHide() })
                 }
                 PlayerBarIconButton(glyph = PlayerGlyph.MORE, label = "Settings", active = expanded, onClick = onSettings)
-                PlayerBarIconButton(glyph = PlayerGlyph.INFO, label = "Info", onClick = onInfo)
                 if (onToggleComments != null) {
                     PlayerBarIconButton(glyph = PlayerGlyph.INFO, label = "Comments", active = commentsActive, onClick = { onToggleComments(); onResetHide() })
-                }
-
-                Spacer(Modifier.weight(1f))
-
-                if (!meta.isLive && duration > 0L) {
-                    Text(
-                        "${deckClock(position)} / ${deckClock(duration)}",
-                        fontSize = ThemeSpec.Type.micro,
-                        color = PlayerChrome.inkMuted,
-                        fontFamily = ThemeSpec.Font.mono,
-                        maxLines = 1,
-                    )
-                } else if (meta.isLive) {
-                    Text("LIVE", fontSize = ThemeSpec.Type.label, color = ThemeSemantics.live, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
                 PlayerBarIconButton(glyph = PlayerGlyph.HOME, label = "Close", onClick = onClose)
             }
@@ -301,6 +293,7 @@ internal fun PlayerControlBar(
                     onOpenSchedule = onOpenSchedule,
                     onSourceSwitch = onSourceSwitch,
                     onMultiview = onMultiview,
+                    onOpenPictureInPicture = onOpenPictureInPicture,
                     onSearch = onSearch,
                     aspectName = aspectName,
                     currentSpeed = currentSpeed,
@@ -310,30 +303,6 @@ internal fun PlayerControlBar(
                 )
             }
         }
-    }
-}
-
-/** A capsule tag: LIVE carries a pulsing dot, other tags stay quiet. */
-@Composable
-internal fun PlayerStatusPill(label: String, color: Color, live: Boolean = false) {
-    Row(
-        Modifier
-            .clip(CircleShape)
-            .background(if (live) ThemeSemantics.live.copy(alpha = 0.20f) else PlayerChrome.well)
-            .border(1.dp, if (live) ThemeSemantics.live.copy(alpha = 0.55f) else PlayerChrome.hairline, CircleShape)
-            .padding(horizontal = ThemeSpec.Space.md, vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
-    ) {
-        if (live) LiveDot()
-        Text(
-            label,
-            fontSize = ThemeSpec.Type.micro,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = ThemeSpec.Type.trackCaps,
-            color = if (live) PlayerChrome.ink else color,
-            maxLines = 1,
-        )
     }
 }
 
@@ -555,6 +524,7 @@ internal fun PlayerSettingsTiles(
     onOpenSchedule: (() -> Unit)?,
     onSourceSwitch: (() -> Unit)?,
     onMultiview: (() -> Unit)?,
+    onOpenPictureInPicture: (() -> Unit)?,
     onSearch: (() -> Unit)?,
     aspectName: String,
     currentSpeed: Float,
@@ -575,11 +545,12 @@ internal fun PlayerSettingsTiles(
         add(QuickControl(PlayerGlyph.INFO, "Stats", "", onShowDataPool))
         onSourceSwitch?.let { add(QuickControl(PlayerGlyph.SOURCES, "Sources", "Src", it)) }
         onMultiview?.let { add(QuickControl(PlayerGlyph.MULTI, "Multiview", "", it)) }
+        onOpenPictureInPicture?.let { add(QuickControl(PlayerGlyph.PLAY, "PiP", "Video", it)) }
         onSearch?.let { add(QuickControl(PlayerGlyph.SEARCH, "Search", "Find", it)) }
         if (isLive) {
             onOpenSchedule?.let { add(QuickControl(PlayerGlyph.SCHEDULE, "Schedule", "EPG", it)) }
-            onOpenSidePanel?.let { add(QuickControl(PlayerGlyph.PANEL, "Channels", "", it)) }
         }
+        onOpenSidePanel?.let { add(QuickControl(PlayerGlyph.PANEL, if (isLive) "Channels" else "Queue", "", it)) }
     }
     val rows = (controls.size + 6) / 7
     Column(Modifier.fillMaxWidth().padding(top = ThemeSpec.Space.sm), verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.xs)) {

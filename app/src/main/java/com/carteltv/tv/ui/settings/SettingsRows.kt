@@ -59,9 +59,9 @@ internal fun CatRow(
         tween(ThemeSpec.Motion.DUR_FAST), label = "catTile",
     )
     Row(
-        Modifier.padding(vertical = 3.dp)
+        Modifier.padding(vertical = 1.dp)
             .fillMaxWidth()
-            .heightIn(min = 112.dp)
+            .heightIn(min = 88.dp)
             .glassRow(lit, pressed)
             .then(modifier)
             .onFocusChanged {
@@ -73,9 +73,9 @@ internal fun CatRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            Modifier.size(56.dp).clip(RoundedCornerShape(ThemeSpec.Card.cornerSm)).background(tile),
+            Modifier.size(48.dp).clip(RoundedCornerShape(ThemeSpec.Card.cornerSm)).background(tile),
             contentAlignment = Alignment.Center,
-        ) { Glyph(ico, tint = if (lit) glassRowText(lit) else ThemeSemantics.accent, size = 28.dp) }
+        ) { Glyph(ico, tint = if (lit) glassRowText(lit) else ThemeSemantics.accent, size = 24.dp) }
         Spacer(Modifier.width(ThemeSpec.Space.md))
         Column(Modifier.weight(1f)) {
             AutoSizeText(title, fontSize = ThemeSpec.Type.body, fontWeight = FontWeight.SemiBold, color = glassRowText(lit), minScale = 0.8f)
@@ -153,7 +153,7 @@ internal fun ValueRow(
     val pressed by interaction.collectIsPressedAsState()
     val fm = if (focus != null) Modifier.focusRequester(focus) else Modifier
     Row(
-        Modifier.padding(vertical = 3.dp)
+        Modifier.padding(vertical = 1.dp)
             .fillMaxWidth()
             .heightIn(min = 48.dp)
             .glassRow(f, pressed)
@@ -185,6 +185,7 @@ internal fun ChoiceRow(
     title: String,
     selected: Boolean,
     focus: FocusRequester?,
+    desc: String? = null,
     onClick: () -> Unit,
 ) {
     var f by remember { mutableStateOf(false) }
@@ -192,7 +193,7 @@ internal fun ChoiceRow(
     val pressed by interaction.collectIsPressedAsState()
     val fm = if (focus != null) Modifier.focusRequester(focus) else Modifier
     Row(
-        Modifier.padding(vertical = 3.dp)
+        Modifier.padding(vertical = 1.dp)
             .fillMaxWidth()
             .heightIn(min = 48.dp)
             .glassRow(f, pressed)
@@ -204,8 +205,14 @@ internal fun ChoiceRow(
     ) {
         RadioDot(selected, if (selected) glassRowText(f) else glassRowDim(f))
         Spacer(Modifier.width(ThemeSpec.Space.md))
-        Text(title, fontSize = ThemeSpec.Type.body, fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-            color = if (selected) glassRowText(f) else glassRowDim(f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = ThemeSpec.Type.body, fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                color = if (selected) glassRowText(f) else glassRowDim(f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            desc?.let {
+                Text(it, fontSize = ThemeSpec.Type.meta, color = glassRowDim(f), maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            }
+        }
     }
 }
 
@@ -223,7 +230,7 @@ internal fun ToggleRow(
     val pressed by interaction.collectIsPressedAsState()
     val fm = if (focus != null) Modifier.focusRequester(focus) else Modifier
     Row(
-        Modifier.padding(vertical = 3.dp)
+        Modifier.padding(vertical = 1.dp)
             .fillMaxWidth()
             .heightIn(min = 48.dp)
             .glassRow(f, pressed)
@@ -265,21 +272,6 @@ internal fun Section(label: String) {
 internal fun Caption(text: String) {
     Text(text, fontSize = ThemeSpec.Type.label, color = ThemeSemantics.textSecondary,
         modifier = Modifier.padding(start = ThemeSpec.Space.md, top = ThemeSpec.Space.sm, bottom = ThemeSpec.Space.xs))
-}
-
-/** Sub-page opener: a Back chip naming where Back goes, in place of a plain caption. */
-@Composable
-internal fun BackHint(parent: String) {
-    Row(
-        Modifier.padding(start = ThemeSpec.Space.md, top = ThemeSpec.Space.xs, bottom = ThemeSpec.Space.sm)
-            .clip(CircleShape).background(ThemeSemantics.textEmphatic.copy(alpha = 0.10f))
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("BACK", fontSize = ThemeSpec.Type.label, fontWeight = FontWeight.Bold, color = ThemeSemantics.textEmphatic, letterSpacing = ThemeSpec.Type.trackCaps)
-        Spacer(Modifier.width(10.dp))
-        Text(parent, fontSize = ThemeSpec.Type.label, color = ThemeSemantics.textSecondary, maxLines = 1)
-    }
 }
 
 @Composable

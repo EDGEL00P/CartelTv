@@ -54,8 +54,8 @@ fun NavHostLayer() {
         Route.Library -> LibraryScreen()
         Route.Shelves -> ShelvesScreen()
         is Route.Meta -> MetaDetailScreen(r.type, r.id, r.title, r.poster)
-        // Home's banner runs from the top edge of the screen, under the sidebar.
-        Route.Home -> ScreenScaffold(bleedTop = true) {
+        // Home owns its overscan-safe content margins; its backdrop and shelves use the whole viewport.
+        Route.Home -> ScreenScaffold(bleedTop = true, bleedStart = true) {
             com.carteltv.tv.ui.home.HomeScreen(
                 homeResetTick = HomeReset.tick,
                 onPlay = { url, title, refId -> AppLauncher.player(ctx, url, title, refId) },

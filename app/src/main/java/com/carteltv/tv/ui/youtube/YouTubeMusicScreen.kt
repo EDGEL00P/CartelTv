@@ -38,6 +38,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.carteltv.tv.data.youtube.YouTubeApiClient
 import com.carteltv.tv.data.youtube.YouTubeMusicClient
+import com.carteltv.tv.data.youtube.YouTubeLibrary
 import com.carteltv.tv.ui.catalog.ActionButton
 import com.carteltv.tv.ui.components.MusicArtCard
 import com.carteltv.tv.ui.components.MusicShelfHeader
@@ -56,6 +57,13 @@ import com.carteltv.tv.ui.theme.ThemeSemantics
 import com.carteltv.tv.ui.theme.ThemeSpec
 import kotlinx.coroutines.launch
 
+private fun listenAgainShelf(): YouTubeMusicClient.Shelf? {
+    val entries = YouTubeLibrary.history().take(12).map {
+        YouTubeMusicClient.Entry(it.title, it.channel, it.thumb, it.videoId, playlistId = null)
+    }
+    return entries.takeIf { it.isNotEmpty() }?.let { YouTubeMusicClient.Shelf("Your history", "Listen again", it) }
+}
+
 /** The Music version of the YouTube section: shelves of playlists and tracks, played through the same player as the video screen. */
 @Composable
 fun YouTubeMusicScreen() {
@@ -66,15 +74,18 @@ fun YouTubeMusicScreen() {
     var playing by remember { mutableStateOf<YouTubeApiClient.YouTubeVideo?>(null) }
     var streams by remember { mutableStateOf<YouTubeApiClient.YouTubeStreams?>(null) }
     var queue by remember { mutableStateOf<List<YouTubeApiClient.YouTubeVideo>>(emptyList()) }
+    var restoreVideoId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    var restoreQueueIds by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     val scope = rememberCoroutineScope()
 
     // Fullscreen immersion while a video is playing, as on the video screen: keep the screen on
     // and hide the system bars so the player owns the whole display.
     val context = androidx.compose.ui.platform.LocalContext.current
-    DisposableEffect(playing) {
+    DisposableEffect(playing != null) {
         val activity = context as? android.app.Activity
         val window = activity?.window
-        if (playing != null) {
+        val active = playing != null
+        if (active) {
             window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             val controller = window?.let { WindowInsetsControllerCompat(it, it.decorView) }
             controller?.systemBarsBehavior =
@@ -82,7 +93,7 @@ fun YouTubeMusicScreen() {
             controller?.hide(WindowInsetsCompat.Type.systemBars())
         }
         onDispose {
-            if (playing != null) {
+            if (active) {
                 window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 val controller = window?.let { WindowInsetsControllerCompat(it, it.decorView) }
                 controller?.show(WindowInsetsCompat.Type.systemBars())
@@ -93,18 +104,27 @@ fun YouTubeMusicScreen() {
     fun load() {
         busy = true; notice = null
         scope.launch {
-            shelves = YouTubeMusicClient.home()
+            val remote = kotlinx.coroutines.withTimeoutOrNull(15_000L) { YouTubeMusicClient.home() }.orEmpty()
+            val listenAgain = listenAgainShelf()
+            shelves = if (listenAgain != null) listOf(listenAgain) + remote else remote
             busy = false
             if (shelves.isEmpty()) notice = "Couldn't load YouTube Music. Check the connection and try again."
         }
     }
     LaunchedEffect(Unit) { load() }
 
-    fun close() { playing = null; streams = null }
+    fun close() {
+        playing = null
+        streams = null
+        restoreVideoId = null
+        restoreQueueIds = emptyList()
+    }
 
     fun play(track: YouTubeApiClient.YouTubeVideo, list: List<YouTubeApiClient.YouTubeVideo>) {
         resolving = true; notice = null
-        queue = list
+        queue = list.ifEmpty { listOf(track) }
+        restoreVideoId = track.videoId
+        restoreQueueIds = queue.map { it.videoId }
         scope.launch {
             val s = YouTubeApiClient.resolve(track.videoId)
             resolving = false
@@ -114,8 +134,18 @@ fun YouTubeMusicScreen() {
             } else {
                 streams = s.copy(title = track.title)
                 playing = track
+                YouTubeLibrary.noteWatched(track)
             }
         }
+    }
+
+    LaunchedEffect(Unit) {
+        val id = restoreVideoId ?: return@LaunchedEffect
+        val history = YouTubeLibrary.history()
+        val restoredQueue = restoreQueueIds.mapNotNull { videoId -> history.firstOrNull { it.videoId == videoId } }
+        val video = history.firstOrNull { it.videoId == id }
+            ?: YouTubeApiClient.YouTubeVideo(id, "YouTube Music", channel = null, duration = null, thumb = null)
+        play(video, restoredQueue.ifEmpty { listOf(video) })
     }
 
     fun playNextOrClose() {
@@ -150,12 +180,13 @@ fun YouTubeMusicScreen() {
                 streams = live,
                 next = queue.indexOfFirst { it.videoId == current.videoId }.let { at -> if (at >= 0) queue.getOrNull(at + 1) else null },
                 channel = current.channel,
+                onOpenQueue = {},
                 onClosed = ::close,
                 onEnded = ::playNextOrClose,
                 onPlayNext = ::playNextOrClose,
             )
         } else {
-            ScreenPage("YouTube Music", icon = com.carteltv.tv.R.drawable.ph_music_notes) {
+            ScreenPage("YouTube Music", icon = com.carteltv.tv.R.drawable.ph_music_notes, header = false) {
                 Box(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize()) {
                         when {

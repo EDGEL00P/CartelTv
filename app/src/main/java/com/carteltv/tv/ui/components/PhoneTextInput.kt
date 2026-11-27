@@ -3,8 +3,8 @@ package com.carteltv.tv.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,10 +38,21 @@ object PhoneTyping {
         private set
     private var owner: Any? = null
 
-    fun enter(who: Any, label: String) { owner = who; this.label = label }
+    fun enter(
+        who: Any,
+        label: String,
+    ) {
+        owner = who
+        this.label = label
+    }
 
     /** Only the field that last took the pill may clear it, so focus moving between fields does not flicker. */
-    fun leave(who: Any) { if (owner === who) { owner = null; label = null } }
+    fun leave(who: Any) {
+        if (owner === who) {
+            owner = null
+            label = null
+        }
+    }
 }
 
 private const val LINGER_MS = 20_000L
@@ -61,12 +72,18 @@ fun PhoneTypePill(modifier: Modifier = Modifier) {
 
     LaunchedEffect(shown) {
         if (shown) {
-            if (PhoneCompanionServer.isSessionExpired()) { PhoneCompanionServer.stop(); owned = false }
+            if (PhoneCompanionServer.isSessionExpired()) {
+                PhoneCompanionServer.stop()
+                owned = false
+            }
             if (!PhoneCompanionServer.running && PhoneCompanionServer.start(ctx) != null) owned = true
             url = PhoneCompanionServer.activeUrl(ctx)?.let { "$it&m=type" }
         } else {
             delay(LINGER_MS)
-            if (owned) { PhoneCompanionServer.stop(); owned = false }
+            if (owned) {
+                PhoneCompanionServer.stop()
+                owned = false
+            }
             url = null
         }
     }
@@ -83,15 +100,22 @@ fun PhoneTypePill(modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        QrCode(text = link, cellSize = 3.dp)
+        QrCode(text = link, cellSize = 4.dp)
         Column(Modifier.width(190.dp), verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.xs)) {
             Text(
-                "Type on your phone", fontSize = ThemeSpec.Type.meta, fontWeight = FontWeight.SemiBold,
-                color = ThemeSemantics.textEmphatic, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                "Type on your phone",
+                fontSize = ThemeSpec.Type.meta,
+                fontWeight = FontWeight.SemiBold,
+                color = ThemeSemantics.textEmphatic,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
-                "Scan, then paste or type: $label", fontSize = ThemeSpec.Type.label,
-                color = ThemeSemantics.textSecondary, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                "Scan, then paste or type: $label",
+                fontSize = ThemeSpec.Type.label,
+                color = ThemeSemantics.textSecondary,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

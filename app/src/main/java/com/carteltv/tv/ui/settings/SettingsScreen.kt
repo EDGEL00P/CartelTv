@@ -22,7 +22,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
@@ -44,7 +43,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
@@ -130,6 +128,7 @@ private fun pageTitle(page: SettingsPage): String = when (page) {
 /** One-shot request for the next Settings screen to open straight on a page. */
 internal object SettingsDeepLink {
     var addons = false
+    var recordings = false
 }
 
 private const val ROOT_ROWS = 13   // keep in sync with rootEntries()
@@ -137,7 +136,16 @@ private const val ROOT_ROWS = 13   // keep in sync with rootEntries()
 @Composable
 fun SettingsScreen() {
     var page by rememberSaveable {
-        mutableStateOf(if (SettingsDeepLink.addons) SettingsPage.ADDONS else SettingsPage.ROOT).also { SettingsDeepLink.addons = false }
+        mutableStateOf(
+            when {
+                SettingsDeepLink.addons -> SettingsPage.ADDONS
+                SettingsDeepLink.recordings -> SettingsPage.RECORDINGS
+                else -> SettingsPage.ROOT
+            },
+        ).also {
+            SettingsDeepLink.addons = false
+            SettingsDeepLink.recordings = false
+        }
     }
     var rootSel by rememberSaveable { mutableIntStateOf(0) }
     // The row the user last opened. Unlike rootSel it is only set by opening a page, so an incidental focus event on
@@ -147,8 +155,8 @@ fun SettingsScreen() {
     val pageFocus = remember { FocusRequester() }
 
     // dialog state (Shield overlays these on top of the column)
-    var showTrakt by remember { mutableStateOf(false) }
-    var showDebrid by remember { mutableStateOf(false) }
+    var showTrakt by rememberSaveable { mutableStateOf(false) }
+    var showDebrid by rememberSaveable { mutableStateOf(false) }
     val cfg = remember { ConfigState() }
 
     // Settings-door PIN: memory latch dies with the process.
@@ -184,8 +192,10 @@ fun SettingsScreen() {
     }
 
     Column(Modifier.fillMaxSize()) {
-        // The masthead names the page you are on, like every other screen; Back is offered everywhere but the root list.
-        ScreenMasthead(if (page == SettingsPage.ROOT) "Settings" else pageTitle(page), com.carteltv.tv.R.drawable.ph_gear_six)
+        // The root is the category list itself; detail pages keep their title and Back context.
+        if (page != SettingsPage.ROOT) {
+            ScreenMasthead(pageTitle(page), com.carteltv.tv.R.drawable.ph_gear_six)
+        }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             SettingsColumn(page, rootSel, openedRow, rootFocusers, pageFocus, cfg,
                 onRootSelect = { i -> rootSel = i },
@@ -297,8 +307,6 @@ private fun SettingsColumn(
             val row = restoreSel.coerceIn(0, ROOT_ROWS - 1)
             onRootSelect(row)
             rootGrid.scrollToItem((rootListIndex(row) - 2).coerceAtLeast(0))
-            // Let the list finish its layout pass, then claim the row that was opened.
-            kotlinx.coroutines.delay(120)
             rootFocusers[row].awaitFocus()
         } else {
             // The list state is shared with the root list, so a page would open scrolled to wherever the root was,
@@ -349,12 +357,6 @@ private fun SettingsColumn(
         }
     }
     }
-
-    // Scrolled rows fade out under the masthead instead of being sliced at its hairline.
-    Box(
-        Modifier.align(Alignment.TopCenter).fillMaxWidth().height(28.dp)
-            .background(Brush.verticalGradient(0f to ThemeSemantics.stage, 1f to Color.Transparent)),
-    )
     }
 
     // remap capture overlay rides above everything
@@ -459,7 +461,7 @@ private fun rootEntries(): List<Pair<String, List<RootEntry>>> {
         ),
         "Appearance" to listOf(
             RootEntry(SettingsIcon.GRID, com.carteltv.tv.R.string.set_theme, "",
-                "Security, app channels, icon pack, sound and time format.", SettingsPage.LAUNCHER),
+                "Color themes, glass transparency, security, app channels, icon pack, sound and time format.", SettingsPage.LAUNCHER),
             RootEntry(SettingsIcon.MOON, com.carteltv.tv.R.string.set_standby, "",
                 "What the TV shows while it is idle.", SettingsPage.SCREENSAVER),
         ),
@@ -473,13 +475,6 @@ private fun rootEntries(): List<Pair<String, List<RootEntry>>> {
         ),
     )
 }
-
-/** Cartel Assistant: claim the system ASSISTANT role so the remote mic button opens Cartel's own mic. */
-internal fun pageHead(scope: LazyListScope, title: String, parent: String = "Settings") {
-    // The page title lives in the masthead like every other screen; the list only carries the Back hint.
-    scope.item { BackHint(parent) }
-}
-
 
 @Composable
 internal fun SettingsCodeDialog(

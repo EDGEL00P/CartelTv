@@ -92,7 +92,6 @@ import com.carteltv.tv.ui.components.glassRow
 import com.carteltv.tv.ui.components.glassRowDim
 import com.carteltv.tv.ui.components.glassRowText
 internal fun playbackPage(scope: LazyListScope, focus: FocusRequester) {
-    pageHead(scope, "Playback")
     scope.item {
         Section(androidx.compose.ui.res.stringResource(com.carteltv.tv.R.string.settings_section_display))
         var thumbsOn by remember { mutableStateOf(AppPreferences.seekThumbs) }
@@ -173,7 +172,6 @@ internal fun playbackPage(scope: LazyListScope, focus: FocusRequester) {
 }
 
 internal fun advancedPage(scope: LazyListScope, focus: FocusRequester, onOpen: (SettingsPage) -> Unit) {
-    pageHead(scope, "Advanced")
     scope.item {
         Caption(androidx.compose.ui.res.stringResource(com.carteltv.tv.R.string.settings_advanced_caption))
 
@@ -263,7 +261,6 @@ internal fun advancedPage(scope: LazyListScope, focus: FocusRequester, onOpen: (
 }
 
 internal fun providerPage(scope: LazyListScope, focus: FocusRequester) {
-    pageHead(scope, "TV provider")
     scope.item {
         val langCtx = androidx.compose.ui.platform.LocalContext.current
         val provScope = rememberCoroutineScope()
@@ -339,8 +336,35 @@ internal fun providerPage(scope: LazyListScope, focus: FocusRequester) {
 }
 
 internal fun launcherPage(scope: LazyListScope, focus: FocusRequester) {
-    pageHead(scope, "Theme & home")
     scope.item {
+        Section("Color theme")
+        var activeTheme by remember { mutableStateOf(ThemePresets.fromId(AppPreferences.themePreset)) }
+        ThemePresets.Preset.entries.forEachIndexed { index, preset ->
+            ChoiceRow(
+                title = preset.label,
+                desc = preset.description,
+                selected = activeTheme == preset,
+                focus = if (index == 0) focus else null,
+            ) {
+                activeTheme = ThemePresets.select(preset.id)
+                AppPreferences.themePreset = activeTheme.id
+            }
+        }
+        Caption("Changes the accent colors everywhere instantly. Your layout stays the same.")
+
+        Section("Glass")
+        var solidGlass by remember { mutableStateOf(AppPreferences.reduceTransparency) }
+        ToggleRow(
+            title = "Reduce transparency",
+            desc = "Use mostly solid charcoal surfaces for steadier contrast",
+            value = solidGlass,
+            focus = null,
+        ) {
+            solidGlass = !solidGlass
+            AppPreferences.reduceTransparency = solidGlass
+            ThemePresets.reduceTransparency = solidGlass
+        }
+
         Section("Security")
         var doorTick by remember { mutableIntStateOf(0) }
         val armed = remember(doorTick) { AppPreferences.settingsPinOn && AppPreferences.settingsPinIsSet() }
@@ -348,7 +372,7 @@ internal fun launcherPage(scope: LazyListScope, focus: FocusRequester) {
             title = "Parent PIN",
             desc = if (armed) "On. Required to open Settings and locked channels"
                    else "Off. Select to set a PIN",
-            value = armed, focus = focus,
+            value = armed, focus = null,
         ) {
             when {
                 armed -> { AppPreferences.settingsPinOn = false; doorTick++ }
@@ -427,12 +451,10 @@ internal fun launcherPage(scope: LazyListScope, focus: FocusRequester) {
 }
 
 internal fun addonsPage(scope: LazyListScope, focus: FocusRequester) {
-    pageHead(scope, "Add-ons")
     scope.item { ManageAddonsPane(focus) }
 }
 
 internal fun youtubePage(scope: LazyListScope, focus: FocusRequester) {
-    pageHead(scope, "YouTube")
     scope.item {
         var sbOn by remember { mutableStateOf(AppPreferences.youTubeSponsorBlock) }
         var catIdx by remember { mutableStateOf(AppPreferences.youTubeCategoryPreset) }
@@ -549,7 +571,6 @@ internal fun youtubePage(scope: LazyListScope, focus: FocusRequester) {
 }
 
 internal fun recordingsPage(scope: LazyListScope, focus: FocusRequester) {
-    pageHead(scope, "Recordings")
     scope.item {
         val ctx = androidx.compose.ui.platform.LocalContext.current
         val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]

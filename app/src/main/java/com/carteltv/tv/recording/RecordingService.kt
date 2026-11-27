@@ -155,6 +155,13 @@ class RecordingService : Service() {
         super.onDestroy()
     }
 
+    private fun recordingsIntent(notifId: Int): PendingIntent = PendingIntent.getActivity(
+        this,
+        notifId,
+        com.carteltv.tv.nav.AppLauncher.mainIntent(this, "recordings"),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
     private fun buildNotification(title: String, elapsedMs: Long, notifId: Int): Notification {
         val stopIntent = PendingIntent.getService(
             this, notifId,
@@ -165,6 +172,7 @@ class RecordingService : Service() {
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentTitle("Recording · $title")
             .setContentText("Recording · Select Stop to Save")
+            .setContentIntent(recordingsIntent(notifId))
             .addAction(android.R.drawable.ic_media_pause, "Stop", stopIntent)
             .setOngoing(true)
             .build()
@@ -184,6 +192,7 @@ class RecordingService : Service() {
             .setSmallIcon(android.R.drawable.ic_menu_save)
             .setContentTitle("Recording Saved · $title")
             .setContentText(desc)
+            .setContentIntent(recordingsIntent(notifId))
             .setOngoing(false)
             .setAutoCancel(true)
             .build()

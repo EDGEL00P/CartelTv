@@ -50,7 +50,7 @@ import com.carteltv.tv.ui.apps.AllAppsOverlay
 
 
 import com.carteltv.tv.ui.components.OverlayCoordinator
-import com.carteltv.tv.ui.components.tryFocus
+import com.carteltv.tv.ui.components.awaitFocus
 import com.carteltv.tv.ui.theme.CartelTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -99,7 +99,9 @@ class MainActivity : ComponentActivity() {
                 this, arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIF,
             )
         }
-        intent.getStringExtra("goto")?.let { pushRoute(it) }
+        if (savedInstanceState == null || Nav.stack.size <= 1) {
+            if (!handleWatchLink(intent)) intent.getStringExtra("goto")?.let { pushRoute(it) }
+        }
         handleAssistIntent(intent)
 
         setContent {
@@ -109,7 +111,7 @@ class MainActivity : ComponentActivity() {
                     HomeReset.tick++
                 }
                 BackHandler(enabled = showLogin) { showLogin = false }
-                BackHandler(enabled = Nav.stack.size > 1) {
+                BackHandler(enabled = Nav.stack.size > 1 && !OverlayCoordinator.locked) {
                     Nav.pop()
                 }
 
@@ -149,9 +151,12 @@ class MainActivity : ComponentActivity() {
                     if (OverlayCoordinator.restoreTick == 0) return@LaunchedEffect
                     repeat(3) { withFrameNanos { } }
                     if (!OverlayCoordinator.anyOpen() && !shellFocused) {
-                        if (ShellChrome.lastContentFocus?.tryFocus() == true) return@LaunchedEffect
-                        listOf(FocusDirection.Enter, FocusDirection.Next, FocusDirection.Down)
-                            .firstOrNull { focusManager.moveFocus(it) }
+                        if (ShellChrome.lastContentFocus?.awaitFocus() == true) return@LaunchedEffect
+                        // Identity restoration may have attached and focused the remembered item while we waited.
+                        if (!OverlayCoordinator.anyOpen() && !shellFocused) {
+                            listOf(FocusDirection.Enter, FocusDirection.Next, FocusDirection.Down)
+                                .firstOrNull { focusManager.moveFocus(it) }
+                        }
                     }
                 }
 
@@ -235,24 +240,18 @@ class MainActivity : ComponentActivity() {
             return true
         }
         if (DpadKeys.isStaleRepeat(event)) return true
-        // While a TV dialog is up it owns the D-pad: keys route into its selection model.
-        if (com.carteltv.tv.ui.components.TvDialogs.current != null) {
-            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-                val handled = com.carteltv.tv.ui.components.TvDialogs.dispatchKey(event.keyCode)
-                if (handled || event.keyCode != KeyEvent.KEYCODE_BACK) return true
-            } else if (event.keyCode != KeyEvent.KEYCODE_BACK) {
-                return true
-            }
+        // Menus use selection-driven keys; input and multi-choice dialogs keep Compose's native traversal.
+        val dialog = com.carteltv.tv.ui.components.TvDialogs.current
+        if (dialog != null) {
+            if (event.action == KeyEvent.ACTION_DOWN && com.carteltv.tv.ui.components.TvDialogs.dispatchKey(event.keyCode)) return true
+            if (!DpadKeys.usesNativeDialogTraversal(dialog) && event.keyCode != KeyEvent.KEYCODE_BACK) return true
         }
-        // Consume MENU before PhoneWindow turns it into the legacy options panel,
-        // but let the focused node claim it first (Continue Watching card menus).
+        // Consume MENU before PhoneWindow turns it into the legacy options panel.
+        // Player and focused-item handlers own it first; an unhandled press stays in context.
         if (event.keyCode == KeyEvent.KEYCODE_MENU) {
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 && !OverlayCoordinator.locked) {
-                // A player that is up owns MENU: it toggles the deck, and playback is never left for Home.
-                if (!com.carteltv.tv.ui.player.PlayerRemote.toggleActiveDeck() &&
-                    !com.carteltv.tv.ui.nav.MenuKeyHub.tryHandle()
-                ) {
-                    com.carteltv.tv.nav.SectionNav.go(com.carteltv.tv.nav.AppSection.HOME)
+                if (!com.carteltv.tv.ui.player.PlayerRemote.toggleActiveDeck()) {
+                    com.carteltv.tv.ui.nav.MenuKeyHub.tryHandle()
                 }
             }
             return true
@@ -264,7 +263,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // Invalidate the Watch Next cache whenever returning from a launched app.
         WatchNextRepository.invalidate()
-        com.carteltv.tv.data.provider.ChannelRepository.refresh(this)
+        com.carteltv.tv.data.provider.ChannelRepository.start(this)
         // On Android 15+ the boot path cannot start the game monitor, but a visible activity can.
         if (android.os.Build.VERSION.SDK_INT >= 35) {
             runCatching { com.carteltv.tv.alert.LiveScoreMonitor.startIfFollowing(this) }
@@ -298,7 +297,9 @@ class MainActivity : ComponentActivity() {
             "radar" -> { com.carteltv.tv.ui.weather.WeatherDeepLink.radar = true; Route.Weather }
             "guide" -> Route.Guide
             "addons" -> { com.carteltv.tv.ui.settings.SettingsDeepLink.addons = true; Route.Settings }
+            "rec", "recordings" -> { com.carteltv.tv.ui.settings.SettingsDeepLink.recordings = true; Route.Settings }
             "youtube" -> Route.YouTube
+            "music", "youtubemusic" -> Route.YouTubeMusic
             "search" -> Route.Search
             "settings" -> Route.Settings
             "apps" -> Route.Apps
@@ -307,6 +308,20 @@ class MainActivity : ComponentActivity() {
         }
         Nav.resetTo(Route.Home)
         Nav.push(r)
+    }
+
+    @Deprecated("Deprecated in Android")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        val message = when (requestCode) {
+            com.carteltv.tv.voice.AssistantRole.REQUEST_CODE ->
+                com.carteltv.tv.voice.AssistantRole.resultMessage(this, resultCode)
+            com.carteltv.tv.system.HomeRole.REQUEST_CODE ->
+                com.carteltv.tv.system.HomeRole.resultMessage(this, resultCode)
+            else -> return
+        }
+        com.carteltv.tv.ui.components.TransientStatus.show(message)
+        tick++
     }
 
     @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
@@ -334,10 +349,30 @@ class MainActivity : ComponentActivity() {
         AppScope.io.launch { com.carteltv.tv.voice.VoicePipeline.submit(applicationContext, query.take(300), searchFallback = true, external = true, browsable = action == Intent.ACTION_VIEW) }
     }
 
+    /**
+     * Self deep link from our published Watch Next rows: `carteltv://watch?ref=<local ref>`.
+     * The ref is resolved against local recents only — any caller-supplied stream URL is ignored.
+     * Unresolvable refs land on the Recents screen instead of failing. True when the intent was ours.
+     */
+    private fun handleWatchLink(i: Intent?): Boolean {
+        val raw = i?.data?.toString() ?: return false
+        val ref = com.carteltv.tv.data.watch.WatchNextPublisher.refFromDeepLink(raw) ?: return false
+        if (OverlayCoordinator.locked) return true
+        val entry = com.carteltv.tv.data.watch.WatchNextPublisher.resolve(AppPreferences.recentEntries(), ref)
+        if (entry != null) {
+            com.carteltv.tv.nav.AppLauncher.player(this, entry.url, entry.title, ref)
+        } else {
+            Nav.resetTo(Route.Home)
+            Nav.push(Route.Recents)
+        }
+        return true
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         handleAssistIntent(intent)
+        if (handleWatchLink(intent)) return
         val goto = intent.getStringExtra("goto")
         if (goto != null) {
             pushRoute(goto)

@@ -44,6 +44,8 @@ class CartelApp : Application(), SingletonImageLoader.Factory {
         }
         AppContainer().install()
         AppPreferences.init(this)
+        com.carteltv.tv.ui.theme.ThemePresets.select(AppPreferences.themePreset)
+        com.carteltv.tv.ui.theme.ThemeAccessibility.install(this)
         com.carteltv.tv.data.xtream.LiveChannels.cacheDir = cacheDir
         com.carteltv.tv.data.network.OkHttpTransport.cacheDir = cacheDir
         com.carteltv.tv.data.network.Connectivity.start(this)
@@ -57,6 +59,10 @@ class CartelApp : Application(), SingletonImageLoader.Factory {
             InstalledAppsCache.preload(this@CartelApp)
             com.carteltv.tv.data.preferences.Profiles.load()
             com.carteltv.tv.data.preferences.Profiles.attach(this@CartelApp)
+            // Google TV Watch Next: reconcile self rows with the active profile's recents
+            // (publish, prune stale rows, drop completed). Same coroutine as Profiles so the
+            // active profile is settled before recents are read.
+            com.carteltv.tv.data.watch.WatchNextPublisher.reconcile(this@CartelApp, AppPreferences.recentEntries())
             SleepTimerState.start(this@CartelApp)
             runCatching { com.carteltv.tv.data.network.PrivateDnsController(this@CartelApp).reconcilePause() }
             com.carteltv.tv.update.ReleaseUpdater.installedCode = runCatching {

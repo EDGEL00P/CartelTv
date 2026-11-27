@@ -1,11 +1,10 @@
 package com.carteltv.tv.ui.nav
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.annotation.DrawableRes
 import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -15,20 +14,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,18 +55,19 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
-import com.carteltv.tv.data.apps.LauncherApp
 import com.carteltv.tv.R
+import com.carteltv.tv.data.apps.LauncherApp
 import com.carteltv.tv.data.preferences.AppPreferences
-import com.carteltv.tv.ui.components.clickableNoIndication
 import com.carteltv.tv.nav.AppSection
 import com.carteltv.tv.nav.Nav
+import com.carteltv.tv.ui.components.clickableNoIndication
 import com.carteltv.tv.ui.theme.PhosphorIcon
 import com.carteltv.tv.ui.theme.ThemeSemantics
 import com.carteltv.tv.ui.theme.ThemeSpec
 import com.carteltv.tv.ui.theme.focusLift
 import com.carteltv.tv.ui.theme.focusRing
 import com.carteltv.tv.ui.theme.focusScaleState
+import com.carteltv.tv.ui.theme.glassPane
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -79,7 +80,6 @@ object ShellChrome {
 
     /** Last focused content node; Down from the top bar returns here. */
     var lastContentFocus: FocusRequester? = null
-
 }
 
 /**
@@ -111,14 +111,18 @@ fun HideBarWhile() {
     }
 }
 
-/** Lets a screen's backdrop run under the top navigation and its safe insets. */
-internal fun Modifier.bleedUnderShell(underBar: Boolean = true): Modifier =
+/** Lets a backdrop run under the top navigation and, when requested, the shell's start inset. */
+internal fun Modifier.bleedUnderShell(
+    underBar: Boolean = true,
+    underStart: Boolean = true,
+): Modifier =
     layout { measurable, constraints ->
-        val left = ShellInsetStart.roundToPx()
+        val left = if (underStart) ShellInsetStart.roundToPx() else 0
         val top = if (underBar) TopBarClearance.roundToPx() else OverscanV.roundToPx()
-        val placeable = measurable.measure(
-            Constraints.fixed(constraints.maxWidth + left, constraints.maxHeight + top),
-        )
+        val placeable =
+            measurable.measure(
+                Constraints.fixed(constraints.maxWidth + left, constraints.maxHeight + top),
+            )
         layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(-left, -top) }
     }
 
@@ -142,13 +146,18 @@ internal val TopBarClearance: Dp
 internal val ShellInsetStart: Dp
     get() = if (ShellChrome.barHidden) 0.dp else ThemeSpec.Safe.horizontal - ThemeSpec.Space.margin
 
-
 /** A title on the bar: a section, or a folder whose sections open as a second row above the bar. */
 private sealed interface BarItem {
-    data class Tab(val section: AppSection) : BarItem
+    data class Tab(
+        val section: AppSection,
+    ) : BarItem
 
     /** [goesToFirst]: Select on the folder opens its first section, since the folder itself is a real place (Movies & TV). */
-    data class Folder(val label: Int, val children: List<AppSection>, val goesToFirst: Boolean) : BarItem
+    data class Folder(
+        val label: Int,
+        val children: List<AppSection>,
+        val goesToFirst: Boolean,
+    ) : BarItem
 }
 
 /** Sections kept off the bar until visits earn them a title; voice and deep links reach them regardless. */
@@ -159,8 +168,12 @@ private val OverflowTabs =
 private const val PROMOTE_AFTER = 5
 
 /** The overflow section promoted onto the bar, if any: the most visited, ties keeping the default order. */
-internal fun promotedOverflow(all: List<AppSection>, visits: Map<String, Int>): AppSection? =
-    all.filter { (visits[it.name] ?: 0) >= PROMOTE_AFTER }
+internal fun promotedOverflow(
+    all: List<AppSection>,
+    visits: Map<String, Int>,
+): AppSection? =
+    all
+        .filter { (visits[it.name] ?: 0) >= PROMOTE_AFTER }
         .maxByOrNull { visits[it.name] ?: 0 }
 
 private fun barGroups(promoted: AppSection?): List<List<BarItem>> =
@@ -169,17 +182,23 @@ private fun barGroups(promoted: AppSection?): List<List<BarItem>> =
         listOf(
             BarItem.Tab(AppSection.LIVE),
             BarItem.Tab(AppSection.SPORTS),
-            BarItem.Folder(R.string.nav_movies_tv, listOf(AppSection.MOVIES, AppSection.TV, AppSection.LIBRARY, AppSection.DISCOVER, AppSection.SHELVES), goesToFirst = true),
+            BarItem.Folder(
+                R.string.nav_movies_tv,
+                listOf(AppSection.MOVIES, AppSection.TV, AppSection.LIBRARY, AppSection.DISCOVER, AppSection.SHELVES),
+                goesToFirst = true,
+            ),
         ),
         listOfNotNull(
             BarItem.Tab(AppSection.APPS),
             promoted?.let { BarItem.Tab(it) },
+            BarItem.Folder(R.string.nav_more, OverflowTabs, goesToFirst = false),
         ),
     )
+
 /**
- * Always-visible top navigation: one row of peer sections, no overflow folder — a hidden "More" tab
- * buries its contents, so rarely used sections stay off the bar until visits promote them. Folders
- * open beneath the main row. Down returns to the last content stop.
+ * Always-visible top navigation: one row of peer sections plus a More folder for every overflow
+ * section. Frequent sections can also earn a direct shortcut. Folders open beneath the main row.
+ * Down returns to the last content stop.
  */
 @Composable
 internal fun TopBar(
@@ -192,7 +211,10 @@ internal fun TopBar(
     var open by remember { mutableStateOf<BarItem.Folder?>(null) }
     val visits = remember(slot) { AppPreferences.sectionVisits() }
     val promoted = remember(visits) { promotedOverflow(OverflowTabs, visits) }
-    val go = { tab: AppSection -> AppPreferences.bumpSectionVisit(tab.name); onGo(tab) }
+    val go = { tab: AppSection ->
+        AppPreferences.bumpSectionVisit(tab.name)
+        onGo(tab)
+    }
     LaunchedEffect(hasFocus, slot) {
         if (hasFocus) runCatching { ShellChrome.barFocus.requestFocus() }
     }
@@ -205,17 +227,17 @@ internal fun TopBar(
                     0.7f to ThemeSemantics.stage.copy(alpha = 0.88f),
                     1f to Color.Transparent,
                 ),
-            )
-            .padding(start = ThemeSpec.Safe.horizontal, end = ThemeSpec.Safe.horizontal, top = ThemeSpec.Safe.vertical)
-            .onFocusChanged { hasFocus = it.hasFocus; if (!it.hasFocus) open = null }
-            .focusProperties {
+            ).padding(start = ThemeSpec.Safe.horizontal, end = ThemeSpec.Safe.horizontal, top = ThemeSpec.Safe.vertical)
+            .onFocusChanged {
+                hasFocus = it.hasFocus
+                if (!it.hasFocus) open = null
+            }.focusProperties {
                 onExit = {
                     if (requestedFocusDirection == FocusDirection.Down && open == null) {
                         ShellChrome.lastContentFocus?.let { runCatching { it.requestFocus() } }
                     }
                 }
-            }
-            .focusGroup(),
+            }.focusGroup(),
         verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.xs),
     ) {
         Row(
@@ -224,23 +246,56 @@ internal fun TopBar(
             horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.xs),
         ) {
             barGroups(promoted).forEachIndexed { i, group ->
-                if (i > 0) Box(Modifier.padding(horizontal = ThemeSpec.Space.xs).width(1.dp).height(20.dp).background(ThemeSemantics.hairline))
+                if (i >
+                    0
+                ) {
+                    Box(
+                        Modifier
+                            .padding(horizontal = ThemeSpec.Space.xs)
+                            .width(1.dp)
+                            .height(20.dp)
+                            .background(ThemeSemantics.hairline),
+                    )
+                }
                 group.forEach { item ->
                     when (item) {
-                        is BarItem.Tab ->
+                        is BarItem.Tab -> {
                             BarTitle(
-                                stringResource(item.section.label), if (item.section == AppSection.SEARCH) navIcon(item.section) else null, selected = item.section == slot, anchor = item.section == slot,
+                                stringResource(item.section.label),
+                                if (item.section ==
+                                    AppSection.SEARCH
+                                ) {
+                                    navIcon(item.section)
+                                } else {
+                                    null
+                                },
+                                selected = item.section == slot,
+                                anchor =
+                                    item.section == slot,
                                 onFocused = { open = null },
                                 onClick = { go(item.section) },
                             )
+                        }
+
                         is BarItem.Folder -> {
                             val inside = slot in item.children
                             BarTitle(
-                                stringResource(item.label), null, selected = inside, anchor = inside,
+                                stringResource(item.label),
+                                null,
+                                selected = inside && promoted != slot,
+                                anchor = inside && promoted != slot,
                                 onFocused = {
                                     open = item
                                 },
-                                onClick = { if (item.goesToFirst && !inside) go(item.children.first()) else open = if (open == item) null else item },
+                                onClick = {
+                                    if (item.goesToFirst &&
+                                        !inside
+                                    ) {
+                                        go(item.children.first())
+                                    } else {
+                                        open = if (open == item) null else item
+                                    }
+                                },
                             )
                         }
                     }
@@ -248,7 +303,9 @@ internal fun TopBar(
             }
             Spacer(Modifier.weight(1f))
             ScreenActionButton(R.drawable.ph_user, "Profiles") {
-                if (com.carteltv.tv.data.preferences.Profiles.state.value.isNotEmpty()) {
+                if (com.carteltv.tv.data.preferences.Profiles.state.value
+                        .isNotEmpty()
+                ) {
                     com.carteltv.tv.data.preferences.Profiles.pickerShown = true
                 } else {
                     go(AppSection.SETUP)
@@ -259,17 +316,22 @@ internal fun TopBar(
             Row(
                 Modifier
                     .height(BarHeight)
-                    .clip(RoundedCornerShape(ThemeSpec.Card.corner))
-                    .background(ThemeSemantics.surfaceModal)
+                    .glassPane(RoundedCornerShape(ThemeSpec.Card.cornerLg))
                     .padding(horizontal = ThemeSpec.Space.xs),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.xs),
             ) {
                 folder.children.forEach { tab ->
                     BarTitle(
-                        stringResource(tab.label), navIcon(tab), selected = tab == slot, anchor = false,
+                        stringResource(tab.label),
+                        navIcon(tab),
+                        selected = tab == slot,
+                        anchor = false,
                         onFocused = { },
-                        onClick = { open = null; go(tab) },
+                        onClick = {
+                            open = null
+                            go(tab)
+                        },
                     )
                 }
             }
@@ -318,19 +380,20 @@ private fun BarTitle(
     Row(
         Modifier
             .then(if (anchor) Modifier.focusRequester(ShellChrome.barFocus) else Modifier)
+            .height(48.dp)
             .focusLift(scale)
             .clip(CircleShape)
             .background(pill)
             .focusRing(focused, CircleShape)
             .clickableNoIndication(interaction, onClick)
-            .padding(horizontal = ThemeSpec.Space.md, vertical = ThemeSpec.Space.xs + 2.dp),
+            .padding(horizontal = ThemeSpec.Space.lg),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.xs + 2.dp),
     ) {
         icon?.let { PhosphorIcon(it, ink, 20.dp) }
         Text(
             label,
-            fontSize = ThemeSpec.Type.cardTitle,
+            fontSize = ThemeSpec.Type.body,
             fontFamily = ThemeSpec.Font.broadcast,
             fontWeight = if (focused || selected) FontWeight.SemiBold else FontWeight.Normal,
             color = ink,

@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -17,6 +18,7 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import com.carteltv.tv.ui.apps.AllAppsOverlayState
 import com.carteltv.tv.ui.nav.ShellChrome
 
@@ -32,7 +34,6 @@ import com.carteltv.tv.ui.nav.ShellChrome
 fun FocusRequester.tryFocus(): Boolean =
     try {
         requestFocus()
-        true
     } catch (_: IllegalStateException) {
         false
     }
@@ -57,7 +58,10 @@ fun Modifier.entryFocus(
     enabled: Boolean = true,
     requester: FocusRequester = remember { FocusRequester() },
 ): Modifier {
-    LaunchedEffect(key, enabled) { if (enabled) requester.awaitFocus() }
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(key, enabled) {
+        if (enabled && !requester.awaitFocus()) focusManager.moveFocus(FocusDirection.Enter)
+    }
     return this
         .onFocusChanged { if (it.hasFocus) ShellChrome.lastContentFocus = requester }
         .focusRequester(requester)
@@ -110,7 +114,12 @@ fun Modifier.keyFocusTarget(
         onDispose { if (registry[key] === requester) registry.remove(key) }
     }
     return this
-        .onFocusChanged { if (it.hasFocus) FocusMemoryStore.remember(zone, key) }
+        .onFocusChanged {
+            if (it.hasFocus) {
+                FocusMemoryStore.remember(zone, key)
+                ShellChrome.lastContentFocus = requester
+            }
+        }
         .focusRequester(requester)
 }
 

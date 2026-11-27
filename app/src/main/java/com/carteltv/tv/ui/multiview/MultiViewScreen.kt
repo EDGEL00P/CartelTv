@@ -49,6 +49,7 @@ import com.carteltv.tv.data.xtream.LiveChannels
 import com.carteltv.tv.data.xtream.ProviderSession
 import com.carteltv.tv.engine.playback.LenientMediaSourceFactory
 import com.carteltv.tv.engine.playback.LiveRetryDataSource
+import com.carteltv.tv.engine.playback.PlaybackSession
 import com.carteltv.tv.engine.stability.BackgroundWorkScheduler
 import com.carteltv.tv.engine.stability.LiveLoadErrorPolicy
 import com.carteltv.tv.ui.components.FilterChip
@@ -56,6 +57,7 @@ import com.carteltv.tv.ui.components.TvDialogs
 import com.carteltv.tv.ui.components.clickableNoIndication
 import com.carteltv.tv.ui.components.clickableTv
 import com.carteltv.tv.ui.components.entryFocus
+import com.carteltv.tv.ui.components.awaitFocus
 import com.carteltv.tv.ui.live.ChannelLogo
 import com.carteltv.tv.ui.player.AudioFocusHandoff
 import com.carteltv.tv.ui.player.BufferingPill
@@ -243,12 +245,24 @@ fun MultiViewScreen(seedRefId: String, seedTitle: String, seedUrl: String, onClo
 
     // Playback state follows the tile the audio comes from. derivedStateOf keeps ReportNowPlaying
     // from recomposing the whole screen when an unrelated tile's player changes.
+    val context = LocalContext.current
     val shownSlot by remember { derivedStateOf { slots.getOrNull(focusCell) } }
     val shownPlayer by remember { derivedStateOf { players.getOrNull(focusCell) } }
     val slot = shownSlot
     val player = shownPlayer
     if (slot != null && player != null) {
-        ReportNowPlaying(player, GuideModel.displayName(slot.title), "Live")
+        val channelTitle = GuideModel.displayName(slot.title)
+        ReportNowPlaying(player, channelTitle, "Live")
+        // The audio tile also answers the system's media keys: one session, rebuilt as focus
+        // moves to another tile. A remote stop pauses the whole screen, exactly as its own
+        // play key does; the live item already advertises no seeking.
+        DisposableEffect(player, channelTitle) {
+            val session = PlaybackSession(
+                context, player, isLive = true,
+                onStop = { tuned().forEach { p -> runCatching { p.pause() } } },
+            )
+            onDispose { session.release() }
+        }
     }
 
     if (pickerFor >= 0 && client != null) ChannelPicker(
@@ -447,7 +461,7 @@ private fun ChannelPicker(onPick: (AppPreferences.MultiViewSlot) -> Unit, onDism
     val listState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
     val firstFocus = remember { FocusRequester() }
-    LaunchedEffect(channels) { if (channels.isNotEmpty()) firstFocus.requestFocus() }
+    LaunchedEffect(channels) { if (channels.isNotEmpty()) firstFocus.awaitFocus() }
 
     Box(
         Modifier.fillMaxSize().background(ThemeSemantics.scrimModal)
