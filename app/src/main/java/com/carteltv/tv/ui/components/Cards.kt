@@ -1,7 +1,5 @@
 package com.carteltv.tv.ui.components
 import androidx.annotation.DrawableRes
-import com.carteltv.tv.ui.theme.ThemeSpec
-import com.carteltv.tv.ui.theme.ThemeSemantics
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -13,7 +11,6 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.tv.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,32 +30,40 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.carteltv.tv.ui.nav.cardSurface
 import com.carteltv.tv.ui.theme.*
+import com.carteltv.tv.ui.theme.ThemeSemantics
+import com.carteltv.tv.ui.theme.ThemeSpec
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /** Quiet pointer precursor to D-pad focus. The animated value is read only in the draw layer. */
-private fun Modifier.pointerHoverLift(source: MutableInteractionSource, lift: Float): Modifier = composed {
-    val hovered by source.collectIsHoveredAsState()
-    val focused by source.collectIsFocusedAsState()
-    val scale = animateFloatAsState(
-        targetValue = if (hovered && !focused) lift else 1f,
-        animationSpec = ThemeSpec.Motion.focusSpring(),
-        label = "pointerHoverLift",
-    )
-    graphicsLayer {
-        val s = scale.value
-        scaleX = s
-        scaleY = s
+private fun Modifier.pointerHoverLift(
+    source: MutableInteractionSource,
+    lift: Float,
+): Modifier =
+    composed {
+        val hovered by source.collectIsHoveredAsState()
+        val focused by source.collectIsFocusedAsState()
+        val scale =
+            animateFloatAsState(
+                targetValue = if (hovered && !focused) lift else 1f,
+                animationSpec = ThemeSpec.Motion.focusSpring(),
+                label = "pointerHoverLift",
+            )
+        graphicsLayer {
+            val s = scale.value
+            scaleX = s
+            scaleY = s
+        }
     }
-}
 
 /** House clickable: no touch ripple, a hand cursor and a restrained hover lift for pointer users. */
 fun Modifier.clickableTv(
@@ -68,22 +73,25 @@ fun Modifier.clickableTv(
     enabled: Boolean = true,
     showHand: Boolean = true,
     onClick: () -> Unit,
-): Modifier = composed {
-    val source = interactionSource ?: remember { MutableInteractionSource() }
-    this
-        .then(if (hoverEffect) Modifier.pointerHoverLift(source, hoverLift) else Modifier)
-        .then(if (enabled && showHand) Modifier.pointerHoverIcon(PointerIcon.Hand) else Modifier)
-        .clickable(
-            interactionSource = source,
-            indication = null,
-            enabled = enabled,
-            onClick = onClick,
-        )
-}
+): Modifier =
+    composed {
+        val source = interactionSource ?: remember { MutableInteractionSource() }
+        this
+            .then(if (hoverEffect) Modifier.pointerHoverLift(source, hoverLift) else Modifier)
+            .then(if (enabled && showHand) Modifier.pointerHoverIcon(PointerIcon.Hand) else Modifier)
+            .clickable(
+                interactionSource = source,
+                indication = null,
+                enabled = enabled,
+                onClick = onClick,
+            )
+    }
 
 /** Backwards-compatible name for the house clickable; touch feedback stays suppressed. */
-fun Modifier.clickableNoIndication(interactionSource: MutableInteractionSource? = null, onClick: () -> Unit): Modifier =
-    clickableTv(interactionSource = interactionSource, onClick = onClick)
+fun Modifier.clickableNoIndication(
+    interactionSource: MutableInteractionSource? = null,
+    onClick: () -> Unit,
+): Modifier = clickableTv(interactionSource = interactionSource, onClick = onClick)
 
 /** Long-press cards use the same hover language as ordinary controls. */
 @OptIn(ExperimentalFoundationApi::class)
@@ -93,19 +101,20 @@ fun Modifier.combinedClickableNoIndication(
     onClickLabel: String? = null,
     onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit,
-): Modifier = composed {
-    val source = interactionSource ?: remember { MutableInteractionSource() }
-    this
-        .pointerHoverLift(source, hoverLift)
-        .pointerHoverIcon(PointerIcon.Hand)
-        .combinedClickable(
-            interactionSource = source,
-            indication = null,
-            onClickLabel = onClickLabel,
-            onLongClick = onLongClick,
-            onClick = onClick,
-        )
-}
+): Modifier =
+    composed {
+        val source = interactionSource ?: remember { MutableInteractionSource() }
+        this
+            .pointerHoverLift(source, hoverLift)
+            .pointerHoverIcon(PointerIcon.Hand)
+            .combinedClickable(
+                interactionSource = source,
+                indication = null,
+                onClickLabel = onClickLabel,
+                onLongClick = onLongClick,
+                onClick = onClick,
+            )
+    }
 
 /** Shared clock ticker used across Home, Dock, Widgets, and SleepTimer. */
 @Composable
@@ -131,23 +140,32 @@ object ClockFormat {
     private val dayTime12 = ThreadLocal.withInitial { SimpleDateFormat("EEE h:mm a", Locale.getDefault()) }
     private val mediumDateFormat = ThreadLocal.withInitial { SimpleDateFormat("EEE d MMM", Locale.getDefault()) }
 
-    fun time(ms: Long, clock24: Boolean): String =
-        (if (clock24) time24.get() else time12.get()).format(Date(ms))
+    fun time(
+        ms: Long,
+        clock24: Boolean,
+    ): String = (if (clock24) time24.get() else time12.get()).format(Date(ms))
 
     /** Hour-only label — "15:00" / "3 PM" — for a column of hours. */
-    fun hour(ms: Long, clock24: Boolean): String =
-        (if (clock24) hour24.get() else hour12.get()).format(Date(ms))
+    fun hour(
+        ms: Long,
+        clock24: Boolean,
+    ): String = (if (clock24) hour24.get() else hour12.get()).format(Date(ms))
 
-    fun dayTime(ms: Long, clock24: Boolean): String =
-        (if (clock24) dayTime24.get() else dayTime12.get()).format(Date(ms))
+    fun dayTime(
+        ms: Long,
+        clock24: Boolean,
+    ): String = (if (clock24) dayTime24.get() else dayTime12.get()).format(Date(ms))
 
     fun dateMedium(ms: Long): String = mediumDateFormat.get().format(Date(ms))
 }
 
 /** What a focused card tells the screen above it (e.g. the Home hero). */
 data class TitleFocus(
-    val title: String, val art: String?, val subtitle: String?,
-    val logos: List<String> = emptyList(), val meta: String? = null,
+    val title: String,
+    val art: String?,
+    val subtitle: String?,
+    val logos: List<String> = emptyList(),
+    val meta: String? = null,
     /** "league:game name" for a game card, so the hero can show that game's scorebug. */
     val gameKey: String? = null,
 )
@@ -177,14 +195,24 @@ fun CardArtwork(
         if (url.isNullOrBlank() || failed) {
             Box(Modifier.fillMaxSize().padding(ThemeSpec.Space.xl), contentAlignment = Alignment.Center) {
                 Text(
-                    title, fontSize = ThemeSpec.Type.cardTitle, fontFamily = ThemeSpec.Font.broadcast,
-                    fontWeight = FontWeight.SemiBold, color = ThemeSemantics.onMediaMuted,
-                    textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    title,
+                    fontSize = ThemeSpec.Type.cardTitle,
+                    fontFamily = ThemeSpec.Font.broadcast,
+                    fontWeight = FontWeight.SemiBold,
+                    color = ThemeSemantics.onMediaMuted,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         } else {
             AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current).data(url).crossfade(220).build(),
+                model =
+                    ImageRequest
+                        .Builder(LocalContext.current)
+                        .data(url)
+                        .crossfade(220)
+                        .build(),
                 contentDescription = title,
                 contentScale = contentScale,
                 onState = { state -> failed = state is AsyncImagePainter.State.Error },
@@ -226,54 +254,85 @@ fun PosterCard(
             onDispose { reportFocus(null) }
         }
     }
-    val clickMod = if (onLongClick != null) {
-        Modifier.combinedClickableNoIndication(
-            interactionSource = interaction,
-            onLongClick = onLongClick,
-            onClick = onClick,
-        )
-    } else {
-        Modifier.clickableNoIndication(interaction, onClick)
-    }
+    val clickMod =
+        if (onLongClick != null) {
+            Modifier.combinedClickableNoIndication(
+                interactionSource = interaction,
+                onLongClick = onLongClick,
+                onClick = onClick,
+            )
+        } else {
+            Modifier.clickableNoIndication(interaction, onClick)
+        }
 
     Box(
-        modifier = modifier
-            .width(width)
-            .height(height)
-            .cardSurface(focused, pressed = pressed)
-            .focusZLift(focused)
-            .then(clickMod),
+        modifier =
+            modifier
+                .width(width)
+                .height(height)
+                .cardSurface(focused, pressed = pressed)
+                .focusZLift(focused)
+                .then(clickMod),
     ) {
         CardArtwork(imageUrl, title, Modifier.fillMaxSize())
         badge?.takeIf { it.isNotBlank() }?.let {
             Text(
-                it, fontSize = ThemeSpec.Type.label, fontWeight = FontWeight.SemiBold,
+                it,
+                fontSize = ThemeSpec.Type.label,
+                fontWeight = FontWeight.SemiBold,
                 fontFamily = ThemeSpec.Font.broadcast,
                 color = onAccent(ThemeSemantics.accent),
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(ThemeSpec.Space.sm)
-                    .clip(RoundedCornerShape(ThemeSpec.Card.cornerSm))
-                    .background(ThemeSemantics.accent)
-                    .padding(horizontal = ThemeSpec.Space.sm, vertical = ThemeSpec.Space.xs), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopStart)
+                        .padding(ThemeSpec.Space.sm)
+                        .clip(RoundedCornerShape(ThemeSpec.Card.cornerSm))
+                        .background(ThemeSemantics.accent)
+                        .padding(horizontal = ThemeSpec.Space.sm, vertical = ThemeSpec.Space.xs),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
         }
         // Titles are visible at rest, Kayo-style: the metadata line is the focus-only reveal. A tile whose caller
         // writes the title beneath it shows art alone.
-        if (titled) Column(
-            Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomStart)
-                .background(Brush.verticalGradient(listOf(Color.Transparent, ThemeSemantics.scrimDeep)))
-                .padding(start = ThemeSpec.Space.sm, end = ThemeSpec.Space.sm, top = ThemeSpec.Space.lg, bottom = if (progress > 0f) ThemeSpec.Space.sm else ThemeSpec.Space.sm),
-        ) {
-            Text(
-                title, fontSize = ThemeSpec.Type.meta, color = ThemeSemantics.onMedia, fontWeight = FontWeight.SemiBold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-            if (focused && captionOnFocus) {
-                subtitle?.let {
-                    Text(it, fontSize = ThemeSpec.Type.label, color = ThemeSemantics.onMediaMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (titled) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomStart)
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, ThemeSemantics.scrimDeep)))
+                    .padding(
+                        start = ThemeSpec.Space.sm,
+                        end = ThemeSpec.Space.sm,
+                        top = ThemeSpec.Space.lg,
+                        bottom =
+                            if (progress >
+                                0f
+                            ) {
+                                ThemeSpec.Space.sm
+                            } else {
+                                ThemeSpec.Space.sm
+                            },
+                    ),
+            ) {
+                Text(
+                    title,
+                    fontSize = ThemeSpec.Type.meta,
+                    color = ThemeSemantics.onMedia,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (focused && captionOnFocus) {
+                    subtitle?.let {
+                        Text(
+                            it,
+                            fontSize = ThemeSpec.Type.label,
+                            color = ThemeSemantics.onMediaMuted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }
@@ -328,15 +387,20 @@ fun GridPoster(
                 CardArtwork(imageUrl, title, Modifier.fillMaxSize())
                 badge?.takeIf { it.isNotBlank() }?.let {
                     Text(
-                        it, fontSize = ThemeSpec.Type.label, fontWeight = FontWeight.SemiBold,
+                        it,
+                        fontSize = ThemeSpec.Type.label,
+                        fontWeight = FontWeight.SemiBold,
                         fontFamily = ThemeSpec.Font.broadcast,
                         color = onAccent(ThemeSemantics.accent),
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(ThemeSpec.Space.sm)
-                            .clip(RoundedCornerShape(ThemeSpec.Card.cornerSm))
-                            .background(ThemeSemantics.accent)
-                            .padding(horizontal = ThemeSpec.Space.sm, vertical = ThemeSpec.Space.xs), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier =
+                            Modifier
+                                .align(Alignment.TopStart)
+                                .padding(ThemeSpec.Space.sm)
+                                .clip(RoundedCornerShape(ThemeSpec.Card.cornerSm))
+                                .background(ThemeSemantics.accent)
+                                .padding(horizontal = ThemeSpec.Space.sm, vertical = ThemeSpec.Space.xs),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -381,18 +445,23 @@ fun FilterChip(
     selected: Boolean,
     compact: Boolean = false,
     @DrawableRes icon: Int? = null,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) = Chip(
-    label, selected, compact = compact,
-    leading = icon?.let { id ->
-        {
-            PhosphorIcon(
-                id,
-                if (selected) ThemeSemantics.textInverse else ThemeSemantics.textEmphatic,
-                if (compact) 14.dp else 16.dp,
-            )
-        }
-    },
+    label,
+    selected,
+    modifier = modifier,
+    compact = compact,
+    leading =
+        icon?.let { id ->
+            {
+                PhosphorIcon(
+                    id,
+                    if (selected) ThemeSemantics.textInverse else ThemeSemantics.textEmphatic,
+                    if (compact) 14.dp else 16.dp,
+                )
+            }
+        },
     onClick = onClick,
 )
 
@@ -434,7 +503,11 @@ fun PosterTile(
                 .then(
                     // A tile with a long-press (Continue watching's remove) keeps the same surface, lift and ring.
                     if (onLongClick != null) {
-                        Modifier.combinedClickableNoIndication(interactionSource = interaction, onLongClick = onLongClick, onClick = onClick)
+                        Modifier.combinedClickableNoIndication(
+                            interactionSource = interaction,
+                            onLongClick = onLongClick,
+                            onClick = onClick,
+                        )
                     } else {
                         Modifier.clickableNoIndication(interaction, onClick)
                     },
@@ -443,15 +516,20 @@ fun PosterTile(
             CardArtwork(imageUrl, title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             badge?.takeIf { it.isNotBlank() }?.let {
                 Text(
-                    it, fontSize = ThemeSpec.Type.label, fontWeight = FontWeight.SemiBold,
+                    it,
+                    fontSize = ThemeSpec.Type.label,
+                    fontWeight = FontWeight.SemiBold,
                     fontFamily = ThemeSpec.Font.broadcast,
                     color = onAccent(ThemeSemantics.accent),
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(ThemeSpec.Space.sm)
-                        .clip(RoundedCornerShape(ThemeSpec.Card.cornerSm))
-                        .background(ThemeSemantics.accent)
-                        .padding(horizontal = ThemeSpec.Space.sm, vertical = ThemeSpec.Space.xs), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopStart)
+                            .padding(ThemeSpec.Space.sm)
+                            .clip(RoundedCornerShape(ThemeSpec.Card.cornerSm))
+                            .background(ThemeSemantics.accent)
+                            .padding(horizontal = ThemeSpec.Space.sm, vertical = ThemeSpec.Space.xs),
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
             }
             if (progress > 0f) {
@@ -470,22 +548,34 @@ fun PosterTile(
         // row at rest is pure poster art.
         androidx.compose.animation.AnimatedVisibility(
             visible = focused,
-            enter = androidx.compose.animation.expandVertically(ThemeSpec.Motion.tweenMid()) + androidx.compose.animation.fadeIn(ThemeSpec.Motion.tweenMid()),
-            exit = androidx.compose.animation.shrinkVertically(ThemeSpec.Motion.tweenFast()) + androidx.compose.animation.fadeOut(ThemeSpec.Motion.tweenFast()),
+            enter =
+                androidx.compose.animation.expandVertically(ThemeSpec.Motion.tweenMid()) +
+                    androidx.compose.animation.fadeIn(ThemeSpec.Motion.tweenMid()),
+            exit =
+                androidx.compose.animation.shrinkVertically(ThemeSpec.Motion.tweenFast()) +
+                    androidx.compose.animation.fadeOut(ThemeSpec.Motion.tweenFast()),
         ) {
             Column(
                 Modifier.padding(top = ThemeSpec.Space.cozy),
                 verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.xs),
             ) {
                 Text(
-                    title, fontSize = ThemeSpec.Type.cardTitle, fontFamily = ThemeSpec.Font.broadcast,
-                    fontWeight = FontWeight.Bold, color = ThemeSemantics.textEmphatic,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    title,
+                    fontSize = ThemeSpec.Type.cardTitle,
+                    fontFamily = ThemeSpec.Font.broadcast,
+                    fontWeight = FontWeight.Bold,
+                    color = ThemeSemantics.textEmphatic,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 meta?.takeIf { it.isNotBlank() }?.let {
                     Text(
-                        it, fontSize = ThemeSpec.Type.label, fontFamily = ThemeSpec.Font.broadcast,
-                        color = ThemeSemantics.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        it,
+                        fontSize = ThemeSpec.Type.label,
+                        fontFamily = ThemeSpec.Font.broadcast,
+                        color = ThemeSemantics.textSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -495,7 +585,12 @@ fun PosterTile(
 
 /** Provider names arrive as "[EN] DISNEY": drop the bracket tag and sentence-case the shouting. */
 internal fun tidyRailTitle(raw: String): String {
-    val t = raw.replace(LEADING_BRACKET_TAG, "").replace(WHITESPACE_RUN, " ").trim().ifEmpty { raw }
+    val t =
+        raw
+            .replace(LEADING_BRACKET_TAG, "")
+            .replace(WHITESPACE_RUN, " ")
+            .trim()
+            .ifEmpty { raw }
     if (t.any { it.isLowerCase() }) return t
     return t.lowercase().split(' ').joinToString(" ") { w -> w.replaceFirstChar { it.uppercase() } }
 }

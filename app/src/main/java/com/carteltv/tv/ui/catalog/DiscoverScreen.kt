@@ -31,6 +31,7 @@ import com.carteltv.tv.ui.components.PageLoading
 import com.carteltv.tv.ui.components.PosterTile
 import com.carteltv.tv.ui.components.RailFocusLine
 import com.carteltv.tv.ui.components.StagedScreen
+import com.carteltv.tv.ui.components.entryFocus
 import com.carteltv.tv.ui.components.restoreRowFocus
 import com.carteltv.tv.ui.nav.ScreenPage
 import com.carteltv.tv.ui.theme.ThemeSpec
@@ -122,7 +123,12 @@ fun DiscoverScreen() {
                         ).restoreRowFocus(),
                     horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
                 ) {
-                    item("mixed") { FilterChip("All", media == DiscoverMedia.MIXED) { media = DiscoverMedia.MIXED } }
+                    item("mixed") {
+                        FilterChip("All", media == DiscoverMedia.MIXED, modifier = Modifier.entryFocus()) {
+                            media =
+                                DiscoverMedia.MIXED
+                        }
+                    }
                     item("movies") { FilterChip("Movies", media == DiscoverMedia.MOVIES) { media = DiscoverMedia.MOVIES } }
                     item("shows") { FilterChip("Shows", media == DiscoverMedia.SHOWS) { media = DiscoverMedia.SHOWS } }
                 }
