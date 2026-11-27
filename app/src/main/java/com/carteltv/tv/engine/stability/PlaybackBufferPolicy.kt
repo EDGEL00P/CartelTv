@@ -20,21 +20,51 @@ object PlaybackBufferPolicy {
 
     const val LOW_RAM_TARGET_BYTES = 48 * 1024 * 1024
 
-    /** Live edge: a server only sends in real time, so deep VOD buffers never fill and only delay zapping. */
-    fun live(preset: AppPreferences.BufferPreset, lowRam: Boolean): Spec {
-        val (min, max) = when (preset) {
-            AppPreferences.BufferPreset.LOW -> 5_000 to 15_000
-            AppPreferences.BufferPreset.STD -> 8_000 to 30_000
-            AppPreferences.BufferPreset.XL -> 15_000 to 60_000
-        }
-        return Spec(min, max, startMs = 1_000, rebufferStartMs = 3_000,
-            targetBytes = LOW_RAM_TARGET_BYTES.takeIf { lowRam })
+    /**
+     * Live edge: a server only sends in real time, so deep VOD buffers never fill and only delay zapping.
+     *
+     * [deepBuffer] is the per-provider "deep buffer" flag for a provider whose throughput is uneven
+     * (bursty progressive-TS that drains the shallow preset and re-stalls). It applies the documented
+     * live recipe — Akamai's ExoPlayer-team guidance of a 15 s min / 60 s max time cushion with a 5 s
+     * rebuffer resume — so one burst is absorbed instead of looping. The 1 s start is kept so zapping
+     * stays quick; the cushion fills just after playback begins. Providers on a steady edge stay on
+     * their chosen preset and the lighter 3 s resume.
+     */
+    fun live(
+        preset: AppPreferences.BufferPreset,
+        lowRam: Boolean,
+        deepBuffer: Boolean = false,
+    ): Spec {
+        val (min, max) =
+            if (deepBuffer) {
+                15_000 to 60_000
+            } else {
+                when (preset) {
+                    AppPreferences.BufferPreset.LOW -> 5_000 to 15_000
+                    AppPreferences.BufferPreset.STD -> 8_000 to 30_000
+                    AppPreferences.BufferPreset.XL -> 15_000 to 60_000
+                }
+            }
+        return Spec(
+            min,
+            max,
+            startMs = 1_000,
+            rebufferStartMs = if (deepBuffer) 5_000 else 3_000,
+            targetBytes = LOW_RAM_TARGET_BYTES.takeIf { lowRam },
+        )
     }
 
-    fun vod(preset: AppPreferences.BufferPreset, lowRam: Boolean): Spec = Spec(
-        preset.minMs, preset.maxMs, startMs = 2_500, rebufferStartMs = 5_000,
-        targetBytes = LOW_RAM_TARGET_BYTES.takeIf { lowRam },
-    )
+    fun vod(
+        preset: AppPreferences.BufferPreset,
+        lowRam: Boolean,
+    ): Spec =
+        Spec(
+            preset.minMs,
+            preset.maxMs,
+            startMs = 2_500,
+            rebufferStartMs = 5_000,
+            targetBytes = LOW_RAM_TARGET_BYTES.takeIf { lowRam },
+        )
 
     /**
      * How far behind the live edge playback starts and returns to after a stall, in milliseconds:
@@ -42,9 +72,10 @@ object PlaybackBufferPolicy {
      * through LiveBufferCushion's slow 0.96x phase. About a third of each preset's buffer depth —
      * deeper presets sit further from the edge because their streams survive longer silences.
      */
-    fun liveTargetOffsetMs(preset: AppPreferences.BufferPreset): Long = when (preset) {
-        AppPreferences.BufferPreset.LOW -> 6_000L
-        AppPreferences.BufferPreset.STD -> 10_000L
-        AppPreferences.BufferPreset.XL -> 18_000L
-    }
+    fun liveTargetOffsetMs(preset: AppPreferences.BufferPreset): Long =
+        when (preset) {
+            AppPreferences.BufferPreset.LOW -> 6_000L
+            AppPreferences.BufferPreset.STD -> 10_000L
+            AppPreferences.BufferPreset.XL -> 18_000L
+        }
 }

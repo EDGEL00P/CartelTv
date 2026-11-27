@@ -56,35 +56,49 @@ fun buildCartelPlayer(
     live: Boolean,
     sourceFactory: MediaSource.Factory? = null,
     audioFocus: Boolean = true,
+    deepBuffer: Boolean = false,
 ): ExoPlayer.Builder {
     val lowRam = isLowRamDevice(context)
-    val spec = if (live) PlaybackBufferPolicy.live(AppPreferences.bufferPreset, lowRam) else PlaybackBufferPolicy.vod(AppPreferences.bufferPreset, lowRam)
-    return ExoPlayer.Builder(context)
+    val spec =
+        if (live) {
+            PlaybackBufferPolicy.live(
+                AppPreferences.bufferPreset,
+                lowRam,
+                deepBuffer,
+            )
+        } else {
+            PlaybackBufferPolicy.vod(AppPreferences.bufferPreset, lowRam)
+        }
+    return ExoPlayer
+        .Builder(context)
         .setRenderersFactory(CartelRenderersFactory(context, live))
         .setMediaSourceFactory(sourceFactory ?: LenientMediaSourceFactory(cartelDataSource(context), cartelExtractors(context)))
         .setLoadControl(
-            DefaultLoadControl.Builder()
+            DefaultLoadControl
+                .Builder()
                 .setBufferDurationsMs(spec.minMs, spec.maxMs, spec.startMs, spec.rebufferStartMs)
                 .apply { spec.targetBytes?.let { setTargetBufferBytes(it) } }
                 .build(),
-        )
-        .setBandwidthMeter(
-            DefaultBandwidthMeter.Builder(context)
+        ).setBandwidthMeter(
+            DefaultBandwidthMeter
+                .Builder(context)
                 .setInitialBitrateEstimate(INITIAL_BITRATE_BPS)
                 .build(),
-        )
-        .setTrackSelector(
+        ).setTrackSelector(
             DefaultTrackSelector(context).also { selector ->
                 // Let ABR switch between H.264/HEVC renditions as well as bitrates; sports variants are not
                 // always packaged with one codec. Tunneling cannot run through the GL effects pipeline.
                 val tunneling = AppPreferences.tunneling && !AppPreferences.videoEnhance
                 val audioOffload = AppPreferences.audioOffload
-                val builder = selector.buildUponParameters()
-                    .setAllowVideoMixedMimeTypeAdaptiveness(true)
-                    .setTunnelingEnabled(tunneling)
+                val builder =
+                    selector
+                        .buildUponParameters()
+                        .setAllowVideoMixedMimeTypeAdaptiveness(true)
+                        .setTunnelingEnabled(tunneling)
                 if (audioOffload) {
                     builder.setAudioOffloadPreferences(
-                        TrackSelectionParameters.AudioOffloadPreferences.Builder()
+                        TrackSelectionParameters.AudioOffloadPreferences
+                            .Builder()
                             .setAudioOffloadMode(TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED)
                             .build(),
                     )
@@ -104,7 +118,8 @@ fun buildCartelPlayer(
 /** HTTP for provider streams: cross-protocol redirects and the app's standard timeouts. */
 @OptIn(UnstableApi::class)
 internal fun cartelHttpFactory(headers: Map<String, String> = emptyMap()): DefaultHttpDataSource.Factory =
-    DefaultHttpDataSource.Factory()
+    DefaultHttpDataSource
+        .Factory()
         .setAllowCrossProtocolRedirects(true)
         .setConnectTimeoutMs(12_000)
         .setReadTimeoutMs(30_000)
@@ -114,23 +129,35 @@ internal fun cartelHttpFactory(headers: Map<String, String> = emptyMap()): Defau
  * A provider stream over [http]. The resolver rewrites Stalker portal links, which carry the
  * real address inside the path. Live retry is the main player's to add (see LiveRetryDataSource).
  */
-internal fun providerDataSource(context: Context, http: DataSource.Factory = cartelHttpFactory()): ResolvingDataSource.Factory =
-    ResolvingDataSource.Factory(DefaultDataSource.Factory(context, http), StalkerClient.Resolver)
+internal fun providerDataSource(
+    context: Context,
+    http: DataSource.Factory = cartelHttpFactory(),
+): ResolvingDataSource.Factory = ResolvingDataSource.Factory(DefaultDataSource.Factory(context, http), StalkerClient.Resolver)
 
 /** The app's extractor set: Dolby Vision handling and chapter reading on top of Media3's defaults. */
-internal fun cartelExtractors(context: Context): ExtractorsFactory = DolbyVisionExtractorsFactory(
-    delegate = DefaultExtractorsFactory().setTsExtractorFlags(TS_PAYLOAD_FLAGS),
-    config = DvPolicy.resolve(DeviceVideoCapabilities.probe(context), AppPreferences.dvNativeProfile7),
-)
+internal fun cartelExtractors(context: Context): ExtractorsFactory =
+    DolbyVisionExtractorsFactory(
+        delegate = DefaultExtractorsFactory().setTsExtractorFlags(TS_PAYLOAD_FLAGS),
+        config = DvPolicy.resolve(DeviceVideoCapabilities.probe(context), AppPreferences.dvNativeProfile7),
+    )
 
 /** Provider streams over the shared HTTP factory: what [buildCartelPlayer] falls back to. */
-internal fun cartelDataSource(context: Context, headers: Map<String, String> = emptyMap()): ResolvingDataSource.Factory =
-    providerDataSource(context, cartelHttpFactory(headers))
+internal fun cartelDataSource(
+    context: Context,
+    headers: Map<String, String> = emptyMap(),
+): ResolvingDataSource.Factory = providerDataSource(context, cartelHttpFactory(headers))
 
 /** A media item with the playlist-declared DRM when the stream carries any, a plain URI otherwise. */
-internal fun cartelMediaItem(url: String, meta: StreamMetadata?): MediaItem {
+internal fun cartelMediaItem(
+    url: String,
+    meta: StreamMetadata?,
+): MediaItem {
     val drm = meta?.drm?.let { DrmPolicy.configuration(it, meta.headers) } ?: return MediaItem.fromUri(url)
-    return MediaItem.Builder().setUri(url).setDrmConfiguration(drm).build()
+    return MediaItem
+        .Builder()
+        .setUri(url)
+        .setDrmConfiguration(drm)
+        .build()
 }
 
 /**
@@ -139,15 +166,19 @@ internal fun cartelMediaItem(url: String, meta: StreamMetadata?): MediaItem {
  * bounds are pinned at 1.0 deliberately: gradual reserve stays with LiveBufferCushion (which rides on
  * the per-title speed), and leaving Media3 free to adjust speed would put two owners on one knob.
  */
-internal fun cartelLiveMediaItem(url: String, meta: StreamMetadata?): MediaItem = cartelMediaItem(url, meta).buildUpon()
-    .setLiveConfiguration(
-        MediaItem.LiveConfiguration.Builder()
-            .setTargetOffsetMs(PlaybackBufferPolicy.liveTargetOffsetMs(AppPreferences.bufferPreset))
-            .setMinPlaybackSpeed(1f)
-            .setMaxPlaybackSpeed(1f)
-            .build(),
-    )
-    .build()
+internal fun cartelLiveMediaItem(
+    url: String,
+    meta: StreamMetadata?,
+): MediaItem =
+    cartelMediaItem(url, meta)
+        .buildUpon()
+        .setLiveConfiguration(
+            MediaItem.LiveConfiguration
+                .Builder()
+                .setTargetOffsetMs(PlaybackBufferPolicy.liveTargetOffsetMs(AppPreferences.bufferPreset))
+                .setMinPlaybackSpeed(1f)
+                .setMaxPlaybackSpeed(1f)
+                .build(),
+        ).build()
 
-internal fun isLowRamDevice(context: Context): Boolean =
-    context.getSystemService(ActivityManager::class.java)?.isLowRamDevice == true
+internal fun isLowRamDevice(context: Context): Boolean = context.getSystemService(ActivityManager::class.java)?.isLowRamDevice == true

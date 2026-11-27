@@ -5,9 +5,9 @@ import com.carteltv.tv.data.provider.Provider
 import com.carteltv.tv.data.provider.ProviderEdit
 import com.carteltv.tv.data.provider.ProviderHealth
 import com.carteltv.tv.data.provider.ProviderType
-import com.carteltv.tv.data.xtream.ProviderSession
 import com.carteltv.tv.data.provider.StreamCredentials
 import com.carteltv.tv.data.xtream.ChannelGroupConfig
+import com.carteltv.tv.data.xtream.ProviderSession
 import com.carteltv.tv.engine.stability.SecretVault
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -18,13 +18,19 @@ import kotlinx.serialization.json.Json
  * Extracted from [AppPreferences] to give provider state its own responsibility (SRP).
  * All reads are memoized; writes go straight to SharedPreferences.
  */
-class ProviderPreferences(private val sp: SharedPreferences, private val json: Json) {
-
+class ProviderPreferences(
+    private val sp: SharedPreferences,
+    private val json: Json,
+) {
     /** Decrypting and parsing the provider list is not free; cache until the stored text changes. */
     private val memoLock = Any()
+
     @Volatile private var provRaw: String? = null
+
     @Volatile private var provList: List<Provider> = emptyList()
+
     @Volatile private var groupRaw: String? = null
+
     @Volatile private var groupMap: Map<String, ChannelGroupConfig> = emptyMap()
 
     /** Every saved provider, oldest first. A pre-multi-provider single login is imported on first read. */
@@ -34,20 +40,26 @@ class ProviderPreferences(private val sp: SharedPreferences, private val json: J
             if (raw == provRaw) return provList
             synchronized(memoLock) {
                 if (raw == provRaw) return provList
-                val parsed = runCatching {
-                    json.decodeFromString<List<Provider>>(SecretVault.decrypt(raw) ?: raw)
-                }.getOrDefault(emptyList())
+                val parsed =
+                    runCatching {
+                        json.decodeFromString<List<Provider>>(SecretVault.decrypt(raw) ?: raw)
+                    }.getOrDefault(emptyList())
                 provList = parsed
                 provRaw = raw
                 return parsed
             }
         }
-        val legacy = sp.getString("creds", null)?.let {
-            runCatching { json.decodeFromString<Credentials>(SecretVault.decrypt(it) ?: it) }.getOrNull()
-        } ?: return emptyList()
+        val legacy =
+            sp.getString("creds", null)?.let {
+                runCatching { json.decodeFromString<Credentials>(SecretVault.decrypt(it) ?: it) }.getOrNull()
+            } ?: return emptyList()
         val migrated = listOf(Provider.of(legacy))
         saveProviders(migrated)
-        sp.edit().putString("active_provider", migrated[0].id).remove("creds").apply()
+        sp
+            .edit()
+            .putString("active_provider", migrated[0].id)
+            .remove("creds")
+            .apply()
         return migrated
     }
 
@@ -61,7 +73,10 @@ class ProviderPreferences(private val sp: SharedPreferences, private val json: J
     }
 
     /** Moves a provider one place up (-1) or down (+1); the list order is the failover priority. */
-    fun moveProvider(id: String, delta: Int) {
+    fun moveProvider(
+        id: String,
+        delta: Int,
+    ) {
         val all = providers().toMutableList()
         val i = all.indexOfFirst { it.id == id }
         val j = i + delta
@@ -91,13 +106,14 @@ class ProviderPreferences(private val sp: SharedPreferences, private val json: J
 
     private fun channelGroupConfigs(): Map<String, ChannelGroupConfig> {
         val raw = sp.getString("group_cfg", null) ?: return emptyMap()
-        val decrypted = SecretVault.decrypt(raw) ?: raw  // backward compat: unencrypted fallback
+        val decrypted = SecretVault.decrypt(raw) ?: raw // backward compat: unencrypted fallback
         if (decrypted == groupRaw) return groupMap
         synchronized(memoLock) {
             if (decrypted == groupRaw) return groupMap
-            val parsed = runCatching {
-                json.decodeFromString<Map<String, ChannelGroupConfig>>(decrypted)
-            }.getOrDefault(emptyMap())
+            val parsed =
+                runCatching {
+                    json.decodeFromString<Map<String, ChannelGroupConfig>>(decrypted)
+                }.getOrDefault(emptyMap())
             groupMap = parsed
             groupRaw = decrypted
             return parsed
@@ -106,8 +122,30 @@ class ProviderPreferences(private val sp: SharedPreferences, private val json: J
 
     fun provider(id: String): Provider? = providers().firstOrNull { it.id == id }
 
+    /**
+     * Providers flagged for the deeper live rebuffer cushion, keyed by provider id. A provider with
+     * uneven throughput (bursty progressive-TS that re-stalls at the lighter 3 s resume) opts in here;
+     * everyone else keeps the fast 3 s. Backed by a plain string set — no encryption needed, it is not
+     * a secret and holds only provider ids.
+     */
+    fun deepBufferProviders(): Set<String> = sp.getStringSet("deep_buffer_providers", emptySet())?.toSet() ?: emptySet()
+
+    fun deepBufferProvider(id: String): Boolean = id in deepBufferProviders()
+
+    fun setDeepBufferProvider(
+        id: String,
+        on: Boolean,
+    ) {
+        val all = deepBufferProviders().toMutableSet()
+        if (on) all.add(id) else all.remove(id)
+        sp.edit().putStringSet("deep_buffer_providers", all).apply()
+    }
+
     /** Persists what the server last said about one provider's account (status, expiry, connections). */
-    fun setProviderHealth(id: String, health: ProviderHealth) {
+    fun setProviderHealth(
+        id: String,
+        health: ProviderHealth,
+    ) {
         val all = providers().toMutableList()
         val i = all.indexOfFirst { it.id == id }
         if (i < 0) return
@@ -141,17 +179,27 @@ class ProviderPreferences(private val sp: SharedPreferences, private val json: J
     fun saveCredentials(c: Credentials) {
         val all = providers()
         val same = all.firstOrNull { it.host.equals(c.host, true) && it.user == c.user }
-        val target = same ?: if (ProviderEdit.adding) null else ProviderEdit.targetId?.let { id -> all.firstOrNull { it.id == id } } ?: activeProvider()
+        val target =
+            same
+                ?: if (ProviderEdit.adding) {
+                    null
+                } else {
+                    ProviderEdit.targetId?.let { id -> all.firstOrNull { it.id == id } }
+                        ?: activeProvider()
+                }
         val xtreamTarget = target?.takeIf { it.kind == ProviderType.XTREAM }
         val cleanHost = if (xtreamTarget != null) ProviderSession.normalizeHost(c.host) else c.host.trim()
-        val saved = xtreamTarget?.copy(host = cleanHost, user = c.user, pass = c.pass)
-            ?: target?.copy(host = cleanHost, user = c.user, pass = c.pass)  // preserve non-Xtream kind
-            ?: Provider.of(c.copy(host = cleanHost))
+        val saved =
+            xtreamTarget?.copy(host = cleanHost, user = c.user, pass = c.pass)
+                ?: target?.copy(host = cleanHost, user = c.user, pass = c.pass) // preserve non-Xtream kind
+                ?: Provider.of(c.copy(host = cleanHost))
         upsertProvider(saved)
         activeProviderId = saved.id
     }
 
-    fun clearCredentials() { activeProvider()?.let { removeProvider(it.id) } }
+    fun clearCredentials() {
+        activeProvider()?.let { removeProvider(it.id) }
+    }
 
     /** The active provider's login, or null when none is set. */
     val credentials: Credentials?
@@ -163,4 +211,8 @@ class ProviderPreferences(private val sp: SharedPreferences, private val json: J
 }
 
 /** Provider login credentials. */
-data class Credentials(val host: String, val user: String, val pass: String)
+data class Credentials(
+    val host: String,
+    val user: String,
+    val pass: String,
+)

@@ -17,6 +17,17 @@ class PlaybackBufferPolicyTest {
     }
 
     @Test
+    fun live_deep_buffer_applies_the_documented_live_cushion() {
+        val s = PlaybackBufferPolicy.live(AppPreferences.BufferPreset.LOW, lowRam = false, deepBuffer = true)
+        // Akamai/ExoPlayer-team live recipe: deep time cushion + 5 s rebuffer resume.
+        assertEquals(15_000, s.minMs)
+        assertEquals(60_000, s.maxMs)
+        assertEquals(5_000, s.rebufferStartMs)
+        // Fast start is kept so zapping stays quick even on a deep-buffer provider.
+        assertEquals(1_000, s.startMs)
+    }
+
+    @Test
     fun live_std_and_xl_scale() {
         assertEquals(8_000, PlaybackBufferPolicy.live(AppPreferences.BufferPreset.STD, lowRam = false).minMs)
         assertEquals(30_000, PlaybackBufferPolicy.live(AppPreferences.BufferPreset.STD, lowRam = false).maxMs)
@@ -36,8 +47,14 @@ class PlaybackBufferPolicyTest {
 
     @Test
     fun low_ram_caps_the_byte_target() {
-        assertEquals(PlaybackBufferPolicy.LOW_RAM_TARGET_BYTES, PlaybackBufferPolicy.live(AppPreferences.BufferPreset.STD, lowRam = true).targetBytes)
-        assertEquals(PlaybackBufferPolicy.LOW_RAM_TARGET_BYTES, PlaybackBufferPolicy.vod(AppPreferences.BufferPreset.STD, lowRam = true).targetBytes)
+        assertEquals(
+            PlaybackBufferPolicy.LOW_RAM_TARGET_BYTES,
+            PlaybackBufferPolicy.live(AppPreferences.BufferPreset.STD, lowRam = true).targetBytes,
+        )
+        assertEquals(
+            PlaybackBufferPolicy.LOW_RAM_TARGET_BYTES,
+            PlaybackBufferPolicy.vod(AppPreferences.BufferPreset.STD, lowRam = true).targetBytes,
+        )
     }
 
     @Test

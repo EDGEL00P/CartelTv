@@ -208,6 +208,7 @@ private fun PlayerSurface(
             buildCartelPlayer(
                 context,
                 live = isLive,
+                deepBuffer = AppPreferences.deepBufferActive,
                 sourceFactory =
                     com.carteltv.tv.engine.playback.LenientMediaSourceFactory(
                         providerDataSource(
