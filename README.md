@@ -14,7 +14,14 @@ with derived work attributed in `NOTICE`).
 
 ## Build and test
 
-Requires JDK 21 and an Android SDK (`local.properties` pointing at it). From the repo root:
+The Gradle daemon JVM is pinned to Temurin 21 in `gradle/gradle-daemon-jvm.properties`
+(auto-provisioned via the foojay resolver in `settings.gradle.kts`, so any JDK on the host
+works), and dependency versions are locked (`gradle.lockfile`s, regenerate with
+`./gradlew dependencies --write-locks`) and checksum-verified
+(`gradle/verification-metadata.xml`). SDK platform, build-tools, NDK and CMake versions are
+pinned once in `gradle/libs.versions.toml`; CI installs exactly those via
+`.github/actions/setup-android`. Locally you still need an Android SDK (`local.properties`
+pointing at it) with those components installed. From the repo root:
 
 ```bash
 ./gradlew :app:assembleDebug          # debug APK

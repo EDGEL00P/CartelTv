@@ -41,3 +41,10 @@ Third-party assets:
     hl_bonfire.jpg: Vibrant Nighttime Bonfire with Sparks (31323006) by Alisha Harman, https://www.pexels.com/photo/31323006/
     hl_poppy.jpg: Beautiful Poppy Field at Sunset in Budapest (32637548) by Woods and Lights Photography, https://www.pexels.com/photo/32637548/
     hl_boxing.jpg: Cozy Winter Scene with Candlelit Cabin Decor (30427067) by Beyzanur K., https://www.pexels.com/photo/30427067/
+  Greeting photographs (app/src/main/res/drawable-nodpi/greeting_*.jpg), real camera photography only.
+    Pexels License (https://www.pexels.com/license/); cropped and resized to 16:9, with some images horizontally
+    flipped to keep the subject clear of hero copy. No generated, composited or retouched people:
+    greeting_morning.jpg: Woman in Beige Nightdress Enjoying the Sunlight While Sitting on the Bed (10069249) by cottonbro studio, https://www.pexels.com/photo/10069249/
+    greeting_afternoon.jpg: Confident Woman with City Skyline Background (33044771) by Zulfugar Karimov, https://www.pexels.com/photo/33044771/
+    greeting_evening.jpg: Woman in Dress Sitting in Grass on Sunset (8463974) by Anastasia Bekker, https://www.pexels.com/photo/8463974/
+    greeting_night.jpg: Young Woman Standing on a Sidewalk in City at Night (19943764) by Khoa Võ, https://www.pexels.com/photo/19943764/

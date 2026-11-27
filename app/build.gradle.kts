@@ -82,7 +82,8 @@ android {
     compileSdk {
         version = release(37) { minorApiLevel = 1 }
     }
-    ndkVersion = "29.0.14206865"
+    ndkVersion = libs.versions.ndk.get()
+    buildToolsVersion = libs.versions.buildTools.get()
 
     defaultConfig {
         applicationId = "com.carteltv.tv"
@@ -119,7 +120,7 @@ android {
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
+            version = libs.versions.cmake.get()
         }
     }
 
@@ -225,14 +226,8 @@ tasks.register<Exec>("installGranted") {
 
 dependencies {
     implementation(platform(libs.compose.bom))
-    implementation(libs.compose.ui)
-    implementation(libs.compose.foundation)
-    implementation(libs.compose.material3)
-    implementation(libs.tv.material)
-    implementation(libs.compose.ui.tooling.preview)
-    implementation(libs.coil.compose)
-    implementation(libs.coil.network.okhttp)
-    implementation(libs.coil.svg)
+    implementation(libs.bundles.compose)
+    implementation(libs.bundles.coil)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.work.runtime.ktx)
@@ -243,18 +238,11 @@ dependencies {
 
     // Playback engine: stock Media3 (Apache-2.0) plus CartelTV's own renderers and extractors.
     // The FFmpeg audio and dav1d AV1 decoder modules are local AARs built from Media3 sources.
-    implementation(libs.media3.exoplayer)
-    implementation(libs.media3.exoplayer.hls)
-    implementation(libs.media3.exoplayer.dash)
-    implementation(libs.media3.exoplayer.rtsp)
-    implementation(libs.media3.datasource.okhttp)
-    implementation(libs.media3.ui)
-    implementation(libs.media3.effect)
-    implementation(libs.media3.container)
-    implementation(libs.media3.decoder)
-    // Publishes the player as a Media3 system session: launcher card, remotes, assistants.
-    implementation(libs.media3.session)
+    // Includes media3-session: publishes the player as a system session (launcher card, remotes, assistants).
+    implementation(libs.bundles.media3)
     implementation(libs.guava)
+    // Real QR codes on every pairing screen (ZXing encoder, pinned; Apache 2.0).
+    implementation(libs.zxing.core)
     compileOnly(libs.checker.qual)
 
     implementation(files(
@@ -273,12 +261,12 @@ dependencies {
     implementation(libs.tdlib.android.core)
     // Offline voice STT (Vosk). Pinned; Apache 2.0. Adds JNA 5.18.1 transitively per its POM.
     implementation(libs.vosk.android)
+    // Backdrop blur for glass surfaces (Haze). Pinned; Apache 2.0. API 31+ RenderEffect, scrim fallback below.
+    implementation(libs.haze)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
-    testImplementation(libs.roborazzi)
-    testImplementation(libs.roborazzi.compose)
-    testImplementation(libs.roborazzi.junit.rule)
+    testImplementation(libs.bundles.roborazzi)
     testImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.tooling)
 }

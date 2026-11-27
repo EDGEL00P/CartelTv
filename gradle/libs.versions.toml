@@ -19,8 +19,15 @@ voskAndroid = "0.3.75"
 junit = "4.13.2"
 robolectric = "4.18"
 roborazzi = "1.79.0"
+zxing = "3.5.4"
+haze = "1.7.3"
 benchmark = "1.5.0"
 profileinstaller = "1.4.1"
+tvMaterial = "1.1.0"
+ndk = "29.0.14206865"
+cmake = "3.22.1"
+buildTools = "36.0.0"
+sdkPlatform = "platforms;android-37.1"
 
 [libraries]
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
@@ -29,7 +36,7 @@ compose-foundation = { module = "androidx.compose.foundation:foundation" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
-tv-material = { module = "androidx.tv:tv-material", version = "1.1.0" }
+tv-material = { module = "androidx.tv:tv-material", version.ref = "tvMaterial" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 coil-svg = { module = "io.coil-kt.coil3:coil-svg", version.ref = "coil" }
@@ -48,6 +55,7 @@ media3-container = { module = "androidx.media3:media3-container", version.ref = 
 media3-decoder = { module = "androidx.media3:media3-decoder", version.ref = "media3" }
 media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 checker-qual = { module = "org.checkerframework:checker-qual", version.ref = "checkerQual" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serializationJson" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
@@ -63,6 +71,13 @@ compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
 androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
 benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }
 sceneview = { module = "io.github.sceneview:sceneview", version.ref = "sceneview" }
+haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
+
+[bundles]
+compose = ["compose-ui", "compose-foundation", "compose-material3", "tv-material", "compose-ui-tooling-preview"]
+media3 = ["media3-exoplayer", "media3-exoplayer-hls", "media3-exoplayer-dash", "media3-exoplayer-rtsp", "media3-datasource-okhttp", "media3-ui", "media3-effect", "media3-container", "media3-decoder", "media3-session"]
+coil = ["coil-compose", "coil-network-okhttp", "coil-svg"]
+roborazzi = ["roborazzi", "roborazzi-compose", "roborazzi-junit-rule"]
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

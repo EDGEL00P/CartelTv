@@ -1,5 +1,5 @@
 name: Set up Android build
-description: JDK 21 and Gradle cache.
+description: JDK 21, Gradle cache, and the SDK platform / build-tools / NDK / CMake pinned in gradle/libs.versions.toml.
 
 inputs:
   cache-read-only:
@@ -17,3 +17,15 @@ runs:
     - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
       with:
         cache-read-only: ${{ inputs.cache-read-only }}
+
+    # Versions come from the catalog so local and CI builds use identical components;
+    # the runner image's preinstalled SDK is not assumed to match the pins.
+    - name: Install pinned SDK components
+      shell: bash
+      run: |
+        ver() { sed -n "s/^$1 = \"\(.*\)\"/\1/p" gradle/libs.versions.toml; }
+        sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+        [ -x "$sdkmanager" ] || sdkmanager="$(command -v sdkmanager)"
+        yes | "$sdkmanager" --licenses >/dev/null 2>&1 || true
+        "$sdkmanager" --install "$(ver sdkPlatform)" "build-tools;$(ver buildTools)" \
+          "ndk;$(ver ndk)" "cmake;$(ver cmake)" platform-tools
