@@ -2,6 +2,7 @@ package com.carteltv.tv.ui.catalog
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,6 +19,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.carteltv.tv.ui.components.CardArtwork
@@ -97,6 +99,44 @@ internal fun DetailHeroPlate(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.align(Alignment.BottomStart).padding(ThemeSpec.Space.md),
+            )
+        }
+    }
+}
+
+/** The shared synopsis line on every detail page: primary ink, 21sp leading, an ellipsis at [maxLines]. */
+@Composable
+internal fun DetailPlot(
+    text: String,
+    maxLines: Int,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text,
+        fontSize = ThemeSpec.Type.meta,
+        color = ThemeSemantics.textPrimary,
+        lineHeight = 21.sp,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier,
+    )
+}
+
+/** The shared credit block (genre / cast / director / studio lines): one quiet secondary line each. */
+@Composable
+internal fun DetailCredits(
+    lines: List<String>,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier) {
+        lines.forEach {
+            Text(
+                it,
+                fontSize = ThemeSpec.Type.meta,
+                color = ThemeSemantics.textSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(bottom = ThemeSpec.Space.xs),
             )
         }
     }

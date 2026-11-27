@@ -195,35 +195,24 @@ fun MovieDetailScreen(
                                     overflow = TextOverflow.Ellipsis,
                                 )
                             }
-                            Text(
+                            DetailPlot(
                                 // A description that failed to load says so; only a request still in flight reads as loading.
                                 info?.plot ?: when (infoFailed) {
                                     null -> "Loading description…"
                                     true -> "Couldn't load the description."
                                     else -> ""
                                 },
-                                fontSize = ThemeSpec.Type.meta,
-                                color = ThemeSemantics.textPrimary,
-                                lineHeight = 21.sp,
                                 maxLines = 6,
-                                overflow = TextOverflow.Ellipsis,
                             )
                             Spacer(Modifier.height(ThemeSpec.Space.cozy))
-                            listOfNotNull(
-                                info?.genre?.let { "Genre · $it" },
-                                info?.cast?.let { "Cast · ${it.take(120)}" },
-                                info?.director?.let { "Director · $it" },
-                                info?.duration?.let { "Duration · $it" },
-                            ).forEach {
-                                Text(
-                                    it,
-                                    fontSize = ThemeSpec.Type.meta,
-                                    color = ThemeSemantics.textSecondary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(bottom = ThemeSpec.Space.xs),
-                                )
-                            }
+                            DetailCredits(
+                                listOfNotNull(
+                                    info?.genre?.let { "Genre · $it" },
+                                    info?.cast?.let { "Cast · ${it.take(120)}" },
+                                    info?.director?.let { "Director · $it" },
+                                    info?.duration?.let { "Duration · $it" },
+                                ),
+                            )
                             Spacer(Modifier.height(ThemeSpec.Space.lg))
                             Row(horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.cozy)) {
                                 ActionButton("Play", filled = true, modifier = Modifier.entryFocus()) {
@@ -321,14 +310,7 @@ fun SeriesDetailScreen(
                                 tvCert?.let { RatingBadge(it) }
                             }
                             Spacer(Modifier.height(ThemeSpec.Space.cozy))
-                            Text(
-                                plot ?: "",
-                                fontSize = ThemeSpec.Type.meta,
-                                color = ThemeSemantics.textPrimary,
-                                lineHeight = 21.sp,
-                                maxLines = 4,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                            DetailPlot(plot ?: "", maxLines = 4)
                         }
                     }
                     if (seasons.isNotEmpty()) {

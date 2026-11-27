@@ -342,32 +342,25 @@ private fun CopyBlock(
         }
         Spacer(Modifier.height(ThemeSpec.Space.sm))
         details.overview?.takeIf { it.isNotBlank() }?.let {
-            Text(
-                it,
-                fontSize = ThemeSpec.Type.meta,
-                lineHeight = 21.sp,
-                color = ThemeSemantics.textPrimary,
-                maxLines = 6,
-                overflow = TextOverflow.Ellipsis,
-            )
+            DetailPlot(it, maxLines = 6)
             Spacer(Modifier.height(ThemeSpec.Space.sm))
         }
-        listOfNotNull(
-            details.directors
-                .take(3)
-                .takeIf { it.isNotEmpty() }
-                ?.let { "Directed by ${it.joinToString(", ")}" },
-            details.cast
-                .take(4)
-                .takeIf { it.isNotEmpty() }
-                ?.let { "Cast · ${it.joinToString(", ") { c -> c.name }}" },
-            details.companies
-                .take(2)
-                .takeIf { it.isNotEmpty() }
-                ?.let { "Studio · ${it.joinToString(", ") { c -> c.name }}" },
-        ).forEach {
-            Text(it, fontSize = ThemeSpec.Type.meta, color = ThemeSemantics.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
+        DetailCredits(
+            listOfNotNull(
+                details.directors
+                    .take(3)
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { "Directed by ${it.joinToString(", ")}" },
+                details.cast
+                    .take(4)
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { "Cast · ${it.joinToString(", ") { c -> c.name }}" },
+                details.companies
+                    .take(2)
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { "Studio · ${it.joinToString(", ") { c -> c.name }}" },
+            ),
+        )
         Spacer(Modifier.height(ThemeSpec.Space.md))
         Row(horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.cozy)) {
             ActionButton("Play", filled = true, modifier = Modifier.entryFocus()) { onPlay() }
