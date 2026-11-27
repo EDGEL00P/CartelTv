@@ -1,17 +1,10 @@
 package com.carteltv.tv.ui.catalog
 
-import com.carteltv.tv.R
-import com.carteltv.tv.core.suspendRunCatching
-import com.carteltv.tv.ui.components.FocusMemoryStore
-import com.carteltv.tv.ui.components.StagedScreen
-
-import com.carteltv.tv.ui.theme.ThemeSpec
-import com.carteltv.tv.ui.theme.ThemeSemantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -20,7 +13,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.tv.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -30,44 +22,53 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.carteltv.tv.data.stremio.StremioClient
+import androidx.tv.material3.Text
+import com.carteltv.tv.R
+import com.carteltv.tv.core.suspendRunCatching
 import com.carteltv.tv.data.discovery.DiscoveryFeeds
 import com.carteltv.tv.data.preferences.AppPreferences
+import com.carteltv.tv.data.stremio.StremioClient
 import com.carteltv.tv.data.xtream.ProviderSession
 import com.carteltv.tv.data.xtream.XtreamClient
-import com.carteltv.tv.recording.RecordingService
+import com.carteltv.tv.nav.AppSection
 import com.carteltv.tv.nav.Nav
 import com.carteltv.tv.nav.Route
 import com.carteltv.tv.nav.SectionNav
-import com.carteltv.tv.nav.AppSection
+import com.carteltv.tv.recording.RecordingService
+import com.carteltv.tv.ui.components.CardArtwork
 import com.carteltv.tv.ui.components.EmptyState
-import com.carteltv.tv.ui.components.entryFocus
-import com.carteltv.tv.ui.components.keyFocusTarget
-import com.carteltv.tv.ui.components.rememberKeyFocusRegistry
-import com.carteltv.tv.ui.components.restoreKeyFocus
-import com.carteltv.tv.ui.components.restoreRowFocus
+import com.carteltv.tv.ui.components.FocusMemoryStore
 import com.carteltv.tv.ui.components.PosterTile
 import com.carteltv.tv.ui.components.RailFocusLine
-import com.carteltv.tv.ui.components.railEdgeFade
 import com.carteltv.tv.ui.components.RailWrapState
+import com.carteltv.tv.ui.components.SectionTitle
+import com.carteltv.tv.ui.components.StagedScreen
+import com.carteltv.tv.ui.components.TvDialogs
+import com.carteltv.tv.ui.components.entryFocus
+import com.carteltv.tv.ui.components.keyFocusTarget
+import com.carteltv.tv.ui.components.railEdgeFade
 import com.carteltv.tv.ui.components.railWrapItem
 import com.carteltv.tv.ui.components.railWrapToStart
+import com.carteltv.tv.ui.components.rememberKeyFocusRegistry
 import com.carteltv.tv.ui.components.rememberRailWrapState
-import com.carteltv.tv.ui.components.SectionTitle
+import com.carteltv.tv.ui.components.restoreKeyFocus
+import com.carteltv.tv.ui.components.restoreRowFocus
 import com.carteltv.tv.ui.components.shimmer
 import com.carteltv.tv.ui.components.tidyRailTitle
-import com.carteltv.tv.ui.components.TvDialogs
 import com.carteltv.tv.ui.home.resumeLine
 import com.carteltv.tv.ui.home.splitTitle
 import com.carteltv.tv.ui.live.GuideMetadata
-import com.carteltv.tv.ui.theme.*
 import com.carteltv.tv.ui.nav.ScreenPage
+import com.carteltv.tv.ui.theme.*
+import com.carteltv.tv.ui.theme.ThemeSemantics
+import com.carteltv.tv.ui.theme.ThemeSpec
 
 @Composable
 fun NeedProviderNotice() {
@@ -76,9 +77,26 @@ fun NeedProviderNotice() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(androidx.compose.ui.res.stringResource(com.carteltv.tv.R.string.state_off_air), fontSize = ThemeSpec.Type.title, color = ThemeSemantics.textEmphatic, fontWeight = FontWeight.Black, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, letterSpacing = 0.5.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        Text(
+            androidx.compose.ui.res
+                .stringResource(com.carteltv.tv.R.string.state_off_air),
+            fontSize = ThemeSpec.Type.title,
+            color = ThemeSemantics.textEmphatic,
+            fontWeight = FontWeight.Black,
+            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+            letterSpacing = 0.5.sp,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        )
         Spacer(Modifier.height(ThemeSpec.Space.sm))
-        Text(androidx.compose.ui.res.stringResource(com.carteltv.tv.R.string.state_off_air_hint), fontSize = ThemeSpec.Type.meta, color = ThemeSemantics.textSecondary, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        Text(
+            androidx.compose.ui.res
+                .stringResource(com.carteltv.tv.R.string.state_off_air_hint),
+            fontSize = ThemeSpec.Type.meta,
+            color = ThemeSemantics.textSecondary,
+            maxLines = 2,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        )
         Spacer(Modifier.height(ThemeSpec.Space.lg))
         // An empty screen needs something to act on, and the remote needs somewhere to land.
         ActionButton("Open settings", filled = true, modifier = Modifier.entryFocus()) { SectionNav.go(AppSection.SETUP) }
@@ -91,29 +109,39 @@ private val RAIL_TILE_WIDTH = 160.dp
 /** Focus headroom: liftPoster (1.28x) grows a focused tile ~34dp past the top and bottom of its 2:3 art; rails keep
  *  this much room above and below their posters — and between each other — so a looming poster never clips. */
 private val RAIL_FOCUS_HEADROOM = 36.dp
-private val CatalogGridPadding = PaddingValues(
-    start = ThemeSpec.Space.margin + ThemeSpec.Space.sm,
-    end = ThemeSpec.Safe.horizontal + ThemeSpec.Space.sm,
-    top = ThemeSpec.Space.md,
-    bottom = ThemeSpec.Space.margin,
-)
+private val CatalogGridPadding =
+    PaddingValues(
+        start = ThemeSpec.Space.margin + ThemeSpec.Space.sm,
+        end = ThemeSpec.Safe.horizontal + ThemeSpec.Space.sm,
+        top = ThemeSpec.Space.md,
+        bottom = ThemeSpec.Space.margin,
+    )
 
 internal fun catalogGridLoading(
     hasProviderItems: Boolean,
     hasStremioItems: Boolean,
     providerLoadComplete: Boolean,
     stremioLoaded: Boolean,
-): Boolean = !hasProviderItems && !hasStremioItems &&
-    (!providerLoadComplete || !stremioLoaded)
+): Boolean =
+    !hasProviderItems && !hasStremioItems &&
+        (!providerLoadComplete || !stremioLoaded)
 
 /**
  * The rail's entry tile: the first poster takes focus when the page opens. A zone that already remembers a tile is
  * left to the identity restore, so a section arriving late at the top of the page never pulls focus away.
  */
 @Composable
-private fun Modifier.entryTile(key: String, entryKey: String?, zone: String, requester: FocusRequester): Modifier =
-    if (key != entryKey) this
-    else entryFocus(enabled = FocusMemoryStore.peek(zone) == null, requester = requester)
+private fun Modifier.entryTile(
+    key: String,
+    entryKey: String?,
+    zone: String,
+    requester: FocusRequester,
+): Modifier =
+    if (key != entryKey) {
+        this
+    } else {
+        entryFocus(enabled = FocusMemoryStore.peek(zone) == null, requester = requester)
+    }
 
 /** The provider rail's tile: the house poster pinned to the rail's fixed width, so provider rails and Stremio rails read as one design. */
 @Composable
@@ -150,7 +178,9 @@ private fun CatalogGridLoading() {
         items(3) {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm)) {
                 Box(
-                    Modifier.fillMaxWidth(0.28f).height(16.dp)
+                    Modifier
+                        .fillMaxWidth(0.28f)
+                        .height(16.dp)
                         .clip(RoundedCornerShape(ThemeSpec.Card.cornerSm))
                         .background(ThemeSemantics.surfaceRaised),
                 )
@@ -162,13 +192,17 @@ private fun CatalogGridLoading() {
                     items(6) {
                         Column(Modifier.width(RAIL_TILE_WIDTH)) {
                             Box(
-                                Modifier.fillMaxWidth().aspectRatio(2f / 3f)
+                                Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(2f / 3f)
                                     .clip(RoundedCornerShape(ThemeSpec.Card.corner))
                                     .background(ThemeSemantics.surfaceRaised),
                             )
                             // The focused tile's caption, ghosted where the looming poster will reveal it.
                             Box(
-                                Modifier.fillMaxWidth().height(52.dp)
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp)
                                     .clip(RoundedCornerShape(ThemeSpec.Card.corner))
                                     .background(ThemeSemantics.surface2),
                             )
@@ -181,7 +215,10 @@ private fun CatalogGridLoading() {
 }
 
 @Composable
-private fun GridHead(title: String, count: String?) {
+private fun GridHead(
+    title: String,
+    count: String?,
+) {
     SectionTitle(
         tidyRailTitle(title),
         Modifier.padding(top = ThemeSpec.Space.xs, bottom = ThemeSpec.Space.xs),
@@ -212,12 +249,117 @@ private fun RailTile(
     content: @Composable () -> Unit,
 ) {
     Box(
-        Modifier.width(RAIL_TILE_WIDTH)
+        Modifier
+            .width(RAIL_TILE_WIDTH)
             .keyFocusTarget(registry, zone, key)
             .entryTile(key, entryKey, zone, first)
             .railWrapItem(wrapState, index)
             .then(if (index == 0) Modifier.focusRequester(wrapFirst) else Modifier),
     ) { content() }
+}
+
+/** The billboard's pick: a title, its art, a metadata line, the action's label and what OK does. */
+internal data class HeroPick(
+    val title: String,
+    val art: String?,
+    val meta: String?,
+    val cta: String,
+    val onOpen: () -> Unit,
+)
+
+/** The rail key the billboard rides on. It carries no item keys, so the flat focus-restore index is unshifted. */
+private const val HERO_RAIL_KEY = "hero"
+
+/** The billboard's height on the 540dp canvas: tall enough to read as a hero, short enough to leave the rails room. */
+private val HERO_HEIGHT = 200.dp
+
+/**
+ * The featured billboard that leads the On Demand page, the way every real catalog opens on a title.
+ * A Continue-watching card wins (it is what the viewer is mid-way through), then the provider's first
+ * film/series, then the first add-on title that carries art. Null when nothing has art to show.
+ */
+private fun <T> buildHeroPick(
+    cw: List<AppPreferences.RecentEntry>,
+    cwArt: Map<String, String>,
+    providerFilled: List<XtreamClient.Category>,
+    rows: Map<String, List<T>>,
+    providerTitle: (T) -> String,
+    providerArt: (T) -> String?,
+    providerOpen: (T) -> Unit,
+    stremioFilled: List<CatalogRow>,
+    stremioType: String,
+): HeroPick? {
+    cw.firstOrNull()?.let { e ->
+        val parts = splitTitle(e.title)
+        val art = e.poster.ifBlank { null } ?: cwArt[GuideMetadata.cwArtKey(e.title)]
+        return HeroPick(parts.name, art, resumeLine(parts, e.positionMs, e.durationMs), "Resume") {
+            if (e.url.isNotBlank()) Nav.push(Route.Player(e.url, e.title, e.ref))
+        }
+    }
+    providerFilled.firstOrNull()?.let { c ->
+        rows[c.category_id]?.firstOrNull()?.let { t ->
+            return HeroPick(providerTitle(t), providerArt(t), null, "More info") { providerOpen(t) }
+        }
+    }
+    stremioFilled.forEach { row ->
+        row.items.firstOrNull { !it.background.isNullOrBlank() || !it.poster.isNullOrBlank() }?.let { m ->
+            val meta =
+                listOfNotNull(
+                    m.releaseInfo?.take(4)?.takeIf { it.isNotBlank() },
+                    m.imdbRating?.takeIf { it.isNotBlank() }?.let { "★ $it" },
+                ).joinToString(" · ").ifBlank { null }
+            return HeroPick(m.name, m.background ?: m.poster, meta, "More info") {
+                Nav.push(Route.Meta(m.type ?: stremioType, m.id, m.name, m.poster))
+            }
+        }
+    }
+    return null
+}
+
+/** The billboard itself: full-bleed key art under the house veil, title and meta at the foot, one filled action. */
+@Composable
+internal fun CatalogHero(pick: HeroPick) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(HERO_HEIGHT)
+            .clip(RoundedCornerShape(ThemeSpec.Card.corner))
+            .background(ThemeSemantics.surfaceRest),
+    ) {
+        CardArtwork(pick.art, pick.title, Modifier.fillMaxSize())
+        Box(
+            Modifier.matchParentSize().background(
+                Brush.verticalGradient(
+                    0f to Color.Transparent,
+                    0.5f to ThemeSemantics.scrimDeep.copy(alpha = 0.35f),
+                    1f to ThemeSemantics.scrimDeep.copy(alpha = 0.9f),
+                ),
+            ),
+        )
+        Column(Modifier.align(Alignment.BottomStart).padding(ThemeSpec.Space.lg)) {
+            Text(
+                pick.title,
+                fontSize = ThemeSpec.Type.titleL,
+                fontFamily = ThemeSpec.Font.display,
+                fontWeight = FontWeight.Bold,
+                color = ThemeSemantics.textEmphatic,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            pick.meta?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    it,
+                    fontSize = ThemeSpec.Type.meta,
+                    color = ThemeSemantics.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = ThemeSpec.Space.xs),
+                )
+            }
+            Spacer(Modifier.height(ThemeSpec.Space.md))
+            ActionButton(pick.cta, filled = true) { pick.onOpen() }
+        }
+    }
 }
 
 /**
@@ -237,6 +379,8 @@ private fun <T> CombinedGrid(
     providerSortKey: (T) -> CatalogSortKey,
     providerTitle: (T) -> String,
     providerCard: @Composable (T) -> Unit,
+    providerArt: (T) -> String?,
+    providerOpen: (T) -> Unit,
     stremioType: String,
     focusZone: String,
 ) {
@@ -262,21 +406,31 @@ private fun <T> CombinedGrid(
     LaunchedEffect(stremioType, shelfTick) {
         val key = AppPreferences.tmdbKey
         val shelves = AppPreferences.shelves().filter { it.media == if (stremioType == "movie") "movie" else "series" }
-        shelfRows = if (key.isBlank()) emptyList() else shelves.map { sh ->
-            val cards = suspendRunCatching {
-                DiscoveryFeeds.discover(key, if (stremioType == "movie") "movie" else "tv", sh.genreId)
-            }.getOrDefault(emptyList())
-            CatalogRow(
-                sh.title,
-                cards.map { c ->
-                    StremioClient.Metum(
-                        id = "tmdb:${if (stremioType == "movie") "movie" else "tv"}:${c.id}", type = stremioType, name = c.title,
-                        poster = DiscoveryFeeds.posterUrl(c.poster), releaseInfo = c.year,
-                        imdbRating = c.rating?.let { "%.1f".format(it) },
-                    )
-                },
-            )
-        }.filter { it.items.isNotEmpty() }
+        shelfRows =
+            if (key.isBlank()) {
+                emptyList()
+            } else {
+                shelves
+                    .map { sh ->
+                        val cards =
+                            suspendRunCatching {
+                                DiscoveryFeeds.discover(key, if (stremioType == "movie") "movie" else "tv", sh.genreId)
+                            }.getOrDefault(emptyList())
+                        CatalogRow(
+                            sh.title,
+                            cards.map { c ->
+                                StremioClient.Metum(
+                                    id = "tmdb:${if (stremioType == "movie") "movie" else "tv"}:${c.id}",
+                                    type = stremioType,
+                                    name = c.title,
+                                    poster = DiscoveryFeeds.posterUrl(c.poster),
+                                    releaseInfo = c.year,
+                                    imdbRating = c.rating?.let { "%.1f".format(it) },
+                                )
+                            },
+                        )
+                    }.filter { it.items.isNotEmpty() }
+            }
     }
 
     // Provider categories load one at a time: empty rows have no height, so per-row loading fired every request at once.
@@ -296,43 +450,86 @@ private fun <T> CombinedGrid(
     // A genre pick keeps the provider rails it names. Stremio add-on catalogs are not genre shelves — their
     // row titles ("Top", "Popular") name catalogs, not genres — so they stay on All (documented choice).
     val visibleCats = remember(providerFilled, genre) { visibleCategoriesFor(providerFilled, genre) }
-    val sortedProviderRows = remember(visibleCats, rows, sort) {
-        visibleCats.associate { c -> c.category_id to sortedForBrowse(rows[c.category_id].orEmpty(), sort, providerSortKey) }
-    }
+    val sortedProviderRows =
+        remember(visibleCats, rows, sort) {
+            visibleCats.associate { c -> c.category_id to sortedForBrowse(rows[c.category_id].orEmpty(), sort, providerSortKey) }
+        }
     val stremioFilled = stremioRows.value.orEmpty().filter { it.items.isNotEmpty() }
-    val stremio = remember(stremioFilled, genre, sort) {
-        if (genre == null) stremioFilled.map { row -> row.copy(items = sortedForBrowse(row.items, sort, ::metumSortKey)) } else emptyList()
-    }
+    val stremio =
+        remember(stremioFilled, genre, sort) {
+            if (genre ==
+                null
+            ) {
+                stremioFilled.map { row -> row.copy(items = sortedForBrowse(row.items, sort, ::metumSortKey)) }
+            } else {
+                emptyList()
+            }
+        }
     val cw = continueWatching.entries
-    val loading = catalogGridLoading(
-        hasProviderItems = providerFilled.isNotEmpty(),
-        hasStremioItems = stremioFilled.isNotEmpty(),
-        providerLoadComplete = providerLoadComplete,
-        stremioLoaded = stremioRows.value != null,
-    )
+    // The billboard leads the default browse (no genre pick): a real catalog opens on one title, not a wall of chips.
+    val heroPick =
+        remember(cw, providerFilled, stremioFilled, rows, genre, cwArt) {
+            if (genre != null) {
+                null
+            } else {
+                buildHeroPick(cw, cwArt, providerFilled, rows, providerTitle, providerArt, providerOpen, stremioFilled, stremioType)
+            }
+        }
+    val loading =
+        catalogGridLoading(
+            hasProviderItems = providerFilled.isNotEmpty(),
+            hasStremioItems = stremioFilled.isNotEmpty(),
+            providerLoadComplete = providerLoadComplete,
+            stremioLoaded = stremioRows.value != null,
+        )
 
     // One rail per source section, in display order; the keys mirror the rail item keys exactly, so the
     // order the rows render in is the order this list was built in.
-    val rails = remember(visibleCats, rows, stremio, cw, genre, sort, shelfRows) {
-        buildList {
-            if (genre == null && cw.isNotEmpty()) {
-                add(CatalogRail(CW_RAIL_KEY, cwHeading, cw.size, cw.map { "cw:${it.ref}" }, cw.map { splitTitle(it.title).name }))
-            }
-            visibleCats.forEach { c ->
-                val items = sortedProviderRows[c.category_id].orEmpty()
-                add(CatalogRail("cat:${c.category_id}", c.category_name, items.size,
-                    items.map { "${c.category_id}:${providerKey(it)}" }, items.map(providerTitle)))
-            }
-            stremio.forEachIndexed { r, row ->
-                add(CatalogRail("stremio:$r", row.title, row.items.size,
-                    row.items.mapIndexed { i, m -> "poster_stremio_$r:$i:${m.id}" }, row.items.map { it.name }))
-            }
-            if (genre == null) shelfRows.forEachIndexed { r, row ->
-                add(CatalogRail("shelf:$r", row.title, row.items.size,
-                    row.items.mapIndexed { i, m -> "poster_shelf_$r:$i:${m.id}" }, row.items.map { it.name }))
+    val rails =
+        remember(visibleCats, rows, stremio, cw, genre, sort, shelfRows, heroPick) {
+            buildList {
+                if (heroPick != null) add(CatalogRail(HERO_RAIL_KEY, "", 0, emptyList()))
+                if (genre == null && cw.isNotEmpty()) {
+                    add(CatalogRail(CW_RAIL_KEY, cwHeading, cw.size, cw.map { "cw:${it.ref}" }, cw.map { splitTitle(it.title).name }))
+                }
+                visibleCats.forEach { c ->
+                    val items = sortedProviderRows[c.category_id].orEmpty()
+                    add(
+                        CatalogRail(
+                            "cat:${c.category_id}",
+                            c.category_name,
+                            items.size,
+                            items.map { "${c.category_id}:${providerKey(it)}" },
+                            items.map(providerTitle),
+                        ),
+                    )
+                }
+                stremio.forEachIndexed { r, row ->
+                    add(
+                        CatalogRail(
+                            "stremio:$r",
+                            row.title,
+                            row.items.size,
+                            row.items.mapIndexed { i, m -> "poster_stremio_$r:$i:${m.id}" },
+                            row.items.map { it.name },
+                        ),
+                    )
+                }
+                if (genre == null) {
+                    shelfRows.forEachIndexed { r, row ->
+                        add(
+                            CatalogRail(
+                                "shelf:$r",
+                                row.title,
+                                row.items.size,
+                                row.items.mapIndexed { i, m -> "poster_shelf_$r:$i:${m.id}" },
+                                row.items.map { it.name },
+                            ),
+                        )
+                    }
+                }
             }
         }
-    }
     val itemKeys = remember(rails) { rails.flatMap { it.keys } }
     // The A–Z strip offers exactly the letters some visible title files under.
     val letters = remember(rails) { azIndex(rails.flatMap { it.titles }) }
@@ -357,7 +554,7 @@ private fun <T> CombinedGrid(
                     val local = flat - offset
                     if (local < rail.keys.size) {
                         columnState.scrollToItem(railIndex)
-                        withFrameNanos { }   // let the rail's row attach before it scrolls
+                        withFrameNanos { } // let the rail's row attach before it scrolls
                         rowStates[rail.key]?.scrollToItem(local)
                         break
                     }
@@ -378,7 +575,7 @@ private fun <T> CombinedGrid(
             columnState.scrollToItem(0)
         } else {
             columnState.scrollToItem(target.first)
-            withFrameNanos { }   // let the rail's row attach before it scrolls
+            withFrameNanos { } // let the rail's row attach before it scrolls
             rowStates[rails[target.first].key]?.scrollToItem(target.second)
         }
     }
@@ -397,21 +594,32 @@ private fun <T> CombinedGrid(
                 onSort = { s -> if (s != sort) sort = s },
                 letters = letters,
                 letter = letter,
-                onLetter = { l -> letter = l; jumpTick++ },
+                onLetter = { l ->
+                    letter = l
+                    jumpTick++
+                },
             )
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
-                    loading -> CatalogGridLoading()
+                    loading -> {
+                        CatalogGridLoading()
+                    }
+
                     rails.isEmpty() -> {
-                        if (provider == null) NeedProviderNotice()
-                        else {
+                        if (provider == null) {
+                            NeedProviderNotice()
+                        } else {
                             // A delegated property can't smart-cast, so the pick is read once into a local.
                             val pickedGenre = genre
-                            if (pickedGenre != null) EmptyState(pickedGenre, hint = stringResource(R.string.catalog_genre_empty))
-                            else EmptyState(stringResource(R.string.vod_empty), hint = stringResource(R.string.vod_empty_hint))
+                            if (pickedGenre != null) {
+                                EmptyState(pickedGenre, hint = stringResource(R.string.catalog_genre_empty))
+                            } else {
+                                EmptyState(stringResource(R.string.vod_empty), hint = stringResource(R.string.vod_empty_hint))
+                            }
                         }
                     }
-                    else ->
+
+                    else -> {
                         // Every rail parks its focused card on the same line, the way a streaming catalog keeps its
                         // sliders aligned while you browse down the page.
                         RailFocusLine {
@@ -422,6 +630,10 @@ private fun <T> CombinedGrid(
                                 verticalArrangement = Arrangement.spacedBy(RAIL_FOCUS_HEADROOM),
                             ) {
                                 items(rails, key = { it.key }) { rail ->
+                                    if (rail.key == HERO_RAIL_KEY) {
+                                        heroPick?.let { CatalogHero(it) }
+                                        return@items
+                                    }
                                     val rowState = rowStates.getOrPut(rail.key) { LazyListState() }
                                     val wrapState = rememberRailWrapState()
                                     val wrapFirst = remember { FocusRequester() }
@@ -429,10 +641,11 @@ private fun <T> CombinedGrid(
                                         GridHead(rail.title, stringResource(R.string.catalog_titles_count, rail.count))
                                         LazyRow(
                                             state = rowState,
-                                            modifier = Modifier
-                                                .restoreRowFocus()
-                                                .railEdgeFade(rowState)
-                                                .railWrapToStart(wrapState, rowState, rail.count, wrapFirst),
+                                            modifier =
+                                                Modifier
+                                                    .restoreRowFocus()
+                                                    .railEdgeFade(rowState)
+                                                    .railWrapToStart(wrapState, rowState, rail.count, wrapFirst),
                                             // Focus headroom: the looming poster stays inside the row's own clip bounds.
                                             contentPadding = PaddingValues(vertical = RAIL_FOCUS_HEADROOM),
                                             horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.gutter),
@@ -441,14 +654,31 @@ private fun <T> CombinedGrid(
                                                 rail.key == CW_RAIL_KEY -> {
                                                     itemsIndexed(cw, key = { _, e -> "cw:${e.ref}" }) { index, e ->
                                                         val parts = splitTitle(e.title)
-                                                        RailTile("cw:${e.ref}", entryKey, focusZone, first, focusRegistry, wrapState, wrapFirst, index) {
+                                                        RailTile(
+                                                            "cw:${e.ref}",
+                                                            entryKey,
+                                                            focusZone,
+                                                            first,
+                                                            focusRegistry,
+                                                            wrapState,
+                                                            wrapFirst,
+                                                            index,
+                                                        ) {
                                                             CellPoster(
                                                                 // The player saves history without art; the lookup Home's
                                                                 // row uses fills the poster — the tile's monogram stands in until then.
-                                                                imageUrl = e.poster.ifBlank { null } ?: cwArt[GuideMetadata.cwArtKey(e.title)],
+                                                                imageUrl =
+                                                                    e.poster.ifBlank { null } ?: cwArt[GuideMetadata.cwArtKey(e.title)],
                                                                 title = parts.name,
                                                                 subtitle = resumeLine(parts, e.positionMs, e.durationMs),
-                                                                progress = if (e.durationMs > 0) (e.positionMs.toFloat() / e.durationMs).coerceIn(0f, 1f) else 0f,
+                                                                progress =
+                                                                    if (e.durationMs >
+                                                                        0
+                                                                    ) {
+                                                                        (e.positionMs.toFloat() / e.durationMs).coerceIn(0f, 1f)
+                                                                    } else {
+                                                                        0f
+                                                                    },
                                                                 onLongClick = {
                                                                     TvDialogs.menu(parts.name, listOf(cwRemoveLabel), onPick = { i ->
                                                                         if (i == 0) continueWatching.onRemoved(e.ref)
@@ -461,25 +691,53 @@ private fun <T> CombinedGrid(
                                                         }
                                                     }
                                                 }
+
                                                 rail.key.startsWith("cat:") -> {
                                                     val catId = rail.key.removePrefix("cat:")
-                                                    itemsIndexed(sortedProviderRows[catId].orEmpty(), key = { _, t -> "$catId:${providerKey(t)}" }) { index, t ->
-                                                        RailTile("$catId:${providerKey(t)}", entryKey, focusZone, first, focusRegistry, wrapState, wrapFirst, index) { providerCard(t) }
+                                                    itemsIndexed(sortedProviderRows[catId].orEmpty(), key = {
+                                                        _,
+                                                        t,
+                                                        ->
+                                                        "$catId:${providerKey(t)}"
+                                                    }) { index, t ->
+                                                        RailTile(
+                                                            "$catId:${providerKey(t)}",
+                                                            entryKey,
+                                                            focusZone,
+                                                            first,
+                                                            focusRegistry,
+                                                            wrapState,
+                                                            wrapFirst,
+                                                            index,
+                                                        ) { providerCard(t) }
                                                     }
                                                 }
+
                                                 rail.key.startsWith("shelf:") -> {
                                                     val r = rail.key.removePrefix("shelf:").toInt()
                                                     val row = shelfRows[r]
                                                     itemsIndexed(row.items, key = { i, m -> "poster_shelf_$r:$i:${m.id}" }) { i, m ->
-                                                        RailTile("poster_shelf_$r:$i:${m.id}", entryKey, focusZone, first, focusRegistry, wrapState, wrapFirst, i) {
+                                                        RailTile(
+                                                            "poster_shelf_$r:$i:${m.id}",
+                                                            entryKey,
+                                                            focusZone,
+                                                            first,
+                                                            focusRegistry,
+                                                            wrapState,
+                                                            wrapFirst,
+                                                            i,
+                                                        ) {
                                                             LabeledPoster(
                                                                 m,
                                                                 modifier = Modifier,
                                                                 onLongClick = {
                                                                     AppPreferences.addToLibrary(
                                                                         AppPreferences.LibraryEntry(
-                                                                            id = m.id, type = stremioType, name = m.name,
-                                                                            poster = m.poster.orEmpty(), year = m.releaseInfo.orEmpty(),
+                                                                            id = m.id,
+                                                                            type = stremioType,
+                                                                            name = m.name,
+                                                                            poster = m.poster.orEmpty(),
+                                                                            year = m.releaseInfo.orEmpty(),
                                                                             rating = m.imdbRating.orEmpty(),
                                                                         ),
                                                                     )
@@ -489,28 +747,52 @@ private fun <T> CombinedGrid(
                                                         }
                                                     }
                                                 }
+
                                                 else -> {
                                                     val r = rail.key.removePrefix("stremio:").toInt()
                                                     val row = stremio[r]
                                                     itemsIndexed(row.items, key = { i, m -> "poster_stremio_$r:$i:${m.id}" }) { i, m ->
-                                                        RailTile("poster_stremio_$r:$i:${m.id}", entryKey, focusZone, first, focusRegistry, wrapState, wrapFirst, i) {
+                                                        RailTile(
+                                                            "poster_stremio_$r:$i:${m.id}",
+                                                            entryKey,
+                                                            focusZone,
+                                                            first,
+                                                            focusRegistry,
+                                                            wrapState,
+                                                            wrapFirst,
+                                                            i,
+                                                        ) {
                                                             LabeledPoster(m, modifier = Modifier, onLongClick = {
                                                                 val ref = "stremio:${m.id}"
                                                                 val type = (m.type ?: stremioType).let { if (it == "tv") "series" else it }
                                                                 TvDialogs.menu(
                                                                     m.name,
-                                                                    listOf(if (AppPreferences.inLibrary(ref)) "Remove from library" else "Add to library"),
+                                                                    listOf(
+                                                                        if (AppPreferences.inLibrary(
+                                                                                ref,
+                                                                            )
+                                                                        ) {
+                                                                            "Remove from library"
+                                                                        } else {
+                                                                            "Add to library"
+                                                                        },
+                                                                    ),
                                                                 ) {
-                                                                    if (AppPreferences.inLibrary(ref)) AppPreferences.removeFromLibrary(ref)
-                                                                    else AppPreferences.addToLibrary(
-                                                                        AppPreferences.LibraryEntry(
-                                                                            id = ref, type = type, name = m.name,
-                                                                            poster = (m.poster ?: m.background).orEmpty(),
-                                                                            backdrop = m.background.orEmpty(),
-                                                                            year = m.releaseInfo?.take(4).orEmpty(),
-                                                                            rating = m.imdbRating.orEmpty(),
-                                                                        ),
-                                                                    )
+                                                                    if (AppPreferences.inLibrary(ref)) {
+                                                                        AppPreferences.removeFromLibrary(ref)
+                                                                    } else {
+                                                                        AppPreferences.addToLibrary(
+                                                                            AppPreferences.LibraryEntry(
+                                                                                id = ref,
+                                                                                type = type,
+                                                                                name = m.name,
+                                                                                poster = (m.poster ?: m.background).orEmpty(),
+                                                                                backdrop = m.background.orEmpty(),
+                                                                                year = m.releaseInfo?.take(4).orEmpty(),
+                                                                                rating = m.imdbRating.orEmpty(),
+                                                                            ),
+                                                                        )
+                                                                    }
                                                                 }
                                                             }, onClick = {
                                                                 Nav.push(Route.Meta(m.type ?: stremioType, m.id, m.name, m.poster))
@@ -524,6 +806,7 @@ private fun <T> CombinedGrid(
                                 }
                             }
                         }
+                    }
                 }
             }
         }
@@ -538,7 +821,7 @@ internal fun MoviesContent() {
     val client = ProviderSession.current
     var cats by remember { mutableStateOf<List<XtreamClient.Category>?>(null) }
     LaunchedEffect(Unit) { cats = client?.let { c -> suspendRunCatching { c.movieCategories() }.getOrDefault(emptyList()) } }
-    ScreenPage("Movies", icon = com.carteltv.tv.R.drawable.ph_film_strip) {
+    ScreenPage("Movies", header = false) {
         // The frame owns the backdrop; the staged section only tints it, so Movies and TV Shows read apart.
         StagedScreen(section = com.carteltv.tv.nav.AppSection.MOVIES) {
             CombinedGrid(
@@ -561,13 +844,20 @@ internal fun MoviesContent() {
                                 m.name,
                                 listOf(if (AppPreferences.inLibrary(ref)) "Remove from library" else "Add to library"),
                             ) {
-                                if (AppPreferences.inLibrary(ref)) AppPreferences.removeFromLibrary(ref)
-                                else AppPreferences.addToLibrary(
-                                    AppPreferences.LibraryEntry(
-                                        id = ref, type = "movie", name = m.name, poster = m.icon.orEmpty(),
-                                        year = titleYear(m.name).orEmpty(), rating = ratingLabel(m.rating).orEmpty(),
-                                    ),
-                                )
+                                if (AppPreferences.inLibrary(ref)) {
+                                    AppPreferences.removeFromLibrary(ref)
+                                } else {
+                                    AppPreferences.addToLibrary(
+                                        AppPreferences.LibraryEntry(
+                                            id = ref,
+                                            type = "movie",
+                                            name = m.name,
+                                            poster = m.icon.orEmpty(),
+                                            year = titleYear(m.name).orEmpty(),
+                                            rating = ratingLabel(m.rating).orEmpty(),
+                                        ),
+                                    )
+                                }
                             }
                         },
                         onClick = {
@@ -575,6 +865,8 @@ internal fun MoviesContent() {
                         },
                     )
                 },
+                providerArt = { it.icon },
+                providerOpen = { m -> Nav.push(Route.Movie(m.streamId, m.name, m.ext, m.icon, m.rating)) },
                 stremioType = "movie",
                 focusZone = "movies",
             )
@@ -587,7 +879,7 @@ internal fun SeriesContent() {
     val client = ProviderSession.current
     var cats by remember { mutableStateOf<List<XtreamClient.Category>?>(null) }
     LaunchedEffect(Unit) { cats = client?.let { c -> suspendRunCatching { c.seriesCategories() }.getOrDefault(emptyList()) } }
-    ScreenPage("Series", icon = com.carteltv.tv.R.drawable.ph_monitor_play) {
+    ScreenPage("Series", header = false) {
         StagedScreen(section = com.carteltv.tv.nav.AppSection.TV) {
             CombinedGrid(
                 provider = client,
@@ -600,7 +892,8 @@ internal fun SeriesContent() {
                     val ref = "series:${sv.seriesId}"
                     CellPoster(
                         // Poster first: a landscape backdrop crops badly inside 2:3 art.
-                        imageUrl = sv.cover ?: sv.backdrop?.firstOrNull(), title = sv.name,
+                        imageUrl = sv.cover ?: sv.backdrop?.firstOrNull(),
+                        title = sv.name,
                         subtitle = posterMeta(sv.releaseDate?.take(4)?.takeIf { it.isNotBlank() }, ratingLabel(sv.rating)),
                         badge = ratingLabel(sv.rating),
                         onLongClick = {
@@ -608,14 +901,20 @@ internal fun SeriesContent() {
                                 sv.name,
                                 listOf(if (AppPreferences.inLibrary(ref)) "Remove from library" else "Add to library"),
                             ) {
-                                if (AppPreferences.inLibrary(ref)) AppPreferences.removeFromLibrary(ref)
-                                else AppPreferences.addToLibrary(
-                                    AppPreferences.LibraryEntry(
-                                        id = ref, type = "series", name = sv.name,
-                                        poster = (sv.cover ?: sv.backdrop?.firstOrNull()).orEmpty(),
-                                        year = sv.releaseDate?.take(4).orEmpty(), rating = ratingLabel(sv.rating).orEmpty(),
-                                    ),
-                                )
+                                if (AppPreferences.inLibrary(ref)) {
+                                    AppPreferences.removeFromLibrary(ref)
+                                } else {
+                                    AppPreferences.addToLibrary(
+                                        AppPreferences.LibraryEntry(
+                                            id = ref,
+                                            type = "series",
+                                            name = sv.name,
+                                            poster = (sv.cover ?: sv.backdrop?.firstOrNull()).orEmpty(),
+                                            year = sv.releaseDate?.take(4).orEmpty(),
+                                            rating = ratingLabel(sv.rating).orEmpty(),
+                                        ),
+                                    )
+                                }
                             }
                         },
                         onClick = {
@@ -623,6 +922,8 @@ internal fun SeriesContent() {
                         },
                     )
                 },
+                providerArt = { sv -> sv.cover ?: sv.backdrop?.firstOrNull() },
+                providerOpen = { sv -> Nav.push(Route.Series(sv.seriesId, sv.name, sv.cover, sv.plot)) },
                 stremioType = "series",
                 focusZone = "series",
             )

@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
@@ -19,7 +21,11 @@ import com.carteltv.tv.TestBootApp
 import com.carteltv.tv.data.xtream.GuideModel
 import com.carteltv.tv.nav.Nav
 import com.carteltv.tv.nav.Route
+import com.carteltv.tv.ui.catalog.CatalogHero
+import com.carteltv.tv.ui.catalog.HeroPick
+import com.carteltv.tv.ui.catalog.PosterRail
 import com.carteltv.tv.ui.components.GridPoster
+import com.carteltv.tv.ui.components.PosterTile
 import com.carteltv.tv.ui.components.SectionTitle
 import com.carteltv.tv.ui.live.GuideProgramCell
 import com.carteltv.tv.ui.nav.ScreenPage
@@ -124,5 +130,66 @@ class CatalogGuideScreenshotTest {
             }
         }
         compose.onRoot().captureRoboImage("src/test/screenshots/guide-programs.png")
+    }
+
+    @Test
+    fun on_demand_hero_billboard() {
+        compose.setContent {
+            CartelTheme {
+                Column(
+                    Modifier.fillMaxSize().background(ThemeSemantics.stage).padding(start = 48.dp, end = 48.dp, top = 40.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    CatalogHero(
+                        HeroPick(
+                            title = "Dune: Part Two",
+                            art = null,
+                            meta = "2024 · ★ 8.5",
+                            cta = "More info",
+                            onOpen = {},
+                        ),
+                    )
+                    SectionTitle("Popular Movies", note = "5 titles")
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        listOf("The Last Horizon", "Midnight in Paris", "A Quiet Place", "Dune: Part Two", "The Grand Budapest Hotel")
+                            .forEach { t ->
+                                Box(Modifier.width(160.dp)) { PosterTile(imageUrl = null, title = t, meta = "2024", onClick = {}) }
+                            }
+                    }
+                }
+            }
+        }
+        compose.onRoot().captureRoboImage("src/test/screenshots/on-demand-hero.png")
+    }
+
+    @Test
+    fun catalog_family_billboard_and_rails() {
+        compose.setContent {
+            CartelTheme {
+                Column(
+                    Modifier.fillMaxSize().background(ThemeSemantics.stage).padding(start = 48.dp, end = 48.dp, top = 40.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    CatalogHero(
+                        HeroPick(
+                            title = "Dune: Part Two",
+                            art = null,
+                            meta = "2024 · ★ 8.5",
+                            cta = "Resume",
+                            onOpen = {},
+                        ),
+                    )
+                    PosterRail("Continue watching", count = 5) {
+                        items(
+                            listOf("The Last Horizon", "Midnight in Paris", "A Quiet Place", "Dune: Part Two", "Arrival"),
+                            key = { it },
+                        ) { t ->
+                            PosterTile(imageUrl = null, title = t, meta = "2024", onClick = {})
+                        }
+                    }
+                }
+            }
+        }
+        compose.onRoot().captureRoboImage("src/test/screenshots/catalog-family.png")
     }
 }
