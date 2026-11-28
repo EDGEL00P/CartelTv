@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Text
 import com.carteltv.tv.alert.KickoffAlertScheduler
 import com.carteltv.tv.core.suspendRunCatching
@@ -55,6 +56,7 @@ import com.carteltv.tv.data.weather.AirQualityService
 import com.carteltv.tv.data.weather.Forecast
 import com.carteltv.tv.data.weather.Place
 import com.carteltv.tv.data.weather.VenueWeather
+import com.carteltv.tv.data.weather.WeatherUnits
 import com.carteltv.tv.data.weather.WeatherClient
 import com.carteltv.tv.data.weather.WeatherService
 import com.carteltv.tv.data.xtream.GuideModel
@@ -370,16 +372,33 @@ fun HomeScreen(
         watchNext = if (AppPreferences.showWatchNext) WatchNextRepository.load(ctx) else emptyList()
         val c = ProviderSession.current
         if (c != null) {
-            channels = suspendRunCatching { LiveChannels.all(c) }.getOrDefault(channels)
-            movies = suspendRunCatching { VodCatalogCache.all(c) }.getOrDefault(movies)
+            val freshChannels = suspendRunCatching { LiveChannels.all(c) }.getOrDefault(emptyList())
+            if (ProviderSession.current !== c) return@LaunchedEffect
+            channels = freshChannels
+            val freshMovies = suspendRunCatching { VodCatalogCache.all(c) }.getOrDefault(emptyList())
+            if (ProviderSession.current !== c) return@LaunchedEffect
+            movies = freshMovies
         }
         librarySettled = true
     }
     // One small read per session: the names of the provider's film categories. It settles on its own, so a slow
     // answer never holds the shelves back — without it Home falls back to a single Movies row.
-    val provider = ProviderSession.current
+    val provider by ProviderSession.currentFlow.collectAsStateWithLifecycle()
     LaunchedEffect(provider) {
-        vodCategories = provider?.let { c -> suspendRunCatching { c.movieCategories() }.getOrDefault(emptyList()) } ?: emptyList()
+        channels = emptyList()
+        movies = emptyList()
+        vodCategories = emptyList()
+        provider?.let { c ->
+            val freshChannels = suspendRunCatching { LiveChannels.all(c) }.getOrDefault(emptyList())
+            if (ProviderSession.current !== c) return@LaunchedEffect
+            channels = freshChannels
+            val freshMovies = suspendRunCatching { VodCatalogCache.all(c) }.getOrDefault(emptyList())
+            if (ProviderSession.current !== c) return@LaunchedEffect
+            movies = freshMovies
+            val freshCategories = suspendRunCatching { c.movieCategories() }.getOrDefault(emptyList())
+            if (ProviderSession.current !== c) return@LaunchedEffect
+            vodCategories = freshCategories
+        }
     }
     // The launcher stays composed behind other apps, so polling is tied to the Activity being started.
     LaunchedEffect(started) {
@@ -405,8 +424,10 @@ fun HomeScreen(
     // Initial load: channels go through the shared cached copy, movies through the provider.
     LaunchedEffect(Unit) {
         ProviderSession.current?.let { c ->
-            channels = suspendRunCatching { LiveChannels.all(c) }.getOrDefault(channels)
-            movies = suspendRunCatching { VodCatalogCache.all(c) }.getOrDefault(movies)
+            val freshChannels = suspendRunCatching { LiveChannels.all(c) }.getOrDefault(emptyList())
+            if (ProviderSession.current === c) channels = freshChannels
+            val freshMovies = suspendRunCatching { VodCatalogCache.all(c) }.getOrDefault(emptyList())
+            if (ProviderSession.current === c) movies = freshMovies
         }
     }
     // Keep home content fresh while the launcher is on screen: re-read the cached channel list and
@@ -416,8 +437,10 @@ fun HomeScreen(
         while (true) {
             delay(10 * 60_000L)
             val c = ProviderSession.current ?: continue
-            channels = suspendRunCatching { LiveChannels.all(c) }.getOrDefault(channels)
-            movies = suspendRunCatching { VodCatalogCache.all(c) }.getOrDefault(movies)
+            val freshChannels = suspendRunCatching { LiveChannels.all(c) }.getOrDefault(emptyList())
+            if (ProviderSession.current === c) channels = freshChannels
+            val freshMovies = suspendRunCatching { VodCatalogCache.all(c) }.getOrDefault(emptyList())
+            if (ProviderSession.current === c) movies = freshMovies
         }
     }
     // What each of the first channels is airing now, for the Live now shelf.
@@ -425,7 +448,7 @@ fun HomeScreen(
     val guideSlot = now.time / GUIDE_SLOT_MS
     LaunchedEffect(channels, guideSlot) {
         val c = ProviderSession.current ?: return@LaunchedEffect
-        guide =
+        val freshGuide =
             coroutineScope {
                 channels
                     .take(LIVE_SHELF_CHANNELS)
@@ -450,6 +473,7 @@ fun HomeScreen(
                     .filterNotNull()
                     .toMap()
             }
+        if (ProviderSession.current === c) guide = freshGuide
     }
 
     var onboard by remember { mutableStateOf(if (AppPreferences.onboardingDone()) -1 else 0) }
@@ -468,81 +492,43 @@ fun HomeScreen(
     val liveNow = remember(scores) { scores.values.flatten().filter { it.state == "in" } }
     val liveLabel = stringResource(com.carteltv.tv.R.string.live_action, liveNow.size)
     val glance =
-        remember(air, rates, place.name, fallbackWeather, liveNow, liveLabel, now) {
+        remember(air, rates, place.name, forecast, fallbackWeather, liveNow, liveLabel, now) {
             buildList {
-                // ── Sports: one card with the scores that are live now, leading the row's live data ──
+                // Sports leads the row's live data whenever a game is on.
                 if (liveNow.isNotEmpty()) {
-                    // The card reads three lines: when more than three games are on, two scores plus "+N more live".
-                    fun scoreLine(g: EspnScoreboardClient.Score): String {
-                        val status =
-                            com.carteltv.tv.ui.sports
-                                .stateLabel(g, now.time)
-                                .removePrefix("LIVE ")
-                        return "${g.abbrB ?: "?"} ${g.scoreB ?: "0"}\u2013${g.scoreA ?: "0"} ${g.abbrA ?: "?"}" +
-                            status.takeIf { it.isNotBlank() }?.let { " \u00b7 $it" }.orEmpty()
+                    add(ShelfEntry.Info("glance:sports", "Sports", { SectionNav.go(AppSection.SPORTS) }, Glance.Live(liveNow, liveLabel, now.time)))
+                }
+                // Weather from the full forecast, or from the lightweight fallback when the forecast failed.
+                val placeName = place.name.ifBlank { "Your location" }
+                val weather =
+                    forecast?.let { f ->
+                        val today = f.days.firstOrNull()
+                        Glance.Weather(
+                            tempC = f.now.tempC,
+                            code = f.now.code,
+                            isDay = f.now.isDay,
+                            place = placeName,
+                            localTime = VenueWeather.localTime(now.time, f.utcOffsetSec, AppPreferences.clock24),
+                            highC = today?.maxC,
+                            lowC = today?.minC,
+                            detail = f.nowcastLine() ?: "Feels like ${WeatherUnits.temp(f.now.feelsC)}",
+                        )
+                    } ?: fallbackWeather?.let { w ->
+                        Glance.Weather(
+                            tempC = w.tempC,
+                            code = w.code,
+                            isDay = w.isDay,
+                            place = placeName,
+                            localTime = VenueWeather.localTime(now.time, w.utcOffsetSec, AppPreferences.clock24),
+                            highC = w.highC,
+                            lowC = w.lowC,
+                            detail = "Humidity ${w.humidity}%",
+                        )
                     }
-                    val crowded = liveNow.size > 3
-                    val lines =
-                        liveNow.take(if (crowded) 2 else 3).map(::scoreLine) +
-                            if (crowded) listOf("+${liveNow.size - 2} more live") else emptyList()
-                    add(
-                        ShelfEntry.Info(
-                            "glance:sports",
-                            "Sports",
-                            { SectionNav.go(AppSection.SPORTS) },
-                            liveLabel,
-                            lines,
-                            ThemeSemantics.live,
-                        ),
-                    )
-                }
-                fallbackWeather?.let { w ->
-                    val localTime = VenueWeather.localTime(now.time, w.utcOffsetSec, AppPreferences.clock24)
-                    val zoneLabel = VenueWeather.utcLabel(w.utcOffsetSec)
-                    add(
-                        ShelfEntry.Info(
-                            "glance:weather",
-                            "Weather",
-                            { SectionNav.go(AppSection.WEATHER) },
-                            "%.0f°".format(w.tempC),
-                            listOf("${place.name.ifBlank { "Your location" }} · $localTime $zoneLabel", w.label, "Humidity ${w.humidity}%"),
-                            ThemeSemantics.info,
-                        ),
-                    )
-                }
-                rates?.let { r ->
-                    // Three lines on the card: two rates, then when the numbers were current.
-                    val lines =
-                        r.rates.take(2).map { rate ->
-                            val move = rate.changePct?.let { " ${ExchangeRateService.signedPercent(it)}" }.orEmpty()
-                            "${rate.code} ${ExchangeRateService.format(rate.value)}$move"
-                        } + "Updated ${r.date}"
-                    add(
-                        ShelfEntry.Info(
-                            "glance:fx",
-                            "Exchange rates",
-                            { SectionNav.go(AppSection.WEATHER) },
-                            "1 ${r.base}",
-                            lines,
-                            ThemeSemantics.info,
-                        ),
-                    )
-                }
-                air?.takeIf { AppPreferences.weatherAqi }?.let { a ->
-                    add(
-                        ShelfEntry.Info(
-                            "glance:aqi",
-                            "Air quality",
-                            { SectionNav.go(AppSection.WEATHER) },
-                            "AQI ${a.usAqi}",
-                            listOf(a.level.label, a.pm25?.let { "PM2.5 %.1f µg/m³".format(it) } ?: "Live reading"),
-                            when (a.level) {
-                                com.carteltv.tv.data.weather.AirLevel.GOOD -> ThemeSemantics.success
-                                com.carteltv.tv.data.weather.AirLevel.MODERATE -> ThemeSemantics.warning
-                                else -> ThemeSemantics.danger
-                            },
-                        ),
-                    )
+                weather?.let { add(ShelfEntry.Info("glance:weather", "Weather", { SectionNav.go(AppSection.WEATHER) }, it)) }
+                rates?.let { add(ShelfEntry.Info("glance:fx", "Exchange rates", { SectionNav.go(AppSection.WEATHER) }, Glance.Fx(it))) }
+                air?.takeIf { AppPreferences.weatherAqi }?.let {
+                    add(ShelfEntry.Info("glance:aqi", "Air quality", { SectionNav.go(AppSection.WEATHER) }, Glance.Air(it)))
                 }
             }
         }
@@ -706,13 +692,13 @@ fun HomeScreen(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                     Row(
                         Modifier
-                            .padding(top = 96.dp)
+                            .padding(top = ThemeSpec.Layout.onboardingTopInset)
                             .clip(RoundedCornerShape(ThemeSpec.Card.corner))
                             .background(
                                 Brush.verticalGradient(
                                     listOf(ThemeSemantics.surfaceModal.copy(alpha = 0.98f), ThemeSemantics.surfaceRaised.scaleAlpha(0.96f)),
                                 ),
-                            ).border(1.dp, ThemeSemantics.hairline, RoundedCornerShape(ThemeSpec.Card.corner))
+                            ).border(ThemeSpec.Glass.rimWidth, ThemeSemantics.hairline, RoundedCornerShape(ThemeSpec.Card.corner))
                             .padding(horizontal = ThemeSpec.Space.md, vertical = ThemeSpec.Space.sm),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -774,8 +760,8 @@ private fun OnboardingVeil(
             ),
             Triple(
                 "02",
-                "Sidebar",
-                "Press Up from the top of the screen to reach the sidebar. Press Menu anywhere to go back to Home.",
+                "Navigation",
+                "Press Up from the top of the screen to reach the navigation bar. Press Menu anywhere to go back to Home.",
             ),
             Triple(
                 "03",
@@ -797,7 +783,7 @@ private fun OnboardingVeil(
         contentAlignment = Alignment.Center,
     ) {
         Column(
-            Modifier.width(720.dp).padding(horizontal = ThemeSpec.Space.lg),
+            Modifier.width(ThemeSpec.Layout.onboardingWidth).padding(horizontal = ThemeSpec.Space.lg),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm)) {
@@ -858,7 +844,7 @@ private fun OnboardingVeil(
                         .focusRing(ctaFocused, RoundedCornerShape(ThemeSpec.Card.cornerLg))
                         .onFocusChanged { ctaFocused = it.isFocused }
                         .clickableNoIndication { if (isLast) onFinish() else onNext(step + 1) }
-                        .padding(horizontal = 34.dp, vertical = ThemeSpec.Space.cozy),
+                        .padding(horizontal = ThemeSpec.Layout.onboardingButtonPadding, vertical = ThemeSpec.Space.cozy),
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )

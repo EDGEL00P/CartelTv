@@ -80,7 +80,6 @@ import com.carteltv.tv.ui.components.TvTextField
 import com.carteltv.tv.ui.components.OverlayCoordinator
 import com.carteltv.tv.data.events.Holidays
 import com.carteltv.tv.ui.home.NowOn
-import com.carteltv.tv.ui.nav.ScreenMasthead
 import com.carteltv.tv.ui.components.awaitFocus
 import com.carteltv.tv.ui.components.clickableTv
 import com.carteltv.tv.ui.components.dismissScrim
@@ -101,28 +100,6 @@ internal enum class SettingsPage {
 private fun parentOf(page: SettingsPage): SettingsPage = when (page) {
     SettingsPage.REMOTE, SettingsPage.DNS, SettingsPage.CONFIG, SettingsPage.DEVICE_CARE -> SettingsPage.ADVANCED
     else -> SettingsPage.ROOT
-}
-
-/** The page's name, for the masthead and the Back hint. */
-private fun pageTitle(page: SettingsPage): String = when (page) {
-    SettingsPage.ROOT -> "Settings"
-    SettingsPage.PLAYBACK -> "Playback"
-    SettingsPage.PROVIDER -> "TV provider"
-    SettingsPage.LAUNCHER -> "Theme & home"
-    SettingsPage.YOUTUBE -> "YouTube"
-    SettingsPage.RECORDINGS -> "Recordings"
-    SettingsPage.ACCOUNTS -> "Accounts"
-    SettingsPage.DEVICE_CARE -> "Diagnostics"
-    SettingsPage.SCREENSAVER -> "Standby display"
-    SettingsPage.CONFIG -> "Backup & restore"
-    SettingsPage.REMOTE -> "Remote keys"
-    SettingsPage.PROFILES -> "Profiles"
-    SettingsPage.ABOUT -> "About"
-    SettingsPage.DNS -> "DNS blocking"
-    SettingsPage.SPORTS -> "Sports"
-    SettingsPage.ADDONS -> "Add-ons"
-    SettingsPage.ADVANCED -> "Advanced"
-    SettingsPage.ASSISTANT -> "Assistant"
 }
 
 /** One-shot request for the next Settings screen to open straight on a page. */
@@ -191,19 +168,13 @@ fun SettingsScreen() {
         return
     }
 
-    Column(Modifier.fillMaxSize()) {
-        // The root is the category list itself; detail pages keep their title and Back context.
-        if (page != SettingsPage.ROOT) {
-            ScreenMasthead(pageTitle(page), com.carteltv.tv.R.drawable.ph_gear_six)
-        }
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            SettingsColumn(page, rootSel, openedRow, rootFocusers, pageFocus, cfg,
-                onRootSelect = { i -> rootSel = i },
-                onOpen = { p -> openedRow = rootSel; page = p },
-                onTrakt = { showTrakt = true },
-                onDebrid = { showDebrid = true },
-            )
-        }
+    Box(Modifier.fillMaxSize()) {
+        SettingsColumn(page, rootSel, openedRow, rootFocusers, pageFocus, cfg,
+            onRootSelect = { i -> rootSel = i },
+            onOpen = { p -> openedRow = rootSel; page = p },
+            onTrakt = { showTrakt = true },
+            onDebrid = { showDebrid = true },
+        )
     }
 
     val cfgCtx = androidx.compose.ui.platform.LocalContext.current
@@ -322,7 +293,7 @@ private fun SettingsColumn(
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             state = rootGrid,
-            modifier = Modifier.fillMaxSize().focusGroup().restoreRowFocus(),
+            modifier = Modifier.fillMaxSize().restoreRowFocus().focusGroup(),
             contentPadding = com.carteltv.tv.ui.nav.PagePadding,
             horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.gutter),
         ) {
@@ -440,7 +411,7 @@ private fun rootEntries(): List<Pair<String, List<RootEntry>>> {
     val connected = AppPreferences.credentials != null
     return listOf(
         "Account" to listOf(
-            RootEntry(SettingsIcon.PERSON, com.carteltv.tv.R.string.set_provider, if (connected) "Connected" else "Not connected",
+            RootEntry(SettingsIcon.PROVIDER, com.carteltv.tv.R.string.set_provider, if (connected) "Connected" else "Not connected",
                 "Your server address, username and password, and the content languages to show.", SettingsPage.PROVIDER),
             RootEntry(SettingsIcon.NETWORK, com.carteltv.tv.R.string.set_linked_accounts, "",
                 "Trakt, Simkl, Stremio Cloud, your TMDB key and the TV guide source.", SettingsPage.ACCOUNTS),
@@ -450,13 +421,13 @@ private fun rootEntries(): List<Pair<String, List<RootEntry>>> {
         "Watching" to listOf(
             RootEntry(SettingsIcon.PLAYBACK, com.carteltv.tv.R.string.set_playback, "",
                 "Display and audio, languages, up next, catch-up and multiview.", SettingsPage.PLAYBACK),
-            RootEntry(SettingsIcon.INFO, com.carteltv.tv.R.string.set_sports, "",
+            RootEntry(SettingsIcon.SPORTS, com.carteltv.tv.R.string.set_sports, "",
                 "Display, privacy, auto-play, time zone, channel matching and goal alerts.", SettingsPage.SPORTS),
             RootEntry(SettingsIcon.TUBE, com.carteltv.tv.R.string.set_youtube, "",
                 "Direct feed, playback, segment bypass and feed filters.", SettingsPage.YOUTUBE),
             RootEntry(SettingsIcon.REC, com.carteltv.tv.R.string.set_recordings, "",
                 "Saved and scheduled recordings, and how much extra time to add.", SettingsPage.RECORDINGS),
-            RootEntry(SettingsIcon.GRID, com.carteltv.tv.R.string.set_addons, "",
+            RootEntry(SettingsIcon.ADDON, com.carteltv.tv.R.string.set_addons, "",
                 "Add and manage your add-ons.", SettingsPage.ADDONS),
         ),
         "Appearance" to listOf(
@@ -468,9 +439,9 @@ private fun rootEntries(): List<Pair<String, List<RootEntry>>> {
         "System" to listOf(
             RootEntry(SettingsIcon.MIC, com.carteltv.tv.R.string.set_assistant, "",
                 "Open Cartel with the remote mic button for apps, channels, playback and chained commands.", SettingsPage.ASSISTANT),
-            RootEntry(SettingsIcon.REMOTE, com.carteltv.tv.R.string.set_advanced, "",
+            RootEntry(SettingsIcon.TOOLS, com.carteltv.tv.R.string.set_advanced, "",
                 "Buffering, display, audio, controls, DNS blocking, backup and diagnostics.", SettingsPage.ADVANCED),
-            RootEntry(SettingsIcon.MOON, com.carteltv.tv.R.string.set_about, "",
+            RootEntry(SettingsIcon.INFO, com.carteltv.tv.R.string.set_about, "",
                 "System information and updates.", SettingsPage.ABOUT),
         ),
     )

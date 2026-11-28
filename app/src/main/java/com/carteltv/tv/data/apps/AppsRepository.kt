@@ -46,6 +46,7 @@ object AppsRepository {
         return runCatching {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             ctx.startActivity(intent)
+            AppPreferences.bumpLaunchCount(packageName)
             true
         }.onFailure { e ->
             Log.e(TAG, "Failed to launch $packageName", e)

@@ -50,6 +50,9 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
@@ -59,11 +62,14 @@ import com.carteltv.tv.R
 import com.carteltv.tv.data.apps.LauncherApp
 import com.carteltv.tv.data.preferences.AppPreferences
 import com.carteltv.tv.nav.AppSection
-import com.carteltv.tv.nav.Nav
+import com.carteltv.tv.ui.components.ClockFormat
 import com.carteltv.tv.ui.components.clickableNoIndication
+import com.carteltv.tv.ui.components.rememberClock
+import com.carteltv.tv.ui.components.tryFocus
 import com.carteltv.tv.ui.theme.PhosphorIcon
 import com.carteltv.tv.ui.theme.ThemeSemantics
 import com.carteltv.tv.ui.theme.ThemeSpec
+import com.carteltv.tv.ui.theme.controlSurface
 import com.carteltv.tv.ui.theme.focusLift
 import com.carteltv.tv.ui.theme.focusRing
 import com.carteltv.tv.ui.theme.focusScaleState
@@ -74,6 +80,7 @@ import kotlin.math.sin
 /** Shell state shared by the top bar and the screens beneath it. */
 object ShellChrome {
     var barHidden by mutableStateOf(false)
+    var barFocused by mutableStateOf(false)
 
     /** Attached to the current section; however focus enters the top bar, it lands here. */
     val barFocus = FocusRequester()
@@ -160,8 +167,11 @@ private sealed interface BarItem {
     ) : BarItem
 }
 
-/** Sections kept off the bar until visits earn them a title; voice and deep links reach them regardless. */
-private val OverflowTabs =
+/**
+ * Sections that live on the Apps page, off the bar until visits earn them a title; voice and deep links reach
+ * them regardless. While any of them is open and not promoted, Apps is the selected title.
+ */
+internal val OverflowTabs =
     listOf(AppSection.YOUTUBE, AppSection.YOUTUBEMUSIC, AppSection.WEATHER, AppSection.SETUP)
 
 /** Visits before an overflow section earns its own title on the bar. */
@@ -191,13 +201,12 @@ private fun barGroups(promoted: AppSection?): List<List<BarItem>> =
         listOfNotNull(
             BarItem.Tab(AppSection.APPS),
             promoted?.let { BarItem.Tab(it) },
-            BarItem.Folder(R.string.nav_more, OverflowTabs, goesToFirst = false),
         ),
     )
 
 /**
- * Always-visible top navigation: one row of peer sections plus a More folder for every overflow
- * section. Frequent sections can also earn a direct shortcut. Folders open beneath the main row.
+ * Always-visible top navigation: one row of peer sections; the overflow sections sit on the Apps page, and a
+ * frequent one can earn a direct shortcut. Folders open beneath the main row.
  * Down returns to the last content stop.
  */
 @Composable
@@ -206,17 +215,23 @@ internal fun TopBar(
     onGo: (AppSection) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val slot = navSlot(current)
+    val hasProfiles =
+        com.carteltv.tv.data.preferences.Profiles.state.value
+            .isNotEmpty()
+    val visits = remember(current) { AppPreferences.sectionVisits() }
+    // Without profiles the bar's end button is Settings itself, so Settings never also earns a bar title.
+    val promoted =
+        remember(visits, hasProfiles) {
+            promotedOverflow(if (hasProfiles) OverflowTabs else OverflowTabs - AppSection.SETUP, visits)
+        }
+    // With no profiles the end button is Settings, so Settings is current there rather than under Apps.
+    val settingsButtonCurrent = !hasProfiles && navSlot(current) == AppSection.SETUP
+    val slot = navSlot(current).let { if (it in OverflowTabs && it != promoted && !settingsButtonCurrent) AppSection.APPS else it }
     var hasFocus by remember { mutableStateOf(false) }
     var open by remember { mutableStateOf<BarItem.Folder?>(null) }
-    val visits = remember(slot) { AppPreferences.sectionVisits() }
-    val promoted = remember(visits) { promotedOverflow(OverflowTabs, visits) }
     val go = { tab: AppSection ->
         AppPreferences.bumpSectionVisit(tab.name)
         onGo(tab)
-    }
-    LaunchedEffect(hasFocus, slot) {
-        if (hasFocus) runCatching { ShellChrome.barFocus.requestFocus() }
     }
     Column(
         modifier
@@ -230,8 +245,11 @@ internal fun TopBar(
             ).padding(start = ThemeSpec.Safe.horizontal, end = ThemeSpec.Safe.horizontal, top = ThemeSpec.Safe.vertical)
             .onFocusChanged {
                 hasFocus = it.hasFocus
+                ShellChrome.barFocused = it.hasFocus
                 if (!it.hasFocus) open = null
             }.focusProperties {
+                // However focus enters the bar, it lands on the current section, not whichever title sits above.
+                onEnter = { ShellChrome.barFocus.tryFocus() }
                 onExit = {
                     if (requestedFocusDirection == FocusDirection.Down && open == null) {
                         ShellChrome.lastContentFocus?.let { runCatching { it.requestFocus() } }
@@ -302,14 +320,20 @@ internal fun TopBar(
                 }
             }
             Spacer(Modifier.weight(1f))
-            ScreenActionButton(R.drawable.ph_user, "Profiles") {
-                if (com.carteltv.tv.data.preferences.Profiles.state.value
-                        .isNotEmpty()
-                ) {
+            BarClock()
+            Spacer(Modifier.width(ThemeSpec.Space.sm))
+            // One job per glyph: the person opens the profile picker; with no profiles yet the button is Settings.
+            if (hasProfiles) {
+                ScreenActionButton(R.drawable.ph_user, "Profiles") {
                     com.carteltv.tv.data.preferences.Profiles.pickerShown = true
-                } else {
-                    go(AppSection.SETUP)
                 }
+            } else {
+                ScreenActionButton(
+                    navIcon(AppSection.SETUP),
+                    stringResource(AppSection.SETUP.label),
+                    modifier = if (settingsButtonCurrent) Modifier.focusRequester(ShellChrome.barFocus) else Modifier,
+                    selected = settingsButtonCurrent,
+                ) { go(AppSection.SETUP) }
             }
         }
         open?.let { folder ->
@@ -362,7 +386,7 @@ private fun BarTitle(
     val ink by animateColorAsState(
         when {
             focused -> ThemeSemantics.stage
-            selected -> ThemeSemantics.textEmphatic
+            selected -> ThemeSemantics.textInverse
             else -> ThemeSemantics.textSecondary
         },
         spec,
@@ -371,7 +395,7 @@ private fun BarTitle(
     val pill by animateColorAsState(
         when {
             focused -> ThemeSemantics.textEmphatic
-            selected -> ThemeSemantics.chipSelected
+            selected -> ThemeSemantics.accent
             else -> Color.Transparent
         },
         spec,
@@ -423,11 +447,11 @@ private val STREAMING_HINTS =
         "crunchyroll",
     )
 
-/** Which sidebar row lights up for [tab]: the guide page is Live TV's, and every other section has a row of its own. */
+/** Which navigation bar title lights up for [tab]: the guide page is Live TV's, and every other section has a title of its own. */
 internal fun navSlot(tab: AppSection): AppSection = if (tab == AppSection.GUIDE) AppSection.LIVE else tab
 
 /**
- * The streaming services among [apps], most launched first: what the sidebar's Channels & Apps group and
+ * The streaming services among [apps], most launched first: what the Apps page's Channels & Apps group and
  * Home's Streaming shelf are both built from. Hidden apps are left out here; a PIN stays each shelf's own gate.
  */
 internal fun streamingApps(apps: List<LauncherApp>): List<LauncherApp> {
@@ -441,7 +465,7 @@ internal fun streamingApps(apps: List<LauncherApp>): List<LauncherApp> {
         }.sortedByDescending { launchCounts[it.packageName] ?: 0 }
 }
 
-private fun navIcon(tab: AppSection): Int =
+internal fun navIcon(tab: AppSection): Int =
     when (tab) {
         AppSection.HOME -> R.drawable.ph_house
         AppSection.APPS -> R.drawable.ph_squares_four
@@ -460,3 +484,45 @@ private fun navIcon(tab: AppSection): Int =
         AppSection.SEARCH -> R.drawable.ph_magnifying_glass
         AppSection.SETUP -> R.drawable.ph_gear_six
     }
+
+/** A real masthead action: large enough for the remote, labelled for accessibility, and visibly focused. */
+@Composable
+internal fun ScreenActionButton(
+    @DrawableRes icon: Int,
+    label: String,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val pressed by interaction.collectIsPressedAsState()
+    // The app's one control language: a glass capsule at rest, the accent while its section is current (as the
+    // bar's pills are), the white key light under focus.
+    Box(
+        modifier
+            .size(48.dp)
+            .semantics { contentDescription = label }
+            .controlSurface(focused, selected, pressed)
+            .clickableNoIndication(interaction, onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        PhosphorIcon(icon, ThemeSemantics.controlInk(focused, selected), 22.dp)
+    }
+}
+
+/** The time of day at the bar's end, beside Profiles or Settings, in the person's 12- or 24-hour choice. */
+@Composable
+private fun BarClock() {
+    val now = rememberClock(30_000L)
+    Text(
+        ClockFormat.time(now.time, AppPreferences.clock24),
+        fontSize = ThemeSpec.Type.meta,
+        fontFamily = ThemeSpec.Font.broadcast,
+        fontWeight = FontWeight.Bold,
+        color = ThemeSemantics.textSecondary,
+        // Tabular figures keep the digits from shifting as the minutes turn.
+        style = TextStyle(fontFeatureSettings = "tnum"),
+        maxLines = 1,
+    )
+}

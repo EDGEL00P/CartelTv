@@ -5,18 +5,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.carteltv.tv.R
 import com.carteltv.tv.data.events.HolidayKind
 
-/** The photograph each holiday stands on (Pexels License, see NOTICE). Holidays that share a scene share the picture. */
+/** The photograph each holiday stands on (Unsplash License, see docs/photo-credits.md). Holidays that share a scene share the picture. */
 internal fun holidayPhoto(kind: HolidayKind): Int = when (kind) {
     HolidayKind.CHRISTMAS -> R.drawable.hl_christmas
     HolidayKind.THANKSGIVING -> R.drawable.hl_thanksgiving
@@ -61,13 +65,7 @@ private fun holidayTint(wash: Color) = ColorFilter.lighting(
 @Composable
 internal fun HolidayBackdrop(kind: HolidayKind, modifier: Modifier = Modifier.fillMaxSize()) {
     Box(modifier.clipToBounds()) {
-        Image(
-            painterResource(holidayPhoto(kind)),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            colorFilter = holidayTint(holidayWash(kind)),
-            modifier = Modifier.fillMaxSize(),
-        )
+        BandPhoto(painterResource(holidayPhoto(kind)), colorFilter = holidayTint(holidayWash(kind)))
         Box(
             Modifier.fillMaxSize().background(
                 Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.78f), 0.48f to Color.Black.copy(alpha = 0.44f), 1f to Color.Transparent),
@@ -80,3 +78,33 @@ internal fun HolidayBackdrop(kind: HolidayKind, modifier: Modifier = Modifier.fi
         )
     }
 }
+
+/**
+ * Bundled 16:9 photography filling the whole band. The band is far wider than 16:9, so only a horizontal slice of
+ * the photo shows; the slice sits above centre because the files are cut with the face in their upper half.
+ * [scale] is the slide's slow push, grown from the face's height so the face holds its place.
+ */
+@Composable
+internal fun BandPhoto(
+    painter: Painter,
+    modifier: Modifier = Modifier,
+    colorFilter: ColorFilter? = null,
+    scale: () -> Float = { 1f },
+) {
+    Image(
+        painter,
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        alignment = FaceSlice,
+        colorFilter = colorFilter,
+        modifier =
+            modifier.fillMaxSize().graphicsLayer {
+                scaleX = scale()
+                scaleY = scale()
+                transformOrigin = TransformOrigin(0.5f, 0.3f)
+            },
+    )
+}
+
+/** Where [BandPhoto] slices a 16:9 photo: halfway between its top edge and its centre. */
+private val FaceSlice = BiasAlignment(0f, -0.5f)

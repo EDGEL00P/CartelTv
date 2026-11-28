@@ -196,6 +196,8 @@ object SimklClient {
             mapOf(
                 "Content-Type" to "application/json",
                 "simkl-api-key" to cid,
+                // Simkl requires a User-Agent on every request (https://api.simkl.org/conventions/headers).
+                "User-Agent" to "CartelTV/1.0",
             ) + (if (tok.isNotBlank()) mapOf("Authorization" to "Bearer $tok") else emptyMap())
         val (code0, text0) =
             HttpSupport.request(

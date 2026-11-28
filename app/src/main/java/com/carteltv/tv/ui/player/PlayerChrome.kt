@@ -61,7 +61,15 @@ internal object PlayerChrome {
     val onFocusFill = Color(0xFF0B0B0D)
 }
 
-/** A floating glass pane: drop shadow, translucent gradient, clipped rim light. */
+/**
+ * A floating glass pane: drop shadow, translucent gradient, clipped rim light.
+ *
+ * Player glass never backdrop-blurs. It floats over a Media3 `PlayerView`, which renders into a
+ * `SurfaceView` — a separate hardware surface Haze cannot capture (see PlayerScreen's glassState).
+ * A blur source that goes stale the instant playback buffers makes the chip strobe between the live
+ * capture and its fallback tint, so the player uses the smoked-tint path everywhere. The picture is
+ * the content; the controls read as a smoked pane over it, not a frost of a surface we cannot see.
+ */
 @Composable
 internal fun Modifier.playerGlass(
     shape: Shape,
@@ -71,7 +79,7 @@ internal fun Modifier.playerGlass(
     this
         .shadow(elevation, shape, clip = false, ambientColor = Color.Black, spotColor = Color.Black)
         .clip(shape)
-        .glassFill(if (heavy) PlayerChrome.glassHeavyTop else PlayerChrome.glassTop, blur = true)
+        .glassFill(if (heavy) PlayerChrome.glassHeavyTop else PlayerChrome.glassTop, blur = false)
         .border(1.dp, Brush.verticalGradient(listOf(PlayerChrome.rim, PlayerChrome.rimSoft, Color.Transparent)), shape)
         .drawWithContent {
             drawContent()

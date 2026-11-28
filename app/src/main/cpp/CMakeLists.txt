@@ -98,28 +98,3 @@ else()
 endif()
 endif() # CARTEL_BUILD_DOVI
 
-# Seek thumbnails: optional keyframe decoder (disabled until a Kotlin caller is wired).
-option(CARTEL_BUILD_THUMB "Build optional seek thumbnail decoder (cartelthumb)" OFF)
-if (CARTEL_BUILD_THUMB)
-add_library(
-    cartelthumb
-    SHARED
-    thumb_shim.cpp
-    hevc_strips.cpp
-    thumb_backend_mpv.cpp
-    thumb_backend_ff60.cpp
-    thumbcolor.c
-    thumb_luts.c
-    thumbdovi.c
-)
-find_library(jnigraphics-lib jnigraphics)
-target_include_directories(cartelthumb PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
-set_source_files_properties(thumb_backend_mpv.cpp PROPERTIES
-    INCLUDE_DIRECTORIES "${CMAKE_CURRENT_LIST_DIR}/third_party/ffmpeg-a7522f3fef")
-set_source_files_properties(thumb_backend_ff60.cpp PROPERTIES
-    INCLUDE_DIRECTORIES "${CMAKE_CURRENT_LIST_DIR}/third_party/ffmpeg-n6.0")
-target_compile_features(cartelthumb PRIVATE cxx_std_17)
-target_compile_options(cartelthumb PRIVATE -O2 -Wall -Wextra -Wno-deprecated-declarations -Wno-unused-parameter)
-target_link_options(cartelthumb PRIVATE "-Wl,-z,max-page-size=16384")
-target_link_libraries(cartelthumb ${log-lib} ${jnigraphics-lib} dl m)
-endif() # CARTEL_BUILD_THUMB

@@ -28,6 +28,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -184,6 +185,7 @@ fun YouTubeScreen() {
     var restoreQueueIds by androidx.compose.runtime.saveable
         .rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var libTick by remember { mutableStateOf(0) }
+    var playRequest by remember { mutableIntStateOf(0) }
     var menuFor by remember { mutableStateOf<YouTubeApiClient.YouTubeVideo?>(null) }
     var prevView by remember { mutableStateOf("HOME") }
     var subs by remember { mutableStateOf(YouTubeSubscriptions.all()) }
@@ -202,9 +204,12 @@ fun YouTubeScreen() {
         }
     }
     var subBusy by remember { mutableStateOf(false) }
+    var feedRequest by remember { mutableIntStateOf(0) }
+    var subRequest by remember { mutableIntStateOf(0) }
     var channel by remember { mutableStateOf<YouTubeApiClient.YouTubeChannel?>(null) }
     var channelBusy by remember { mutableStateOf(false) }
     var channelNotice by remember { mutableStateOf<String?>(null) }
+    var channelRequest by remember { mutableIntStateOf(0) }
     // Account playlists (Liked videos, Watch later) — loaded only while signed in.
     var accountShelves by remember { mutableStateOf<List<YouTubeApiClient.YouTubeShelf>>(emptyList()) }
     // device-flow login state: START → code handed out → polling → signed in
@@ -237,10 +242,13 @@ fun YouTubeScreen() {
     fun loadFeed() {
         busy = true
         notice = null
+        val request = ++feedRequest
         scope.launch {
-            shelves = YouTubeFeedFilter.shelves(YouTubeApiClient.homeFeed())
+            val loaded = suspendRunCatching { YouTubeFeedFilter.shelves(YouTubeApiClient.homeFeed()) }
+            if (feedRequest != request) return@launch
             busy = false
-            if (shelves.isEmpty()) notice = "Couldn't load videos. Check the connection, then press Retry."
+            shelves = loaded.getOrDefault(emptyList())
+            if (loaded.isFailure || shelves.isEmpty()) notice = "Couldn't load videos. Check the connection, then press Retry."
         }
     }
 
@@ -258,12 +266,16 @@ fun YouTubeScreen() {
         YouTubeLibrary.noteSearch(q)
         libTick++
         scope.launch {
-            val found = YouTubeFeedFilter.videos(YouTubeApiClient.search(q.trim()))
+            val found = suspendRunCatching { YouTubeFeedFilter.videos(YouTubeApiClient.search(q.trim())) }
             // A faster later search may already have answered; only the current term may show.
             if (query.trim() != q.trim()) return@launch
-            results = found
             busy = false
-            if (results.isEmpty()) notice = "No results for \"$q\""
+            results = found.getOrDefault(emptyList())
+            if (found.isFailure) {
+                notice = "Couldn't search YouTube. Check the connection, then try again."
+            } else if (results.isEmpty()) {
+                notice = "No results for \"$q\""
+            }
         }
     }
 
@@ -279,13 +291,16 @@ fun YouTubeScreen() {
     ) {
         resolving = true
         notice = null
+        val request = ++playRequest
         queue = list.ifEmpty { listOf(v) }
         restoreVideoId = v.videoId
         restoreQueueIds = queue.map { it.videoId }
         scope.launch {
             // Resolve streams first; the better title/thumbnail arrives afterwards and never delays playback.
-            val s = YouTubeApiClient.resolve(v.videoId)
+            val resolved = suspendRunCatching { YouTubeApiClient.resolve(v.videoId) }
+            if (playRequest != request) return@launch
             resolving = false
+            val s = resolved.getOrNull()
             if (s == null || (s.videoUrl == null && s.muxedUrl == null && s.hlsUrl == null)) {
                 notice = "That video isn't available right now."
                 playing = null
@@ -311,6 +326,8 @@ fun YouTubeScreen() {
     }
 
     fun closePlayer() {
+        playRequest++
+        resolving = false
         playing = null
         playingStreams = null
         restoreVideoId = null
@@ -331,8 +348,11 @@ fun YouTubeScreen() {
     fun refreshSubs(force: Boolean) {
         subs = YouTubeSubscriptions.all()
         subBusy = true
+        val request = ++subRequest
         scope.launch {
-            subFeed = YouTubeSubscriptions.feed(force)
+            val loaded = suspendRunCatching { YouTubeSubscriptions.feed(force) }
+            if (subRequest != request) return@launch
+            subFeed = loaded.getOrDefault(emptyList())
             subBusy = false
         }
     }
@@ -401,10 +421,18 @@ fun YouTubeScreen() {
         channel = null
         channelNotice = null
         channelBusy = true
+        val request = ++channelRequest
         scope.launch {
-            val c = YouTubeApiClient.channel(id)
+            val loaded = suspendRunCatching { YouTubeApiClient.channel(id) }
+            if (channelRequest != request) return@launch
             channelBusy = false
-            if (c == null) channelNotice = "Couldn't load $name. Check the connection and try again." else channel = c
+            val c = loaded.getOrNull()
+            if (loaded.isFailure || c == null) {
+                channelNotice = "Couldn't load $name. Check the connection and try again."
+            } else {
+                channel = c
+                channelNotice = null
+            }
         }
     }
 
@@ -455,7 +483,7 @@ fun YouTubeScreen() {
             val selectedTab = selectedTabFor(view)
             // The one frame every section uses: masthead with the title and clock, then the section rail and
             // stage on the shared safe margins. Search and the account live in the rail, like every other app.
-            ScreenPage("YouTube", icon = com.carteltv.tv.R.drawable.ph_youtube_logo, header = false) {
+            ScreenPage {
                 Row(Modifier.fillMaxSize()) {
                     YouTubeRail(
                         selected = selectedTab,
@@ -779,7 +807,7 @@ fun YouTubeScreen() {
                                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                     )
                                 }
-                                QrCode(text = c.verifyUrl, cellSize = 5.dp)
+                                QrCode(text = c.scanUrl, cellSize = 5.dp)
                             }
                             Text(
                                 androidx.compose.ui.res

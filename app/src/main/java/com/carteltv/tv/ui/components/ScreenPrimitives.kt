@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.Text
 import com.carteltv.tv.data.apps.AppIconLoader
 import com.carteltv.tv.data.apps.LauncherApp
@@ -47,18 +47,16 @@ import com.carteltv.tv.ui.theme.LocalAmbientTint
 import com.carteltv.tv.ui.theme.PhosphorIcon
 import com.carteltv.tv.ui.theme.ThemeSemantics
 import com.carteltv.tv.ui.theme.ThemeSpec
-import com.carteltv.tv.ui.theme.focusLift
-import com.carteltv.tv.ui.theme.focusRing
-import com.carteltv.tv.ui.theme.focusScaleState
+import com.carteltv.tv.ui.theme.controlSurface
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * The one chip: filters, categories, tabs and day pickers all use it. Selected is the accent fill with dark
- * text; focus is a lift and a ring that sit on top of whichever fill the chip has, so a focused chip never
- * looks like a selected one. [compact] tightens the pill for dense strips (the A–Z line) without touching
- * that focus language.
+ * The one chip: filters, categories, tabs and day pickers all use it, in the house control language
+ * ([controlSurface]): focus is the white key light, selected is the accent fill, rest is glass with a hairline.
+ * [leading] reads its ink from [LocalContentColor] so an icon follows the label through every state.
+ * [compact] tightens the pill for dense strips (the A–Z line) without touching that language.
  */
 @Composable
 fun Chip(
@@ -73,33 +71,26 @@ fun Chip(
     var focused by remember { mutableStateOf(false) }
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val shape = CircleShape
+    val ink = ThemeSemantics.controlInk(focused, selected)
     Row(
         modifier
             .widthIn(max = 300.dp)
-            .focusLift(focusScaleState(focused, ThemeSpec.Focus.liftCompact, pressed))
-            .clip(shape)
-            .background(
-                when {
-                    selected -> ThemeSemantics.textEmphatic
-                    focused -> ThemeSemantics.surfaceFocus
-                    else -> ThemeSemantics.surfaceRest
-                },
-            ).focusRing(focused, shape, idle = if (selected) Color.Transparent else ThemeSemantics.hairline)
+            .controlSurface(focused, selected, pressed)
             .onFocusChanged { focused = it.isFocused }
             .clickableNoIndication(interaction, onClick)
             .padding(horizontal = if (compact) ThemeSpec.Space.sm else ThemeSpec.Space.lg, vertical = ThemeSpec.Space.sm),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
     ) {
-        leading?.invoke()
+        if (leading != null) CompositionLocalProvider(LocalContentColor provides ink, content = leading)
         AutoSizeText(
             label,
             fontSize = ThemeSpec.Type.meta,
             minScale = 0.8f,
             fontFamily = ThemeSpec.Font.broadcast,
             fontWeight = if (selected || focused) FontWeight.Bold else FontWeight.SemiBold,
-            color = if (selected) ThemeSemantics.textInverse else ThemeSemantics.textEmphatic,
+            color = ink,
+            textAlign = TextAlign.Start,
         )
         if (dot != null) Box(Modifier.size(7.dp).clip(CircleShape).background(dot))
     }
@@ -120,8 +111,9 @@ fun SectionTitle(
                 fontWeight = FontWeight.Bold,
                 fontFamily = ThemeSpec.Font.display,
                 color = ThemeSemantics.textEmphatic,
-                letterSpacing = (-0.25).sp,
+                letterSpacing = ThemeSpec.Type.trackHeadline,
                 modifier = Modifier.weight(1f, fill = false),
+                textAlign = TextAlign.Start,
                 minScale = 0.6f,
             )
             if (note != null) {
@@ -132,6 +124,7 @@ fun SectionTitle(
                     color = ThemeSemantics.textTertiary,
                     fontFamily = ThemeSpec.Font.broadcast,
                     letterSpacing = ThemeSpec.Type.trackCaps,
+                    textAlign = TextAlign.End,
                     maxLines = 1,
                 )
             }
@@ -147,23 +140,7 @@ fun EmptyState(
     hint: String? = null,
     @DrawableRes icon: Int? = null,
 ) {
-    Column(
-        modifier.fillMaxWidth().padding(vertical = ThemeSpec.Space.margin, horizontal = ThemeSpec.Space.margin),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
-    ) {
-        if (icon != null) {
-            PhosphorIcon(icon, ThemeSemantics.textTertiary, 40.dp, Modifier.padding(bottom = ThemeSpec.Space.xs))
-        }
-        Text(
-            title,
-            fontSize = ThemeSpec.Type.body,
-            fontWeight = FontWeight.Bold,
-            color = ThemeSemantics.textEmphatic,
-            textAlign = TextAlign.Center,
-        )
-        if (hint != null) Text(hint, fontSize = ThemeSpec.Type.meta, color = ThemeSemantics.textSecondary, textAlign = TextAlign.Center)
-    }
+    PageStateContent(title = title, modifier = modifier, hint = hint, icon = icon)
 }
 
 /** White or near-black, whichever reads better on [accent]: the house pick for text on accent-class fills. */

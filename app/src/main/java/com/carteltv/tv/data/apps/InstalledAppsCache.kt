@@ -21,9 +21,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 object InstalledAppsCache {
     private const val BURST_SETTLE_MS = 300L
 
+    enum class LoadState { LOADING, READY, FAILED }
+
     var apps: List<LauncherApp> by mutableStateOf(emptyList())
     var tvInputs: List<TvInputItem> by mutableStateOf(emptyList())
     var version: Int by mutableIntStateOf(0)
+    var loadState: LoadState by mutableStateOf(LoadState.LOADING)
 
     private val requests = Channel<Context>(Channel.CONFLATED)
     private val consumerStarted = AtomicBoolean(false)
@@ -36,13 +39,16 @@ object InstalledAppsCache {
                     if (!first) delay(BURST_SETTLE_MS)
                     first = false
                     try {
-                        apps = AppsRepository.load(appCtx)
-                        tvInputs = TvInputsRepository.load(appCtx)
+                        val loadedApps = AppsRepository.load(appCtx)
+                        apps = loadedApps
+                        tvInputs = runCatching { TvInputsRepository.load(appCtx) }.getOrDefault(emptyList())
                         version++
+                        loadState = LoadState.READY
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: Exception) {
-                        // keep the previous snapshot; the next package event retries
+                        if (version == 0) loadState = LoadState.FAILED
+                        // Keep the previous snapshot on refresh; package events can retry it.
                     }
                 }
             }
@@ -50,5 +56,8 @@ object InstalledAppsCache {
         requests.trySend(ctx.applicationContext)
     }
 
-    fun reload(ctx: Context) = preload(ctx)
+    fun reload(ctx: Context) {
+        if (version == 0) loadState = LoadState.LOADING
+        preload(ctx)
+    }
 }

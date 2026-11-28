@@ -67,9 +67,13 @@ fun Modifier.entryFocus(
         .focusRequester(requester)
 }
 
-/** Re-entering a horizontal row from above or below lands on the item focused last, not on the first one. */
+/**
+ * Re-entering a horizontal row from above or below lands on the item focused last, not on the first one.
+ * Before anything there has been focused, entry lands on [first] when given (the selected chip), else geometrically.
+ */
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
-fun Modifier.restoreRowFocus(): Modifier = this.focusRestorer()
+fun Modifier.restoreRowFocus(first: androidx.compose.ui.focus.FocusRequester? = null): Modifier =
+    this.focusRestorer(first ?: androidx.compose.ui.focus.FocusRequester.Default)
 
 /*
  * Identity-based focus memory. `focusRestorer` only survives while the composition lives;

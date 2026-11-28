@@ -1,5 +1,6 @@
 package com.carteltv.tv.data.stremio
 
+import com.carteltv.tv.data.network.HttpSupport
 import com.carteltv.tv.data.network.isHttpUrl
 
 import com.carteltv.tv.data.preferences.AppPreferences
@@ -41,7 +42,11 @@ object StremioAccount {
         AppPreferences.stremioEmail = ""
     }
 
-    /** Pure filter for Stremio `addonCollectionGet` JSON responses (kotlinx.serialization — JVM & Android safe). */
+    /**
+     * Pure filter for Stremio `addonCollectionGet` JSON responses (kotlinx.serialization — JVM & Android safe).
+     * Stremio's protected stock addons are skipped: every account carries Cinemeta, so syncing it would bring back
+     * a Cinemeta the user removed here in favour of their own metadata addon.
+     */
     fun parseAddonUrls(rawJson: String): List<String> {
         val root = com.carteltv.tv.data.network.HttpSupport.lenientJson.parseToJsonElement(rawJson) as? kotlinx.serialization.json.JsonObject
             ?: return emptyList()
@@ -60,8 +65,8 @@ object StremioAccount {
 
     private fun http(url: String, body: JSONObject? = null): Pair<Int, String> {
         val conn = URL(url).openConnection() as HttpURLConnection
-        conn.connectTimeout = 8_000
-        conn.readTimeout = 15_000
+        conn.connectTimeout = HttpSupport.CONNECT_MS
+        conn.readTimeout = HttpSupport.READ_MS
         conn.setRequestProperty("Content-Type", "application/json")
         return try {
             if (body != null) {

@@ -53,7 +53,7 @@ object PeerSync {
     /** Pure key-to-group classifier: returns null for secrets & device-local keys. */
     fun groupOf(key: String): String? = when {
         key in NEVER_SYNC_KEYS -> null
-        key.startsWith("glass_") || key in setOf("theme_preset", "wp_src", "wp_rot", "wp_blur", "wp_bright", "wp_subreddit", "icon_pack") -> "look"
+        key.startsWith("glass_") || key in setOf("wp_src", "wp_rot", "wp_blur", "wp_bright", "wp_subreddit", "icon_pack") -> "look"
         key in setOf("home_rows", "widget_belt", "board_on", "board_spec", "clock24", "cw_columns", "cw_hide_titles", "bar_clusters", "bar_pos", "bar_huf", "bar_tabs", "hidden_apps", "show_watch_next", "show_app_channels") -> "layout"
         key in setOf("buf", "dialogue_boost", "yt_sb", "yt_catpreset", "yt_quality", "play_in_streaming_app", "watch_country") -> "playback"
         key == "addons" -> "addons"

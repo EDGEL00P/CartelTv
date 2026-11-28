@@ -1549,17 +1549,25 @@ object YouTubeApiClient {
     private const val OAUTH_TOKEN = "https://oauth2.googleapis.com/token"
 
     // The old 851556794569 TV client was revoked by Google (invalid_client), which broke sign-in.
-    // These are the current TV-and-Limited-Input credentials SmartTube ships for the same device
-    // flow; keep them in sync with upstream if Google rotates the client again. The secret is
-    // injected via BuildConfig (YT_CLIENT_SECRET env var or youtube.clientSecret in
-    // local.properties) so no OAuth secret lives in source — push protection rejects it there.
-    private const val CLIENT_ID = "431299132531-jl6pvavltsevftvisp07hknrqd09813f.apps.googleusercontent.com"
+    // Defaults to the current TV-and-Limited-Input credentials SmartTube ships for the device flow;
+    // override with your own Google Cloud OAuth client via youtube.clientId (local.properties) or
+    // YT_CLIENT_ID (CI) so the consent screen shows your app name. Keep in sync with upstream if
+    // Google rotates the client again. The secret is injected via BuildConfig (YT_CLIENT_SECRET env
+    // var or youtube.clientSecret in local.properties) so no OAuth secret lives in source.
+    private const val CLIENT_ID: String = com.carteltv.tv.BuildConfig.YT_CLIENT_ID
     private val CLIENT_SECRET: String = com.carteltv.tv.BuildConfig.YT_CLIENT_SECRET
 
     data class DeviceCode(
         val deviceCode: String,
         val userCode: String,
         val verifyUrl: String,
+        /**
+         * The URL to encode in the QR and show for "scan or enter". Prefers Google's
+         * `verification_url_with_code` so a scan lands straight on the approval screen with the
+         * code already attached; falls back to `verification_url` + `?user_code=` so scanning never
+         * drops the viewer on a bare page that dead-ends. [verifyUrl] stays the plain site for display.
+         */
+        val scanUrl: String = verifyUrl,
         /** How long Google keeps the code alive (seconds); polling must run at least this long. */
         val expiresInSec: Long = 1800,
         /** Minimum seconds between token polls. */
@@ -1586,10 +1594,19 @@ object YouTubeApiClient {
                 client.newCall(req).execute().use { r ->
                     if (!r.isSuccessful) return@runCatching null
                     val o = json.parseToJsonElement(r.body?.string() ?: "").jsonObject
+                    val deviceCode = o.str("device_code") ?: return@runCatching null
+                    val userCode = o.str("user_code") ?: ""
+                    val verifyUrl = o.str("verification_url") ?: "https://www.google.com/device"
+                    // Carry the code into the scanned link so a phone camera opens the approval
+                    // screen directly instead of a bare landing page (the "404 after scan" dead-end).
+                    val scanUrl =
+                        o.str("verification_url_with_code")
+                            ?: if (userCode.isNotBlank()) "$verifyUrl?user_code=$userCode" else verifyUrl
                     DeviceCode(
-                        deviceCode = o.str("device_code") ?: return@runCatching null,
-                        userCode = o.str("user_code") ?: "",
-                        verifyUrl = o.str("verification_url") ?: "https://www.google.com/device",
+                        deviceCode = deviceCode,
+                        userCode = userCode,
+                        verifyUrl = verifyUrl,
+                        scanUrl = scanUrl,
                         expiresInSec = o.str("expires_in")?.toLongOrNull() ?: 1800,
                         intervalSec = o.str("interval")?.toLongOrNull() ?: 5,
                     )

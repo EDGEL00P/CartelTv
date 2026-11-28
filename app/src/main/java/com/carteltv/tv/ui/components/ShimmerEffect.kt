@@ -25,7 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import com.carteltv.tv.ui.theme.ThemePresets
+import com.carteltv.tv.ui.theme.ThemeAccessibility
 import com.carteltv.tv.ui.theme.ThemeSemantics
 import com.carteltv.tv.ui.theme.ThemeSpec
 
@@ -35,7 +35,7 @@ private const val SWEEP_MS = 1400
 @Composable
 internal fun Modifier.shimmer(): Modifier {
     // System "remove animations": one static highlight instead of the sweep, so a placeholder still reads as loading.
-    if (ThemePresets.systemAnimationsRemoved) return drawWithContent { drawContent(); highlight(0.35f) }
+    if (ThemeAccessibility.systemAnimationsRemoved) return drawWithContent { drawContent(); highlight(0.35f) }
     val x by rememberInfiniteTransition(label = "shimmer").animateFloat(
         initialValue = -1f, targetValue = 2f,
         animationSpec = infiniteRepeatable(tween(SWEEP_MS, easing = LinearEasing), RepeatMode.Restart), label = "sweep",

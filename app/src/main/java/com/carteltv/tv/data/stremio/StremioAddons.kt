@@ -4,7 +4,11 @@ import com.carteltv.tv.data.preferences.AppPreferences
 import com.carteltv.tv.core.suspendRunCatching
 import kotlinx.coroutines.async
 
-/** Loaded-addon registry with Cinemeta always onboard. */
+/**
+ * The user's installed addons, in their priority order. Which addon answers a request comes from each manifest
+ * (resources, types, idPrefixes), as in Stremio and Nuvio, so a metadata addon such as AIOMetadata or TMDB
+ * replaces Cinemeta simply by sitting above it, or by Cinemeta being removed.
+ */
 object StremioAddons {
 
     data class Loaded(val url: String, val manifest: StremioClient.Manifest, val client: StremioClient)
@@ -14,10 +18,20 @@ object StremioAddons {
 
     fun normalize(raw: String): String = StremioClient.normalizeBaseUrl(raw)
 
-    fun defaultUrls(): List<String> {
-        val saved = AppPreferences.addons()
-        return if (saved.none { it == StremioClient.CINEMETA }) listOf(StremioClient.CINEMETA) + saved else saved
-    }
+    fun defaultUrls(): List<String> = AppPreferences.addons()
+
+    /**
+     * The loaded addons whose manifest serves [resource] for [type] and [id], in priority order. Cinemeta, the stock
+     * default, goes last: a custom metadata addon the user installed (AIOMetadata, TMDB) wins wherever it sits.
+     */
+    fun serving(resource: String, type: String, id: String, addons: List<Loaded> = cache): List<Loaded> =
+        addons.filter { it.manifest.serves(resource, type, id) }.sortedBy { isCinemeta(it) }
+
+    /** Full meta from the first addon, in the user's order, that serves it and returns a named item. */
+    suspend fun meta(type: String, id: String): StremioClient.Metum? =
+        serving("meta", type, id, refresh()).firstNotNullOfOrNull { addon ->
+            suspendRunCatching { addon.client.meta(type, id) }.getOrNull()?.takeIf { it.name.isNotBlank() }
+        }
 
     suspend fun refresh(force: Boolean = false): List<Loaded> {
         if (cache.isNotEmpty() && !force) return cache
@@ -42,9 +56,15 @@ object StremioAddons {
             }.map { it.await() }
         }
         lastErrors = outcomes.mapNotNull { it.error }
-        cache = outcomes.mapNotNull { it.loaded }
+        // One add-on per transport URL: the same add-on synced from a Stremio account and imported from a Nuvio
+        // JSON would otherwise serve every catalog and stream twice. Two configs of one add-on (different URLs) stay.
+        cache = outcomes.mapNotNull { it.loaded }.distinctBy { normalize(it.url) }
         return cache
     }
+
+    fun isCinemeta(addon: Loaded): Boolean = addon.url == StremioClient.CINEMETA || addon.manifest.id == CINEMETA_ID
+
+    private const val CINEMETA_ID = "com.linvo.cinemeta"
 
     fun loaded(): List<Loaded> = cache
 

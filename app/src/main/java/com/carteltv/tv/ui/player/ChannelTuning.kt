@@ -28,6 +28,9 @@ internal class NumberEntry(private val maxDigits: Int = 4) {
 /** The remote's live-channel intents, all answered from one cached read of the pool. */
 internal object ChannelTuning {
 
+    /** The list the viewer last tuned from in the channel panel or guide; channel up/down walks it. */
+    @Volatile var zapList: List<XtreamClient.LiveStream> = emptyList()
+
     /** One read of the live-channel pool: each channel's display name and place, and its provider number. */
     data class Index(
         val pool: List<XtreamClient.LiveStream>,
@@ -111,12 +114,12 @@ internal fun lastChannelSlot(refId: String): AppPreferences.MultiViewSlot? {
 }
 
 /**
- * The channel [direction] places from the one playing as [refId], in the order the viewer's guide
- * lists them. Null when the channel list is not loaded yet or holds no other channel.
+ * The channel [direction] places from the one playing as [refId], within the list it was tuned from
+ * when that holds it, else the whole provider list. Null when the channel list is not loaded yet or holds no other channel.
  */
 internal fun neighbourChannel(refId: String, direction: Int): AppPreferences.MultiViewSlot? {
     val id = refId.removePrefix("live:").toLongOrNull() ?: return null
-    val pool = LiveChannels.cached()
+    val pool = ChannelTuning.zapList.takeIf { list -> list.any { it.streamId == id } } ?: LiveChannels.cached()
     val index = ChannelTuning.index(pool)
     val at = ChannelTuning.neighbour(index.names, index.positions[id] ?: return null, direction) ?: return null
     return slotFor(pool[at])

@@ -64,6 +64,8 @@ import com.carteltv.tv.ui.components.trapFocus
 import com.carteltv.tv.ui.nav.cardSurface
 import com.carteltv.tv.ui.components.clickableNoIndication
 import com.carteltv.tv.ui.components.combinedClickableNoIndication
+import com.carteltv.tv.ui.nav.AppOverlayHost
+import com.carteltv.tv.ui.nav.HomePinSpec
 import com.carteltv.tv.ui.nav.PagePadding
 
 object AllAppsOverlayState {
@@ -85,6 +87,7 @@ fun AllAppsOverlay() {
     val gridState = rememberLazyGridState()
     val firstItemRef = remember { FocusRequester() }
     var query by remember { mutableStateOf("") }
+    val activePin = remember { mutableStateOf<HomePinSpec?>(null) }
 
     val allApps = InstalledAppsCache.apps
     val hidden = AppPreferences.hiddenApps()
@@ -111,7 +114,7 @@ fun AllAppsOverlay() {
         )
 
         // Sheet — left-shelved panel, exactly four tiles wide plus the page gutter and the tile gaps.
-        val sheetWidth = ThemeSpec.Safe.horizontal * 2 + 120.dp * 4 + ThemeSpec.Space.md * 3
+        val sheetWidth = ThemeSpec.Safe.horizontal * 2 + ThemeSpec.Layout.appOverlaySheetWidth * 4 + ThemeSpec.Space.md * 3
         Column(
             Modifier
                 .fillMaxHeight()
@@ -179,9 +182,15 @@ fun AllAppsOverlay() {
                 }
             }
 
-            // App grid. An empty list only means something once the first snapshot of installed apps has landed.
-            if (filtered.isEmpty() && InstalledAppsCache.version == 0) {
+            // App grid. Loading and failure stay distinct, so an initial repository failure is retryable.
+            if (filtered.isEmpty() && InstalledAppsCache.loadState == InstalledAppsCache.LoadState.LOADING) {
                 PageLoading(Modifier.weight(1f))
+            } else if (filtered.isEmpty() && InstalledAppsCache.loadState == InstalledAppsCache.LoadState.FAILED) {
+                com.carteltv.tv.ui.components.PageError(
+                    "Couldn't load apps.",
+                    modifier = Modifier.weight(1f),
+                    onRetry = { InstalledAppsCache.reload(ctx) },
+                )
             } else if (filtered.isEmpty()) {
                 Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     EmptyState(
@@ -196,15 +205,23 @@ fun AllAppsOverlay() {
                     contentPadding = PagePadding,
                     horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.gutter),
                     verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.gutter),
-                    modifier = Modifier.weight(1f).focusGroup().focusRestorer(firstItemRef),
+                    modifier = Modifier.weight(1f).focusRestorer(firstItemRef).focusGroup(),
                 ) {
                     items(filtered, key = { it.packageName }) { app ->
                         AppGridTile(
                             app = app,
                             focusRequester = if (app == filtered.firstOrNull()) firstItemRef else null,
                             onClick = {
-                                AllAppsOverlayState.hide()
-                                AppsRepository.launchApp(ctx, app.packageName)
+                                val launch: () -> Unit = {
+                                    AllAppsOverlayState.hide()
+                                    AppsRepository.launchApp(ctx, app.packageName)
+                                    Unit
+                                }
+                                if (app.packageName in AppPreferences.appPins()) {
+                                    activePin.value = HomePinSpec.Unlock(app, launch)
+                                } else {
+                                    launch()
+                                }
                             },
                         )
                     }
@@ -218,6 +235,14 @@ fun AllAppsOverlay() {
             )
         }
     }
+
+    AppOverlayHost(
+        menu = null,
+        onMenuDismiss = {},
+        pin = activePin.value,
+        onPinClose = { activePin.value = null },
+        onChanged = {},
+    )
 }
 
 @Composable
@@ -237,7 +262,7 @@ private fun AppGridTile(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .then(fm)
-            .width(120.dp)
+            .width(ThemeSpec.Layout.appOverlaySheetWidth)
             // The card surface, spelled out so the OK-press dip can ride the same lift.
             .focusLift(focusScaleState(focused, ThemeSpec.Focus.liftCompact, pressed))
             .glassSurface(focused, shape)

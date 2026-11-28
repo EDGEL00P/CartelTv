@@ -31,7 +31,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 BASELINE = Path(__file__).with_name("bughunt-baseline.json")
-SKIP_DIRS = {"build", ".gradle", ".kotlin", ".git", ".serena", "__pycache__", "node_modules"}
+SKIP_DIRS = {"build", ".gradle", ".kotlin", ".git", ".serena", ".android-sdk", "__pycache__", "node_modules"}
 SEVERITY_ORDER = {"error": 0, "warning": 1, "note": 2}
 ISSUE_MARKER = "<!-- bughunt:{rule} -->"
 

@@ -180,7 +180,7 @@ private fun ContextMenu(
     ) {
         Column(
             Modifier
-                .width(320.dp)
+                .width(ThemeSpec.Layout.dialogCompact)
                 .clip(RoundedCornerShape(ThemeSpec.Card.corner))
                 .background(ThemeSemantics.surfaceRest)
                 .border(1.dp, ThemeSemantics.hairline, RoundedCornerShape(ThemeSpec.Card.corner))

@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -20,8 +21,10 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.carteltv.tv.data.apps.LauncherApp
 import com.carteltv.tv.data.preferences.AppPreferences
 import com.carteltv.tv.data.xtream.GuideModel
@@ -40,6 +43,7 @@ import com.carteltv.tv.ui.settings.PinGate
 import com.carteltv.tv.ui.components.Chip
 import com.carteltv.tv.ui.components.EmptyState
 import com.carteltv.tv.ui.components.GridPoster
+import com.carteltv.tv.ui.components.PageError
 import com.carteltv.tv.ui.components.PageLoading
 import com.carteltv.tv.ui.components.PosterTile
 import com.carteltv.tv.ui.components.RailFocusLine
@@ -78,6 +82,7 @@ private data class LocalSearchResults(
 @Composable
 fun SearchScreen(apps: List<LauncherApp>) {
     val appCtx = androidx.compose.ui.platform.LocalContext.current
+    val provider by ProviderSession.currentFlow.collectAsStateWithLifecycle()
     var query by remember { mutableStateOf(TextFieldValue("")) }
     var filter by remember { mutableStateOf(SearchFilter.ALL) }
     var channels by remember { mutableStateOf(listOf<XtreamClient.LiveStream>()) }
@@ -92,13 +97,19 @@ fun SearchScreen(apps: List<LauncherApp>) {
     var onlineBusy by remember { mutableStateOf(false) }
     var lastOnlineQuery by remember { mutableStateOf(0L) }
     var lockedApp by remember { mutableStateOf<LauncherApp?>(null) }
+    var catalogRetryTick by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(com.carteltv.tv.voice.SearchPrefill.pending) {
         com.carteltv.tv.voice.SearchPrefill.pending?.let { query = TextFieldValue(it, TextRange(it.length)); com.carteltv.tv.voice.SearchPrefill.pending = null }
     }
 
-    LaunchedEffect(Unit) {
-        val c = ProviderSession.current
+    LaunchedEffect(provider, catalogRetryTick) {
+        channels = emptyList()
+        movies = emptyList()
+        series = emptyList()
+        catalogLoaded = false
+        catalogFailed = false
+        val c = provider
         if (c == null) {
             catalogLoaded = true
             return@LaunchedEffect
@@ -111,6 +122,7 @@ fun SearchScreen(apps: List<LauncherApp>) {
                 Triple(live.await(), movies.await(), series.await())
             }
         }
+        if (ProviderSession.current !== c) return@LaunchedEffect
         channels = liveResult.getOrDefault(emptyList())
         movies = movieResult.getOrDefault(emptyList())
         series = seriesResult.getOrDefault(emptyList())
@@ -119,7 +131,7 @@ fun SearchScreen(apps: List<LauncherApp>) {
     }
 
     val q = query.text.trim().lowercase()
-    LaunchedEffect(q) {
+    LaunchedEffect(q, provider) {
         epgHits = if (q.length < 2) {
             emptyList()
         } else {
@@ -172,7 +184,7 @@ fun SearchScreen(apps: List<LauncherApp>) {
     val fa = localResults.apps
 
     Box(Modifier.fillMaxSize()) {
-        ScreenPage("Search", icon = com.carteltv.tv.R.drawable.ph_magnifying_glass) {
+        ScreenPage {
             Column(Modifier.fillMaxSize()) {
                 Spacer(Modifier.height(ThemeSpec.Space.md))
 
@@ -185,6 +197,8 @@ fun SearchScreen(apps: List<LauncherApp>) {
                     modifier = Modifier.padding(start = ThemeSpec.Space.margin, end = ThemeSpec.Safe.horizontal)
                         .entryFocus(enabled = FocusMemoryStore.peek("search") == null),
                     hint = "Search movies, shows and apps",
+                    // Passing through the field (bar to results) must not raise the keyboard; OK does.
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done, showKeyboardOnFocus = false),
                     // Results already follow the typing, so the keyboard's Done only hands the remote to them.
                     keyboardActions = KeyboardActions(onDone = {
                         keyboard?.hide()
@@ -193,9 +207,16 @@ fun SearchScreen(apps: List<LauncherApp>) {
                 )
 
                 Spacer(Modifier.height(ThemeSpec.Space.lg))
-                PageChipRow {
+                val selectedChip = remember { FocusRequester() }
+                PageChipRow(entry = selectedChip) {
                     SearchFilter.entries.forEach { sf ->
-                        item(key = sf.name) { Chip(sf.label, selected = filter == sf) { filter = sf } }
+                        item(key = sf.name) {
+                            Chip(
+                                sf.label,
+                                selected = filter == sf,
+                                modifier = if (filter == sf) Modifier.focusRequester(selectedChip) else Modifier,
+                            ) { filter = sf }
+                        }
                     }
                 }
 
@@ -210,16 +231,17 @@ fun SearchScreen(apps: List<LauncherApp>) {
                 // sliders aligned while you browse down the results.
                 RailFocusLine {
                     LazyColumn(
-                        modifier = Modifier.focusGroup().restoreRowFocus(),
+                        modifier = Modifier.restoreRowFocus().focusGroup(),
                         contentPadding = PagePadding,
                         verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.md),
                     ) {
                         // An apps-only search does not depend on the catalog, so a catalog failure is not announced there.
                         if (catalogFailed && tvEmpty && filter != SearchFilter.APPS) {
                             item(key = "empty:catalog") {
-                                EmptyState(
+                                PageError(
                                     "Couldn't load the TV catalog",
-                                    hint = "Live TV, movies and shows can't be searched. Check the connection, then try again.",
+                                    retryLabel = "Retry",
+                                    onRetry = { catalogRetryTick++ },
                                 )
                             }
                         } else if (q.isNotBlank() && tvEmpty && fa.isEmpty() && onlineResults.isEmpty() && !onlineBusy) {

@@ -53,9 +53,9 @@ internal fun holidayTime(remainingMs: Long): HolidayTime {
     )
 }
 
-/** A fresh holiday billboard: one prominent day count, a compact live clock, and the date it is counting toward. */
+/** A fresh holiday billboard: the date it is counting toward, the holiday's name, and a live four-cell clock. */
 @Composable
-internal fun HolidayCountdownSlide(holiday: Holiday, inset: Dp) {
+internal fun HolidayCountdownSlide(holiday: Holiday, inset: Dp, top: Dp) {
     val startMs = holiday.date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
     val time = holidayTime(startMs - rememberTickingNowMs())
     val date = holiday.date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", androidx.compose.ui.platform.LocalConfiguration.current.locales[0]))
@@ -65,7 +65,7 @@ internal fun HolidayCountdownSlide(holiday: Holiday, inset: Dp) {
         Column(
             Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = inset + ThemeSpec.Space.xl, end = ThemeSpec.Space.xl, bottom = 40.dp)
+                .padding(start = inset + ThemeSpec.Space.xl, top = top, end = ThemeSpec.Space.xl, bottom = 40.dp)
                 .width(620.dp),
             verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.cozy),
         ) {
@@ -104,13 +104,16 @@ internal fun HolidayCountdownSlide(holiday: Holiday, inset: Dp) {
             } else {
                 HolidayClock(time)
             }
-            Text(
-                holiday.tagline,
-                fontSize = ThemeSpec.Type.body,
-                color = ThemeSemantics.onMediaMuted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            // The tagline only fits once the clock is gone; with it the stack climbs under the nav bar.
+            if (time.arrived) {
+                Text(
+                    holiday.tagline,
+                    fontSize = ThemeSpec.Type.body,
+                    color = ThemeSemantics.onMediaMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
@@ -127,17 +130,9 @@ private fun HolidayClock(time: HolidayTime) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.lg),
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            RollingText(
-                time.days,
-                fontSize = ThemeSpec.Type.display,
-                fontFamily = ThemeSpec.Font.mono,
-                fontWeight = FontWeight.Bold,
-                color = ThemeSemantics.onMedia,
-            )
-            ClockLabel(if (time.days == "1") "DAY TO GO" else "DAYS TO GO")
-        }
-        Box(Modifier.width(1.dp).height(52.dp).background(ThemeSemantics.onMedia.copy(alpha = 0.24f)))
+        // Every cell shares one size and one baseline; the rule after the days is all that sets them apart.
+        ClockUnit(time.days, if (time.days == "1") "DAY" else "DAYS")
+        Box(Modifier.width(1.dp).height(36.dp).background(ThemeSemantics.onMedia.copy(alpha = 0.24f)))
         Row(
             horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.xl),
             verticalAlignment = Alignment.CenterVertically,
@@ -167,7 +162,7 @@ private fun ClockUnit(value: String, label: String) {
 private fun ClockLabel(label: String) {
     Text(
         label,
-        fontSize = ThemeSpec.Type.meta,
+        fontSize = ThemeSpec.Type.label,
         fontWeight = FontWeight.SemiBold,
         color = ThemeSemantics.onMediaMuted,
         letterSpacing = ThemeSpec.Type.trackCaps,

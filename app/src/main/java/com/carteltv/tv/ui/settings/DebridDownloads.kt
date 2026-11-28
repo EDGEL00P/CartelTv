@@ -282,7 +282,7 @@ fun DebridDownloads() {
                             },
                             maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         )
-                        Text(row.name, fontSize = ThemeSpec.Type.body, color = ThemeSemantics.textEmphatic, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(vertical = 2.dp))
+                        Text(row.name, fontSize = ThemeSpec.Type.body, color = ThemeSemantics.textEmphatic, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(vertical = ThemeSpec.Space.xs))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("%.1f GB".format(row.sizeGb), fontSize = ThemeSpec.Type.label, color = ThemeSemantics.textSecondary, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                             if (focused && row.ready) Text(androidx.compose.ui.res.stringResource(com.carteltv.tv.R.string.debrid_open), fontSize = ThemeSpec.Type.label, color = ThemeSemantics.textEmphatic, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)

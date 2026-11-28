@@ -4,12 +4,18 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -38,11 +44,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -61,6 +69,7 @@ import androidx.tv.material3.Text
 import com.carteltv.tv.core.suspendRunCatching
 import com.carteltv.tv.data.events.Holidays
 import com.carteltv.tv.data.preferences.AppPreferences
+import com.carteltv.tv.data.preferences.BroadcastThemePreferences
 import com.carteltv.tv.data.trakt.TraktAuth
 import com.carteltv.tv.data.xtream.ProviderSession
 import com.carteltv.tv.data.youtube.YouTubeCategoryPresets
@@ -83,7 +92,6 @@ import com.carteltv.tv.ui.components.glassRowText
 import com.carteltv.tv.ui.components.restoreRowFocus
 import com.carteltv.tv.ui.components.trapFocus
 import com.carteltv.tv.ui.home.NowOn
-import com.carteltv.tv.ui.nav.ScreenMasthead
 import com.carteltv.tv.ui.nav.cardSurface
 import com.carteltv.tv.ui.theme.*
 import com.carteltv.tv.ui.theme.ThemeSemantics
@@ -574,37 +582,133 @@ internal fun providerPage(
     }
 }
 
+@Composable
+private fun BroadcastThemeSelector(focus: FocusRequester) {
+    val context = LocalContext.current.applicationContext
+    val scope = rememberCoroutineScope()
+    val selectedId = BroadcastThemes.current.value.id
+
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).focusGroup(),
+        horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
+    ) {
+        BroadcastThemes.presets.forEachIndexed { index, theme ->
+            val selected = selectedId == theme.id
+            var focused by remember(theme.id) { mutableStateOf(false) }
+            val shape = RoundedCornerShape(ThemeSpec.Card.cornerSm)
+            Column(
+                Modifier.width(152.dp)
+                    .then(if (index == 0) Modifier.focusRequester(focus) else Modifier)
+                    .onFocusChanged { focused = it.isFocused }
+                    .clip(shape)
+                    .background(if (selected) ThemeSemantics.surfaceSelected else ThemeSemantics.surfaceRest)
+                    .border(
+                        if (focused) 2.dp else 1.dp,
+                        when {
+                            focused -> theme.focusRingTint
+                            selected -> theme.accentPrimary
+                            else -> ThemeSemantics.hairline
+                        },
+                        shape,
+                    )
+                    .clickableNoIndication {
+                        val activeTheme = BroadcastThemes.select(theme.id)
+                        scope.launch {
+                            try {
+                                BroadcastThemePreferences.setSelectedId(context, activeTheme.id)
+                            } catch (_: java.io.IOException) {
+                                TransientStatus.show("Theme is active but could not be saved")
+                            }
+                        }
+                    }
+                    .padding(ThemeSpec.Space.sm),
+                verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.xs),
+            ) {
+                BroadcastThemePreview(theme, live = focused)
+                Text(
+                    theme.label,
+                    fontSize = ThemeSpec.Type.label,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (selected) ThemeSemantics.textEmphatic else ThemeSemantics.textSecondary,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * A miniature of the network on air: the three brand tones as an angled broadcast wipe (signature slab, accent band,
+ * highlight pinstripe) on its dark ground, under a LIVE scorebug. While focused the wipe sways like an on-air sting.
+ */
+@Composable
+private fun BroadcastThemePreview(theme: BroadcastTheme, live: Boolean) {
+    val drift: State<Float> = if (live && !ThemeAccessibility.systemAnimationsRemoved) {
+        rememberInfiniteTransition(label = "themePreview").animateFloat(
+            initialValue = -1f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+            label = "themeWipe",
+        )
+    } else {
+        remember { mutableStateOf(0f) }
+    }
+    Box(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(ThemeSpec.Card.cornerSm))) {
+        Canvas(Modifier.matchParentSize()) {
+            drawRect(theme.canvasPrimary)
+            val skew = size.height * 0.45f
+            val edge = size.width * (0.56f + 0.04f * drift.value)
+            fun band(from: Float, to: Float, brush: Brush) {
+                val path = Path().apply {
+                    moveTo(from + skew, 0f)
+                    lineTo(to + skew, 0f)
+                    lineTo(to, size.height)
+                    lineTo(from, size.height)
+                    close()
+                }
+                drawPath(path, brush)
+            }
+            val bandWidth = size.width * 0.12f
+            val gap = 3.dp.toPx()
+            band(-skew, edge, Brush.verticalGradient(listOf(theme.signature, lerp(theme.signature, theme.canvasPrimary, 0.55f))))
+            band(edge, edge + bandWidth, SolidColor(theme.accentPrimary))
+            band(edge + bandWidth + gap, edge + bandWidth + gap + 3.dp.toPx(), SolidColor(theme.highlight))
+            // Studio gloss over the top half.
+            drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.10f), Color.Transparent), endY = size.height * 0.5f))
+        }
+        Row(Modifier.align(Alignment.BottomStart).padding(ThemeSpec.Space.sm).height(20.dp).clip(RoundedCornerShape(ThemeSpec.Space.xs))) {
+            Box(Modifier.fillMaxHeight().background(theme.accentPrimary).padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
+                Text("LIVE", fontSize = ThemeSpec.Type.micro, fontWeight = FontWeight.Bold, color = theme.onAccent, letterSpacing = 0.5.sp)
+            }
+            Box(Modifier.fillMaxHeight().background(Color.Black.copy(alpha = 0.72f)).padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
+                Text("2 – 1", fontSize = ThemeSpec.Type.micro, fontFamily = ThemeSpec.Font.mono, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+        }
+    }
+}
+
 internal fun launcherPage(
     scope: LazyListScope,
     focus: FocusRequester,
 ) {
     scope.item {
         Section("Color theme")
-        var activeTheme by remember { mutableStateOf(ThemePresets.fromId(AppPreferences.themePreset)) }
-        ThemePresets.Preset.entries.forEachIndexed { index, preset ->
-            ChoiceRow(
-                title = preset.label,
-                desc = preset.description,
-                selected = activeTheme == preset,
-                focus = if (index == 0) focus else null,
-            ) {
-                activeTheme = ThemePresets.select(preset.id)
-                AppPreferences.themePreset = activeTheme.id
-            }
-        }
-        Caption("Changes the accent colors everywhere instantly. Your layout stays the same.")
+        BroadcastThemeSelector(focus)
 
         Section("Glass")
         var solidGlass by remember { mutableStateOf(AppPreferences.reduceTransparency) }
+        val systemHighContrast = ThemeAccessibility.systemHighContrast
         ToggleRow(
             title = "Reduce transparency",
-            desc = "Use mostly solid charcoal surfaces for steadier contrast",
-            value = solidGlass,
+            desc = if (systemHighContrast) "Required by Android high text contrast" else "Use mostly solid charcoal surfaces for steadier contrast",
+            value = ThemeAccessibility.reduceTransparency,
             focus = null,
+            enabled = !systemHighContrast,
         ) {
             solidGlass = !solidGlass
             AppPreferences.reduceTransparency = solidGlass
-            ThemePresets.reduceTransparency = solidGlass
+            ThemeAccessibility.reduceTransparency = solidGlass
         }
 
         Section("Security")

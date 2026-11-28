@@ -24,30 +24,33 @@ object HttpSupport {
     /** HttpURLConnection puts the full request URL in its messages; strip credential query values before they reach UI or logs. */
     fun redact(message: String?): String = SECRET_PARAM.replace(message.orEmpty(), "$1[hidden]")
 
+    const val CONNECT_MS = 8_000
+    const val READ_MS = 15_000
+
     @Volatile var transport: HttpTransport = OkHttpTransport
 
     /** Synchronous GET on the calling thread (for worker threads or inside IO blocks). */
     fun getBlocking(
         url: String,
         headers: Map<String, String> = emptyMap(),
-        connectMs: Int = 8_000,
-        readMs: Int = 15_000,
+        connectMs: Int = CONNECT_MS,
+        readMs: Int = READ_MS,
     ): String = transport.getBlocking(url, headers, connectMs, readMs)
 
     /** Coroutine GET on Dispatchers.IO. Throws on non-2xx or transport errors. */
     suspend fun get(
         url: String,
         headers: Map<String, String> = emptyMap(),
-        connectMs: Int = 8_000,
-        readMs: Int = 15_000,
+        connectMs: Int = CONNECT_MS,
+        readMs: Int = READ_MS,
     ): String = transport.get(url, headers, connectMs, readMs)
 
     /** Coroutine binary GET on Dispatchers.IO (map tiles, images). Throws on non-2xx or transport errors. */
     suspend fun getBytes(
         url: String,
         headers: Map<String, String> = emptyMap(),
-        connectMs: Int = 8_000,
-        readMs: Int = 15_000,
+        connectMs: Int = CONNECT_MS,
+        readMs: Int = READ_MS,
     ): ByteArray = transport.getBytes(url, headers, connectMs, readMs)
 
     /** Coroutine HTTP request returning (statusCode, responseOrErrorBody) without throwing on 4xx/5xx. */

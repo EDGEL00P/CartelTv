@@ -7,14 +7,12 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Rich metadata for a guide programme, matched by title.
- * Cinemeta (the Stremio metadata backbone, always onboard) answers first; the
- * vaulted TMDB key covers what Cinemeta misses. Row law: silent on a miss — the
+ * The user's installed addons answer first, through their searchable catalogs in priority order;
+ * the vaulted TMDB key covers what they miss. Row law: silent on a miss — the
  * panel keeps its plain EPG text, so the guide ships invisible until fed.
  */
 object GuideMetadata {
@@ -66,7 +64,7 @@ object GuideMetadata {
         val q = cleanTitle(rawTitle)
         if (q.length < 2) return null
         cache[q]?.let { (at, v) -> if (System.currentTimeMillis() - at < FRESH_MS) return v }
-        val v = gate.withPermit { withContext(Dispatchers.IO) { cinemeta(q) ?: tmdb(q) } }
+        val v = gate.withPermit { withContext(Dispatchers.IO) { addonSearch(q) ?: tmdb(q) } }
         cache[q] = System.currentTimeMillis() to v
         return v
     }
@@ -76,26 +74,29 @@ object GuideMetadata {
             json.parseToJsonElement(com.carteltv.tv.data.network.HttpSupport.getBlocking(url, headers)) as? JsonObject
         }.getOrNull()
 
-    /** Cinemeta search: one request per media type, and hits already carry everything we show. */
-    private fun cinemeta(q: String): Rich? {
-        val root = com.carteltv.tv.data.stremio.StremioClient.CINEMETA.removeSuffix("manifest.json").trimEnd('/')
-        val enc = java.net.URLEncoder.encode(q, "UTF-8")
+    /** The first hit from an installed addon's search catalog, movies before series; hits carry everything we show. */
+    private suspend fun addonSearch(q: String): Rich? {
+        val addons = com.carteltv.tv.data.stremio.StremioAddons.refresh()
         for (type in listOf("movie", "series")) {
-            val hit = get("$root/catalog/$type/top/search=$enc.json")?.arr("metas")?.firstOrNull()?.jsonObject
-                ?: continue
-            return Rich(
-                poster = hit.str("poster"),
-                backdrop = hit.str("background"),
-                year = hit.str("releaseInfo")?.take(4)?.takeIf { it.isNotBlank() },
-                rating = hit.str("imdbRating")?.takeIf { it.isNotBlank() && it != "0" },
-                genres = hit.arr("genres").mapNotNull { (it as? JsonPrimitive)?.content }.joinToString(" \u00b7 "),
-                overview = hit.str("description")?.takeIf { it.isNotBlank() },
-            )
+            for (addon in addons) {
+                val catalog = addon.manifest.catalogs.firstOrNull { c -> c.type == type && c.extra.any { it.name == "search" } }
+                    ?: continue
+                val hit = com.carteltv.tv.core.suspendRunCatching { addon.client.catalog(type, catalog.id, search = q) }
+                    .getOrNull()?.firstOrNull { it.name.isNotBlank() } ?: continue
+                return Rich(
+                    poster = hit.poster,
+                    backdrop = hit.background,
+                    year = hit.releaseInfo?.take(4)?.takeIf { it.isNotBlank() },
+                    rating = hit.imdbRating?.takeIf { it.isNotBlank() && it != "0" },
+                    genres = hit.genres.joinToString(" · "),
+                    overview = hit.description?.takeIf { it.isNotBlank() },
+                )
+            }
         }
         return null
     }
 
-    /** TMDB multi-search, the fallback when Cinemeta misses and a key is vaulted. */
+    /** TMDB multi-search, the fallback when no addon matches and a key is vaulted. */
     private fun tmdb(q: String): Rich? {
         val key = com.carteltv.tv.data.preferences.AppPreferences.tmdbKey.trim()
         if (key.isBlank()) return null

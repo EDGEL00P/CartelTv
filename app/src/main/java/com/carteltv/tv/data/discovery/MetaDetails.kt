@@ -151,10 +151,7 @@ object MetaRepository {
         fallbackPoster: String?,
     ): MetaDetails? {
         if (!imdbId.startsWith("tt")) return null
-        val addons = StremioAddons.refresh()
-        val meta = addons.firstNotNullOfOrNull { addon ->
-            suspendRunCatching { addon.client.meta(type, imdbId) }.getOrNull()?.takeIf { it.name.isNotBlank() }
-        }
+        val meta = StremioAddons.meta(type, imdbId)
         val tmdb = suspendRunCatching { TmdbTitles.forImdb(imdbId, type == "series") }.getOrNull()?.tmdbId
         val rich = tmdb?.let { fromTmdb(type, it.toString(), fallbackName ?: meta?.name, fallbackPoster) }
         val videos = meta?.videos.orEmpty()
@@ -359,9 +356,7 @@ object MetaRepository {
     /** The aliases an add-on knows for a title, for localized release matching. */
     suspend fun aliases(details: MetaDetails): List<String> {
         val id = details.playableId ?: return emptyList()
-        return StremioAddons.loaded().firstNotNullOfOrNull { addon ->
-            suspendRunCatching { addon.client.meta(details.type, id) }.getOrNull()?.titleAliases()
-        }.orEmpty()
+        return StremioAddons.meta(details.type, id)?.titleAliases().orEmpty()
     }
 }
 

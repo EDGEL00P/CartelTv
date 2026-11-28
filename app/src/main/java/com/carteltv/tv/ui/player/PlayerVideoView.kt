@@ -26,7 +26,10 @@ import com.carteltv.tv.data.preferences.AppPreferences
  * A host that plays short, unrelated titles (YouTube) passes one fixed key instead of a title's.
  */
 @Stable
-class VideoGeometry internal constructor(private val context: Context, private val refId: String) {
+class VideoGeometry internal constructor(
+    private val context: Context,
+    private val refId: String,
+) {
     private var tick by mutableIntStateOf(0)
 
     /** 0 Fit, 1 Cinema, 2 Zoom, 3 Stretch. Legacy saves may hold a removed mode (4); it folds back to Fit. */
@@ -36,18 +39,22 @@ class VideoGeometry internal constructor(private val context: Context, private v
     val subtitleScale: Int get() = read { AppPreferences.titleSubtitleScale(refId) }
 
     fun cycleAspect() {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putInt("asp:$refId", (aspectMode + 1) % 4).apply()
+        context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putInt("asp:$refId", (aspectMode + 1) % 4)
+            .apply()
         tick++
     }
 
     fun cycleSubtitleScale() {
-        val next = when (AppPreferences.titleSubtitleScale(refId)) {
-            100 -> 150
-            150 -> 200
-            200 -> 75
-            else -> 100
-        }
+        val next =
+            when (AppPreferences.titleSubtitleScale(refId)) {
+                100 -> 150
+                150 -> 200
+                200 -> 75
+                else -> 100
+            }
         if (refId.isNotBlank()) AppPreferences.setTitleSubtitleScale(refId, next)
         tick++
     }
@@ -91,24 +98,37 @@ internal fun PlayerVideoView(
                 setShowPreviousButton(false)
                 controllerAutoShow = false
                 isFocusable = false // the surface around it takes the remote
+                // A SurfaceView inside a Compose AndroidView is stretched/cropped/leaked on API 34
+                // (androidx/media#1237); this opts into the framework sync fix. No-op elsewhere, and a
+                // no-op on API 35+ where the bug is still open upstream.
+                setEnableComposeSurfaceSyncWorkaround(true)
                 onView(this)
             }
         },
         update = { view ->
             if (view.player !== player) view.player = player
-            view.resizeMode = when (aspectMode) {
-                1 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM // Cinema
-                2 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM // Zoom (slight)
-                3 -> AspectRatioFrameLayout.RESIZE_MODE_FILL // Stretch
-                else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
-            }
+            view.resizeMode =
+                when (aspectMode) {
+                    1 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+
+                    // Cinema
+                    2 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+
+                    // Zoom (slight)
+                    3 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+
+                    // Stretch
+                    else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                }
             // Slight zoom for mode 2
             view.scaleX = if (aspectMode == 2) 1.08f else 1f
             view.scaleY = if (aspectMode == 2) 1.08f else 1f
             view.subtitleView?.let { subs ->
                 // The user's system caption style is the default look; an in-app per-title scale
                 // (anything other than the default 100) overrides the system font scale for size.
-                val captions = com.carteltv.tv.engine.captions.SystemCaptions.defaults(view.context)
+                val captions =
+                    com.carteltv.tv.engine.captions.SystemCaptions
+                        .defaults(view.context)
                 captions.style?.let { subs.setStyle(CaptionStyleCompat.createFromCaptionStyle(it)) }
                 val scale = if (subtitleScale != 100) subtitleScale / 100f else captions.fontScale
                 subs.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * scale)

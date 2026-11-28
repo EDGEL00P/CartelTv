@@ -79,6 +79,7 @@ object LiveChannels {
         val fresh = withContext(Dispatchers.IO) {
             suspendRunCatching { client.liveStreams(null) }
         }
+        if (ProviderSession.current !== client) return@withLock cached()
         // A dead provider and an empty playlist must not read the same to the viewer.
         refreshFailed = fresh.isFailure
         val list = fresh.getOrDefault(emptyList())
@@ -101,6 +102,7 @@ object LiveChannels {
         val fresh = withContext(Dispatchers.IO) {
             suspendRunCatching { client.liveCategories() }.getOrDefault(emptyList())
         }
+        if (ProviderSession.current !== client) return emptyList()
         if (fresh.isNotEmpty()) { groups = fresh; groupsAt = now }
         return groups
     }

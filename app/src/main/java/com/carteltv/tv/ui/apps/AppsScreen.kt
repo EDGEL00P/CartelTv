@@ -43,6 +43,7 @@ import androidx.tv.material3.Text
 import com.carteltv.tv.data.apps.InstalledAppsCache
 import com.carteltv.tv.data.apps.LauncherApp
 import com.carteltv.tv.data.preferences.AppPreferences
+import com.carteltv.tv.ui.components.PageError
 import com.carteltv.tv.ui.components.PageLoading
 import com.carteltv.tv.ui.components.RailFocusLine
 import com.carteltv.tv.ui.components.SectionTitle
@@ -134,30 +135,33 @@ internal fun AppsScreen() {
     val entryTile = remember { FocusRequester() }
 
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
-        ScreenPage(
-            "Apps",
-            icon = com.carteltv.tv.R.drawable.ph_squares_four,
-            header = false,
-        ) {
-            // InstalledAppsCache counts finished loads, so zero means the boot load is still running.
-            if (InstalledAppsCache.version == 0) {
-                PageLoading()
-                return@ScreenPage
+        ScreenPage {
+            when (InstalledAppsCache.loadState) {
+                InstalledAppsCache.LoadState.LOADING -> {
+                    PageLoading()
+                    return@ScreenPage
+                }
+                InstalledAppsCache.LoadState.FAILED -> {
+                    PageError("Couldn't load apps.", onRetry = { InstalledAppsCache.reload(ctx) })
+                    return@ScreenPage
+                }
+                InstalledAppsCache.LoadState.READY -> Unit
             }
             // One focus line across the rails, so the focused tile parks at the same place in every row.
             RailFocusLine {
                 LazyColumn(
                     contentPadding = PagePadding,
                     verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.md),
-                    modifier = Modifier.focusGroup().focusRestorer(entryTile),
+                    modifier = Modifier.focusRestorer(entryTile).focusGroup(),
                 ) {
+                    // The app's own sections that have no bar title (the old More folder) lead the page.
+                    item(key = "rail:sections") { SectionsRail(entryTile) }
                     if (!recents.isNullOrEmpty()) {
                         item(key = "rail:recent") {
                             AppsRail(
                                 title = "Recent apps",
                                 apps = recents.orEmpty(),
                                 ctx = ctx,
-                                entry = entryTile,
                                 onPin = { activePin.value = it },
                                 onMenu = { activeMenu.value = it },
                                 onChanged = { recentsHash.value++ },
@@ -170,7 +174,6 @@ internal fun AppsScreen() {
                                 title = railTitle,
                                 apps = mostUsed,
                                 ctx = ctx,
-                                entry = if (recents.isNullOrEmpty()) entryTile else null,
                                 onPin = { activePin.value = it },
                                 onMenu = { activeMenu.value = it },
                                 onChanged = { recentsHash.value++ },
@@ -182,7 +185,6 @@ internal fun AppsScreen() {
                             title = "Other apps",
                             apps = rest,
                             ctx = ctx,
-                            entry = if (mostUsed.isEmpty()) entryTile else null,
                             onPin = { activePin.value = it },
                             onMenu = { activeMenu.value = it },
                             onChanged = { recentsHash.value++ },
@@ -208,15 +210,13 @@ private const val MOST_USED_TILES = 8
 
 /**
  * One labelled rail of the Apps page: the heading, then the tiles in a row that feathers its edges and
- * remembers where focus left it. [entry] is set only on the page's first rail, whose first tile is the
- * node the shell lands focus on; [trailing] composes one extra tile at the row's end.
+ * remembers where focus left it; [trailing] composes one extra tile at the row's end.
  */
 @Composable
 private fun AppsRail(
     title: String,
     apps: List<LauncherApp>,
     ctx: android.content.Context,
-    entry: FocusRequester?,
     onPin: (HomePinSpec?) -> Unit,
     onMenu: (HomeMenuSpec?) -> Unit,
     onChanged: () -> Unit,
@@ -242,7 +242,6 @@ private fun AppsRail(
             itemsIndexed(apps, key = { _, app -> app.packageName }) { idx, app ->
                 val isLocked = app.packageName in AppPreferences.appPins()
                 val launch: () -> Unit = {
-                    AppPreferences.bumpLaunchCount(app.packageName)
                     com.carteltv.tv.data.apps.AppsRepository
                         .launchApp(ctx, app.packageName)
                 }
@@ -254,9 +253,7 @@ private fun AppsRail(
                             .railWrapItem(wrapState, idx)
                             .then(
                                 if (idx == 0) {
-                                    Modifier
-                                        .focusRequester(wrapFirst)
-                                        .then(if (entry != null) Modifier.entryFocus(requester = entry) else Modifier)
+                                    Modifier.focusRequester(wrapFirst)
                                 } else {
                                     Modifier
                                 },
@@ -367,7 +364,39 @@ internal fun AppTile(
 
 @Composable
 private fun AllAppsGridTile(onClick: () -> Unit) {
-    TileFrame(Modifier, onClick) { focused ->
+    GlyphTile("All apps", Modifier, onClick) { tint -> PlayerGlyphIcon(PlayerGlyph.MULTI, tint, 36.dp) }
+}
+
+/** CartelTV's own sections off the bar (YouTube, Music, Weather, Settings), as app tiles; the page's entry rail. */
+@Composable
+private fun SectionsRail(entry: FocusRequester) {
+    Column(Modifier.fillMaxWidth()) {
+        SectionTitle("CartelTV", Modifier.padding(top = ThemeSpec.Space.xs, bottom = ThemeSpec.Space.xs))
+        LazyRow(
+            modifier = Modifier.restoreRowFocus(),
+            contentPadding = PaddingValues(vertical = ThemeSpec.Space.md),
+            horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.gutter),
+        ) {
+            itemsIndexed(com.carteltv.tv.ui.nav.OverflowTabs, key = { _, tab -> tab.name }) { idx, tab ->
+                GlyphTile(
+                    androidx.compose.ui.res.stringResource(tab.label),
+                    if (idx == 0) Modifier.entryFocus(requester = entry) else Modifier,
+                    onClick = { com.carteltv.tv.nav.SectionNav.go(tab) },
+                ) { tint -> com.carteltv.tv.ui.theme.PhosphorIcon(com.carteltv.tv.ui.nav.navIcon(tab), tint, 32.dp) }
+            }
+        }
+    }
+}
+
+/** An app-sized tile for something that is not an installed app: a glyph on the tile plate and its name. */
+@Composable
+private fun GlyphTile(
+    label: String,
+    modifier: Modifier,
+    onClick: () -> Unit,
+    glyph: @Composable (androidx.compose.ui.graphics.Color) -> Unit,
+) {
+    TileFrame(modifier, onClick) { focused ->
         Box(
             Modifier
                 .size(
@@ -376,14 +405,16 @@ private fun AllAppsGridTile(onClick: () -> Unit) {
                 .background(ThemeSemantics.textEmphatic.copy(alpha = 0.08f)),
             contentAlignment = Alignment.Center,
         ) {
-            PlayerGlyphIcon(PlayerGlyph.MULTI, if (focused) ThemeSemantics.accentBright else ThemeSemantics.textSecondary, 36.dp)
+            glyph(if (focused) ThemeSemantics.accentBright else ThemeSemantics.textSecondary)
         }
         Spacer(Modifier.height(ThemeSpec.Space.sm))
         Text(
-            "All apps",
+            label,
             fontSize = AppTileSpec.label,
             fontFamily = AppTileSpec.face,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
             fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Medium,
             color = if (focused) ThemeSemantics.textEmphatic else ThemeSemantics.textPrimary,
         )

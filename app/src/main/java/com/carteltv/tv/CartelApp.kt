@@ -16,6 +16,7 @@ import coil3.disk.DiskCache
 import coil3.memory.MemoryCache
 import com.carteltv.tv.data.apps.InstalledAppsCache
 import com.carteltv.tv.data.preferences.AppPreferences
+import com.carteltv.tv.data.preferences.BroadcastThemePreferences
 import com.carteltv.tv.data.xtream.ProviderSession
 import com.carteltv.tv.system.SleepTimerState
 
@@ -23,6 +24,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collect
 import com.carteltv.tv.data.watch.Scrobble
 /**
  * App singletons. AppScope is the ONLY fire-and-forget IO scope: post-dispose
@@ -44,7 +46,11 @@ class CartelApp : Application(), SingletonImageLoader.Factory {
         }
         AppContainer().install()
         AppPreferences.init(this)
-        com.carteltv.tv.ui.theme.ThemePresets.select(AppPreferences.themePreset)
+        appScope.launch {
+            BroadcastThemePreferences.selectedId(this@CartelApp).collect { id ->
+                com.carteltv.tv.ui.theme.BroadcastThemes.select(id)
+            }
+        }
         com.carteltv.tv.ui.theme.ThemeAccessibility.install(this)
         com.carteltv.tv.data.xtream.LiveChannels.cacheDir = cacheDir
         com.carteltv.tv.data.network.OkHttpTransport.cacheDir = cacheDir

@@ -1,6 +1,6 @@
 package com.carteltv.tv.data.xtream
+import android.util.Base64
 import com.carteltv.tv.core.suspendRunCatching
-
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -11,15 +11,14 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.contentOrNull
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
-import android.util.Base64
 
 /**
  * Full-surface Xtream Codes client (auth, live+Epg, VOD, series).
@@ -55,14 +54,19 @@ open class XtreamClient(
     }
 
     internal suspend fun getText(path: String): String =
-        com.carteltv.tv.data.network.HttpSupport.get("$baseUrl$path", connectMs = 12_000, readMs = 30_000)
+        com.carteltv.tv.data.network.HttpSupport
+            .get("$baseUrl$path", connectMs = 12_000, readMs = 30_000)
 
-    private suspend fun api(action: String, extra: String = ""): JsonElement = withContext(Dispatchers.IO) {
-        val u = URLEncoder.encode(username, "UTF-8")
-        val p = URLEncoder.encode(password, "UTF-8")
-        val raw = getText("/player_api.php?username=$u&password=$p&action=$action$extra")
-        json.parseToJsonElement(raw.ifBlank { "[]" })
-    }
+    private suspend fun api(
+        action: String,
+        extra: String = "",
+    ): JsonElement =
+        withContext(Dispatchers.IO) {
+            val u = URLEncoder.encode(username, "UTF-8")
+            val p = URLEncoder.encode(password, "UTF-8")
+            val raw = getText("/player_api.php?username=$u&password=$p&action=$action$extra")
+            json.parseToJsonElement(raw.ifBlank { "[]" })
+        }
 
     @Serializable data class UserInfo(
         val username: String? = null,
@@ -75,16 +79,23 @@ open class XtreamClient(
         @SerialName("created_at") val createdAt: String? = null,
         @SerialName("allowed_output_formats") val allowedOutputFormats: List<String>? = null,
     )
-    @Serializable data class ServerInfo(val url: String? = null, val port: String? = null)
+
+    @Serializable data class ServerInfo(
+        val url: String? = null,
+        val port: String? = null,
+    )
 
     /** A cheap reachability check for health monitoring; sources that are costly to sign in to override it. */
-    open suspend fun ping() { authenticate() }
+    open suspend fun ping() {
+        authenticate()
+    }
 
     open suspend fun authenticate(): Pair<UserInfo?, ServerInfo?> {
         val el = api("")
         val obj = el.jsonObject
-        val userInfo = obj["user_info"] as? JsonObject
-            ?: throw IllegalStateException("Unexpected auth payload")
+        val userInfo =
+            obj["user_info"] as? JsonObject
+                ?: throw IllegalStateException("Unexpected auth payload")
         // Standard Xtream rejection carries auth:0 + status; legacy shapes send an empty {}.
         val auth = userInfo["auth"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 1
         if (auth == 0) {
@@ -93,13 +104,20 @@ open class XtreamClient(
         }
         val user = json.decodeFromJsonElement<UserInfo>(userInfo)
         // Panels can answer auth:1 and still flag the line; "Active" is the only status that streams.
-        user.status?.trim()?.takeIf { it.lowercase() in DEAD_LINE_STATUSES }?.let { throw IllegalStateException(it) }
+        user.status
+            ?.trim()
+            ?.takeIf { it.lowercase() in DEAD_LINE_STATUSES }
+            ?.let { throw IllegalStateException(it) }
         allowedFormats = normalizeOutputFormats(user.allowedOutputFormats)
         val server = obj["server_info"]?.let { json.decodeFromJsonElement<ServerInfo>(it) }
         return user to server
     }
 
-    @Serializable data class Category(val category_id: String = "", val category_name: String = "")
+    @Serializable data class Category(
+        val category_id: String = "",
+        val category_name: String = "",
+    )
+
     @Serializable data class LiveStream(
         val num: Int = 0,
         val name: String = "",
@@ -115,10 +133,18 @@ open class XtreamClient(
         /** Provider-level stream-id override some portals use in their own URLs. */
         @SerialName("custom_sid") val customSid: String? = null,
     ) {
-        val catchupDays: Int get() = tvArchive?.trim()?.toIntOrNull() ?: tvArchiveDuration?.trim()?.toIntOrNull() ?: 0
+        // `tv_archive` is a 1/0 catch-up flag, not a day count; the window length in days
+        // comes from `tv_archive_duration`. Only a channel with the flag on has catch-up.
+        val catchupDays: Int
+            get() {
+                val enabled = tvArchive?.trim() == "1" || tvArchive?.trim()?.equals("true", true) == true
+                if (!enabled) return 0
+                return tvArchiveDuration?.trim()?.toIntOrNull() ?: 0
+            }
     }
 
     open suspend fun liveCategories(): List<Category> = englishOnly(decodeList(api("get_live_categories")))
+
     open suspend fun liveStreams(categoryId: String? = null): List<LiveStream> =
         decodeList<LiveStream>(api("get_live_streams", categoryId?.let { "&category_id=$it" } ?: ""))
             .filter { keep(it.name, it.categoryId, liveBlocked()) }
@@ -133,27 +159,31 @@ open class XtreamClient(
     )
 
     /** Providers vary: titles may be base64. Normalize. */
-    open suspend fun shortEpg(streamId: Long, limit: Int = 3): List<EpgEntry> {
+    open suspend fun shortEpg(
+        streamId: Long,
+        limit: Int = 3,
+    ): List<EpgEntry> {
         val el = api("get_short_epg", "&stream_id=$streamId&limit=$limit")
         val listings = el.jsonObject["epg_listings"]?.jsonArray ?: return emptyList()
-        return listings.mapNotNull {
-            runCatching { json.decodeFromJsonElement<EpgEntry>(it) }.getOrNull()
-        }.map { ep ->
-            fun maybeB64(s: String?): String? =
-                s?.let { runCatching { String(Base64.decode(it, Base64.DEFAULT)) }.getOrNull() ?: it }
-            ep.copy(title = maybeB64(ep.title) ?: ep.title, description = maybeB64(ep.description) ?: ep.description)
-        }
+        return listings
+            .mapNotNull {
+                runCatching { json.decodeFromJsonElement<EpgEntry>(it) }.getOrNull()
+            }.map { ep ->
+                fun maybeB64(s: String?): String? = s?.let { runCatching { String(Base64.decode(it, Base64.DEFAULT)) }.getOrNull() ?: it }
+                ep.copy(title = maybeB64(ep.title) ?: ep.title, description = maybeB64(ep.description) ?: ep.description)
+            }
     }
 
     /** The channel's whole listing window (past and upcoming); falls back to [shortEpg] when the provider has no table. */
     open suspend fun epgTable(streamId: Long): List<EpgEntry> {
-        val listings = suspendRunCatching {
-            api("get_simple_data_table", "&stream_id=$streamId").jsonObject["epg_listings"]?.jsonArray
-        }.getOrNull()
+        val listings =
+            suspendRunCatching {
+                api("get_simple_data_table", "&stream_id=$streamId").jsonObject["epg_listings"]?.jsonArray
+            }.getOrNull()
         val decoded = listings?.mapNotNull { runCatching { json.decodeFromJsonElement<EpgEntry>(it) }.getOrNull() }.orEmpty()
         if (decoded.isEmpty()) return shortEpg(streamId, 12)
-        fun maybeB64(s: String?): String? =
-            s?.let { runCatching { String(Base64.decode(it, Base64.DEFAULT)) }.getOrNull() ?: it }
+
+        fun maybeB64(s: String?): String? = s?.let { runCatching { String(Base64.decode(it, Base64.DEFAULT)) }.getOrNull() ?: it }
         return decoded.map { ep ->
             ep.copy(title = maybeB64(ep.title) ?: ep.title, description = maybeB64(ep.description) ?: ep.description)
         }
@@ -167,6 +197,7 @@ open class XtreamClient(
         @SerialName("container_extension") val ext: String? = "mp4",
         @SerialName("category_id") val categoryId: String? = null,
     )
+
     @Serializable data class VodInfo(
         val name: String? = null,
         val plot: String? = null,
@@ -180,6 +211,7 @@ open class XtreamClient(
     open suspend fun vodStreams(categoryId: String? = null): List<VodStream> =
         decodeList<VodStream>(api("get_vod_streams", categoryId?.let { "&category_id=$it" } ?: ""))
             .filter { keep(it.name, it.categoryId, vodBlocked()) }
+
     open suspend fun movieCategories(): List<Category> = englishOnly(decodeList(api("get_vod_categories")))
 
     open suspend fun vodInfo(vodId: Long): VodInfo? {
@@ -205,11 +237,13 @@ open class XtreamClient(
         @SerialName("episode_run_time") val episodeRunTime: String? = null,
         @SerialName("category_id") val categoryId: String? = null,
     )
+
     /** Per-episode metadata from get_series_info's episode objects; panels differ in what they fill, so every
      *  member is optional and episodes without the block decode exactly as they always have. */
     @Serializable data class EpisodeInfo(
         @SerialName("movie_image") val movieImage: String? = null,
     )
+
     @Serializable data class Episode(
         val id: String = "",
         val title: String = "",
@@ -227,6 +261,7 @@ open class XtreamClient(
     }
 
     open suspend fun seriesCategories(): List<Category> = englishOnly(decodeList(api("get_series_categories")))
+
     open suspend fun series(categoryId: String? = null): List<Series> =
         decodeList<Series>(api("get_series", categoryId?.let { "&category_id=$it" } ?: ""))
             .filter { keep(it.name, it.categoryId, seriesBlocked()) }
@@ -238,9 +273,10 @@ open class XtreamClient(
         val out = mutableMapOf<Int, List<Episode>>()
         for ((k, v) in eps) {
             val arr = v.jsonArray
-            out[k.toIntOrNull() ?: continue] = arr.mapNotNull {
-                runCatching { json.decodeFromJsonElement<Episode>(shedUnreadableEpisodeMembers(it)) }.getOrNull()
-            }
+            out[k.toIntOrNull() ?: continue] =
+                arr.mapNotNull {
+                    runCatching { json.decodeFromJsonElement<Episode>(shedUnreadableEpisodeMembers(it)) }.getOrNull()
+                }
         }
         return out
     }
@@ -253,13 +289,14 @@ open class XtreamClient(
      */
     private fun shedUnreadableEpisodeMembers(el: JsonElement): JsonElement {
         val obj = el as? JsonObject ?: return el
-        val kept = obj.entries.filterNot { (key, value) ->
-            when (key) {
-                "info" -> value !is JsonObject && value !is JsonNull
-                "movie_image", "cover_big" -> value !is JsonPrimitive
-                else -> false
+        val kept =
+            obj.entries.filterNot { (key, value) ->
+                when (key) {
+                    "info" -> value !is JsonObject && value !is JsonNull
+                    "movie_image", "cover_big" -> value !is JsonPrimitive
+                    else -> false
+                }
             }
-        }
         return if (kept.size == obj.size) obj else JsonObject(kept.associate { it.key to it.value })
     }
 
@@ -277,7 +314,10 @@ open class XtreamClient(
      * overloaded panel (whole audience on one match) far better than a per-segment request storm;
      * HLS when the line does not serve TS or never said. True/false force one shape.
      */
-    open fun liveUrl(id: Long, hls: Boolean? = null): String {
+    open fun liveUrl(
+        id: Long,
+        hls: Boolean? = null,
+    ): String {
         val useHls = hls ?: !servesTs()
         return "$baseUrl/live/${enc(username)}/${enc(password)}/$id.${if (useHls) "m3u8" else "ts"}"
     }
@@ -287,15 +327,24 @@ open class XtreamClient(
      * to an archive window. `utc` = window start, `ltc` = window end, epoch seconds.
      * Providers without timeshift ignore the params and serve live.
      */
-    open fun timeshiftUrl(id: Long, startMs: Long, endMs: Long, hls: Boolean? = null): String =
-        "${liveUrl(id, hls)}?utc=${startMs / 1000}&ltc=${endMs / 1000}"
+    open fun timeshiftUrl(
+        id: Long,
+        startMs: Long,
+        endMs: Long,
+        hls: Boolean? = null,
+    ): String = "${liveUrl(id, hls)}?utc=${startMs / 1000}&ltc=${endMs / 1000}"
 
     /**
      * Catch-up via the dedicated path form used by XCIPTV:
      * /timeshift/{user}/{pass}/{duration-minutes}/{Y-m-d:H:M:S start}/{id}.{ext}
      * Some servers only honor this one; try it when [timeshiftUrl] fails to start.
      */
-    open fun timeshiftPathUrl(id: Long, startMs: Long, durationMin: Int, hls: Boolean? = null): String {
+    open fun timeshiftPathUrl(
+        id: Long,
+        startMs: Long,
+        durationMin: Int,
+        hls: Boolean? = null,
+    ): String {
         val fmt = java.text.SimpleDateFormat("yyyy-MM-dd:HH:mm:ss", java.util.Locale.US)
         fmt.timeZone = java.util.TimeZone.getTimeZone("UTC")
         val start = fmt.format(java.util.Date(startMs))
@@ -303,16 +352,29 @@ open class XtreamClient(
             URLEncoder.encode(start, "UTF-8") + "/$id.${if (hls ?: !servesTs()) "m3u8" else "ts"}"
     }
 
-    open fun movieUrl(id: Long, ext: String?): String = "$baseUrl/movie/${enc(username)}/${enc(password)}/$id.${ext ?: "mp4"}"
-    open fun episodeUrl(id: String, ext: String?): String = "$baseUrl/series/${enc(username)}/${enc(password)}/$id.${ext ?: "mp4"}"
+    open fun movieUrl(
+        id: Long,
+        ext: String?,
+    ): String = "$baseUrl/movie/${enc(username)}/${enc(password)}/$id.${ext ?: "mp4"}"
+
+    open fun episodeUrl(
+        id: String,
+        ext: String?,
+    ): String = "$baseUrl/series/${enc(username)}/${enc(password)}/$id.${ext ?: "mp4"}"
 
     private fun englishOnly(cats: List<Category>): List<Category> =
         if (com.carteltv.tv.data.preferences.AppPreferences.englishOnly) {
             val wanted = com.carteltv.tv.data.preferences.AppPreferences.contentLanguages
             cats.filter { LanguageFilter.keep(it.category_name, wanted) }
-        } else cats
+        } else {
+            cats
+        }
 
-    private fun keep(name: String, categoryId: String?, blocked: Set<String>): Boolean =
+    private fun keep(
+        name: String,
+        categoryId: String?,
+        blocked: Set<String>,
+    ): Boolean =
         !com.carteltv.tv.data.preferences.AppPreferences.englishOnly ||
             (categoryId !in blocked && LanguageFilter.keep(name, com.carteltv.tv.data.preferences.AppPreferences.contentLanguages))
 
@@ -326,21 +388,31 @@ open class XtreamClient(
         val wanted = com.carteltv.tv.data.preferences.AppPreferences.contentLanguages
         if (blockedFor != wanted) {
             blockedFor = wanted
-            liveBlockedIds = null; vodBlockedIds = null; seriesBlockedIds = null
+            liveBlockedIds = null
+            vodBlockedIds = null
+            seriesBlockedIds = null
         }
     }
+
     private suspend fun liveBlocked(): Set<String> {
-        syncBlocked(); val bf = requireNotNull(blockedFor)
+        syncBlocked()
+        val bf = requireNotNull(blockedFor)
         return liveBlockedIds ?: LanguageFilter.blockedCategoryIds(rawCategories("get_live_categories"), bf).also { liveBlockedIds = it }
     }
+
     private suspend fun vodBlocked(): Set<String> {
-        syncBlocked(); val bf = requireNotNull(blockedFor)
+        syncBlocked()
+        val bf = requireNotNull(blockedFor)
         return vodBlockedIds ?: LanguageFilter.blockedCategoryIds(rawCategories("get_vod_categories"), bf).also { vodBlockedIds = it }
     }
+
     private suspend fun seriesBlocked(): Set<String> {
-        syncBlocked(); val bf = requireNotNull(blockedFor)
-        return seriesBlockedIds ?: LanguageFilter.blockedCategoryIds(rawCategories("get_series_categories"), bf).also { seriesBlockedIds = it }
+        syncBlocked()
+        val bf = requireNotNull(blockedFor)
+        return seriesBlockedIds
+            ?: LanguageFilter.blockedCategoryIds(rawCategories("get_series_categories"), bf).also { seriesBlockedIds = it }
     }
+
     private suspend fun rawCategories(action: String): List<Category> =
         suspendRunCatching { decodeList<Category>(api(action)) }.getOrDefault(emptyList())
 

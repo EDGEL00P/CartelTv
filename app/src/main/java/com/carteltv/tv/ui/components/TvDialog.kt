@@ -33,6 +33,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -46,9 +52,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
+import com.carteltv.tv.ui.nav.ShellChrome
 import com.carteltv.tv.ui.nav.cardSurface
-import com.carteltv.tv.ui.theme.BrassSheen
-import com.carteltv.tv.ui.theme.BrassSolid
+import com.carteltv.tv.ui.theme.controlSurface
 import com.carteltv.tv.ui.theme.ThemeSemantics
 import com.carteltv.tv.ui.theme.ThemeSpec
 import com.carteltv.tv.ui.theme.focusRing
@@ -382,6 +388,12 @@ fun TvTextField(
     var focused by remember { mutableStateOf(false) }
     val self = remember { Any() }
     val shape = RoundedCornerShape(ThemeSpec.Card.corner)
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val keyboardOnFocus = keyboardOptions.showKeyboardOnFocus != false
+    // OK opens the keyboard on its key-up, but only for a press that began here: the OK that opened the page
+    // (pressed on a bar title) ends on this field and must not pop it.
+    var okDownHere by remember { mutableStateOf(false) }
     DisposableEffect(Unit) { onDispose { PhoneTyping.leave(self) } }
     BasicTextField(
         value = value,
@@ -404,8 +416,33 @@ fun TvTextField(
             modifier
                 .fillMaxWidth()
                 .then(if (requester != null) Modifier.focusRequester(requester) else Modifier)
-                .onFocusChanged {
+                // A single-line field swallows Up/Down to move its caret, which traps the remote once the
+                // keyboard is closed. They leave the field instead; Up past the top of a page reaches the bar.
+                .onPreviewKeyEvent { ev ->
+                    val ok = ev.key == Key.DirectionCenter || ev.key == Key.Enter || ev.key == Key.NumPadEnter
+                    if (ok && ev.type == KeyEventType.KeyUp) {
+                        if (okDownHere) keyboard?.show()
+                        okDownHere = false
+                        return@onPreviewKeyEvent true
+                    }
+                    if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    when (ev.key) {
+                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                            okDownHere = true
+                            true
+                        }
+                        Key.DirectionDown -> focusManager.moveFocus(FocusDirection.Down)
+                        Key.DirectionUp -> {
+                            // Entering the bar lands on the current section, never whichever title sits geometrically above.
+                            focusManager.moveFocus(FocusDirection.Up)
+                            if ((focused || ShellChrome.barFocused) && TvDialogs.current == null) ShellChrome.barFocus.tryFocus()
+                            true
+                        }
+                        else -> false
+                    }
+                }.onFocusChanged {
                     focused = it.isFocused
+                    if (it.isFocused && !keyboardOnFocus) keyboard?.hide()
                     if (phoneLabel == null) return@onFocusChanged
                     if (it.isFocused) PhoneTyping.enter(self, phoneLabel.ifBlank { "this field" }) else PhoneTyping.leave(self)
                 }.clip(shape)
@@ -515,7 +552,7 @@ private fun DialogAction(
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val hot = focused || selected
+    val primary = emphasis == Emphasis.Primary
     Text(
         label,
         fontSize = ThemeSpec.Type.meta,
@@ -523,18 +560,16 @@ private fun DialogAction(
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         color =
-            when (emphasis) {
-                Emphasis.Primary -> ThemeSemantics.textInverse
-                Emphasis.Danger -> ThemeSemantics.danger
-                Emphasis.Quiet -> if (hot) ThemeSemantics.textEmphatic else ThemeSemantics.textPrimary
+            if (emphasis == Emphasis.Danger && !focused) {
+                ThemeSemantics.danger
+            } else {
+                ThemeSemantics.controlInk(focused, primary || selected)
             },
         modifier =
             modifier
                 .widthIn(max = 320.dp)
-                .cardSurface(hot)
-                .then(
-                    if (emphasis == Emphasis.Primary) Modifier.background(if (hot) BrassSheen else BrassSolid) else Modifier,
-                ).onFocusChanged { focused = it.isFocused }
+                .controlSurface(focused, primary || selected)
+                .onFocusChanged { focused = it.isFocused }
                 .clickableNoIndication(onClick = onClick)
                 .padding(horizontal = ThemeSpec.Space.lg, vertical = ThemeSpec.Space.cozy),
     )

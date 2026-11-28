@@ -121,6 +121,12 @@ object WatchHistoryStore {
         )
     }
 
+    /** A player's raw session title is only worth a tile if it reads as a name: not a stray language code ("EN") or a mangled release string full of "?". */
+    internal fun presentable(title: String): Boolean {
+        val t = title.trim()
+        return t.count { it.isLetterOrDigit() } >= 3 && t.count { it == '?' } < 3
+    }
+
     private fun norm(s: String): String = s.lowercase().filter { it.isLetterOrDigit() }
 
     private val SEPARATORS = charArrayOf(' ', ':', '-', '\u2013', '\u2014', '|', '\u00b7', ',')

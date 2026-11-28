@@ -591,7 +591,7 @@ private fun RadarReadout(state: RadarState, place: Place, levels: List<Int>, str
         Row(verticalAlignment = Alignment.Bottom) {
             Text(androidx.compose.ui.res.stringResource(com.carteltv.tv.R.string.radar_title), fontSize = ThemeSpec.Type.title, fontWeight = FontWeight.Bold, color = ThemeSemantics.textEmphatic, maxLines = 1)
             Spacer(Modifier.width(ThemeSpec.Space.sm))
-            Text(place.shortLabel, fontSize = ThemeSpec.Type.body, color = ThemeSemantics.textSecondary, maxLines = 1, modifier = Modifier.padding(bottom = 2.dp))
+            Text(place.shortLabel, fontSize = ThemeSpec.Type.body, color = ThemeSemantics.textSecondary, maxLines = 1, modifier = Modifier.padding(bottom = ThemeSpec.Space.xs))
         }
         if (frame != null) {
             Spacer(Modifier.height(2.dp))

@@ -250,7 +250,7 @@ private fun YouTubeCard(
                             .background(YouTubeAccent.copy(alpha = 0.92f)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        PlayerGlyphIcon(PlayerGlyph.PLAY, Color.White, 14.dp)
+                        PlayerGlyphIcon(PlayerGlyph.PLAY, ThemeSemantics.textInverse, 14.dp)
                     }
                 }
                 if (saved) {
@@ -278,7 +278,7 @@ private fun YouTubeCard(
                                 .padding(ThemeSpec.Space.xs)
                                 .clip(RoundedCornerShape(ThemeSpec.Card.cornerSm))
                                 .background(ThemeSemantics.scrimChip)
-                                .padding(horizontal = 4.dp, vertical = 1.dp),
+                                .padding(horizontal = ThemeSpec.Space.sm, vertical = 1.dp),
                         maxLines = 1,
                     )
                 }
@@ -292,7 +292,7 @@ private fun YouTubeCard(
                                 .align(Alignment.BottomEnd)
                                 .padding(ThemeSpec.Space.xs)
                                 .background(ThemeSemantics.scrimChip, RoundedCornerShape(ThemeSpec.Card.cornerSm))
-                                .padding(horizontal = 4.dp, vertical = 1.dp),
+                                .padding(horizontal = ThemeSpec.Space.sm, vertical = 1.dp),
                         maxLines = 1,
                     )
                 }
@@ -943,7 +943,7 @@ private fun ShortCard(
                         .background(YouTubeAccent.copy(alpha = 0.92f)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    PlayerGlyphIcon(PlayerGlyph.PLAY, Color.White, 14.dp)
+                    PlayerGlyphIcon(PlayerGlyph.PLAY, ThemeSemantics.textInverse, 14.dp)
                 }
             }
             if (focused) {
@@ -972,7 +972,7 @@ private fun ShortCard(
                 color = ThemeSemantics.textTertiary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 2.dp),
+                modifier = Modifier.padding(top = ThemeSpec.Space.xs),
             )
         }
     }
@@ -1014,9 +1014,9 @@ private fun PlaylistCard(
                     Modifier
                         .align(
                             Alignment.BottomEnd,
-                        ).padding(4.dp)
+                        ).padding(ThemeSpec.Space.sm)
                         .background(ThemeSemantics.scrimChip, RoundedCornerShape(2.dp))
-                        .padding(horizontal = 4.dp, vertical = 1.dp),
+                        .padding(horizontal = ThemeSpec.Space.sm, vertical = 1.dp),
             )
             if (focused) {
                 Box(
@@ -1038,7 +1038,7 @@ private fun PlaylistCard(
             modifier = Modifier.padding(top = ThemeSpec.Space.xs),
         )
         if (focused) {
-            Column(Modifier.padding(top = 2.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Column(Modifier.padding(top = ThemeSpec.Space.xs), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 videos.take(3).forEach { v ->
                     Text(
                         v.title,

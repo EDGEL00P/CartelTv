@@ -17,7 +17,9 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.carteltv.tv.data.preferences.AppPreferences
+import com.carteltv.tv.data.xtream.ProviderSession
 import com.carteltv.tv.ui.components.clickableNoIndication
 import com.carteltv.tv.ui.theme.*
 import java.text.DateFormat
@@ -30,6 +32,8 @@ import java.util.Date
  */
 @Composable
 fun ProviderStatusBanner() {
+    val session by ProviderSession.currentFlow.collectAsStateWithLifecycle()
+    if (session == null) return
     val p = AppPreferences.activeProvider() ?: return
     val h = p.health ?: return
     val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(Date())

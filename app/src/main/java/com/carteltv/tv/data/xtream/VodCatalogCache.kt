@@ -1,6 +1,8 @@
 package com.carteltv.tv.data.xtream
 
 import com.carteltv.tv.core.suspendRunCatching
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * One shared in-memory copy of the provider's VOD/movie list, so Home and Search do not each
@@ -13,22 +15,24 @@ object VodCatalogCache {
     @Volatile private var streams: List<XtreamClient.VodStream> = emptyList()
     @Volatile private var streamsAt = 0L
     @Volatile private var owner: String? = null
+    private val fetchLock = Mutex()
 
     private fun claim(client: XtreamClient) {
         val id = "${client.baseUrl}|${client.username}"
         if (owner != id) { owner = id; streams = emptyList(); streamsAt = 0L }
     }
 
-    suspend fun all(client: XtreamClient, force: Boolean = false): List<XtreamClient.VodStream> {
+    suspend fun all(client: XtreamClient, force: Boolean = false): List<XtreamClient.VodStream> = fetchLock.withLock {
         claim(client)
         val now = System.currentTimeMillis()
-        if (!force && streams.isNotEmpty() && now - streamsAt < TTL_MS) return streams
+        if (!force && streams.isNotEmpty() && now - streamsAt < TTL_MS) return@withLock streams
         val fresh = suspendRunCatching { client.vodStreams(null) }.getOrDefault(emptyList())
+        if (ProviderSession.current !== client) return@withLock emptyList()
         if (fresh.isNotEmpty()) {
             streams = fresh
             streamsAt = System.currentTimeMillis()
         }
-        return if (streams.isNotEmpty()) streams else fresh
+        if (streams.isNotEmpty()) streams else fresh
     }
 
     /** Forgets the cached list so the next screen reloads it. */

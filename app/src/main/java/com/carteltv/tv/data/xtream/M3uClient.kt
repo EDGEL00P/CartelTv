@@ -76,7 +76,10 @@ class M3uClient(private val playlistUrl: String) : XtreamClient(playlistUrl, "",
 
         return try {
             HttpSupport.getStream(playlistUrl, headers, connectMs = 15_000, readMs = 60_000).use { stream ->
-                if (stream.code == 304) return Download(null, known)
+                if (stream.code == 304) {
+                if (known.isBlank()) throw IllegalStateException("Playlist answered 304 before a cache validator was available")
+                return Download(null, known)
+            }
                 if (stream.code !in 200..299) throw IllegalStateException("Playlist answered HTTP ${stream.code}")
 
                 val validator = ProviderUrlValidator.of(

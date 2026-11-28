@@ -57,26 +57,6 @@ class BrowseControlsTest {
         assertEquals(listOf(cats[1]), visibleCategoriesFor(cats, "drama"))
     }
 
-    @Test
-    fun the_strip_lists_every_letter_some_title_files_under_digits_as_hash() {
-        assertEquals(listOf('#', 'A', 'B', 'Z'), azIndex(listOf("21 Jump Street", "Alien", "zootopia", "Bound")))
-        assertEquals(emptyList<Char>(), azIndex(listOf("", "  ", "…")))
-    }
-
-    @Test
-    fun a_letter_jump_lands_on_the_first_rail_and_tile_filing_under_it() {
-        val rails = listOf(listOf("Alpha", "Beta"), listOf("Bear", "Zulu"), listOf("Cats"))
-        assertEquals(0 to 0, azJump('A', rails))
-        assertEquals(0 to 1, azJump('B', rails))
-        assertEquals(2 to 0, azJump('C', rails))
-        assertEquals(1 to 1, azJump('Z', rails))
-    }
-
-    @Test
-    fun a_letter_nothing_files_under_has_nowhere_to_jump() {
-        assertNull(azJump('Y', listOf(listOf("Alpha"), listOf("Beta"))))
-    }
-
     private fun entry(ref: String, title: String, url: String = "https://example.com/v.mp4") =
         AppPreferences.RecentEntry(ref = ref, title = title, url = url)
 

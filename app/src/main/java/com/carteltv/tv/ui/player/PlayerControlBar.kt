@@ -426,7 +426,7 @@ internal fun PlayerScrubber(
                     .border(2.dp, ThemeSemantics.accent, CircleShape),
             )
         }
-        Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(top = ThemeSpec.Space.xs), verticalAlignment = Alignment.CenterVertically) {
             Text(deckClock(position), fontSize = ThemeSpec.Type.micro, color = PlayerChrome.inkMuted, fontFamily = ThemeSpec.Font.mono, maxLines = 1)
             Spacer(Modifier.weight(1f))
             Text(

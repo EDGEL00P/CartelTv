@@ -3,7 +3,7 @@ package com.carteltv.tv.data.stremio
 import com.carteltv.tv.data.chapters.IntroSkipDatabase
 import java.util.concurrent.ConcurrentHashMap
 
-/** What the player shows about a title, fetched from Cinemeta by IMDb id. */
+/** What the player shows about a title, fetched by IMDb id from the first installed addon that serves its meta. */
 data class OnlineTitleInfo(
     val name: String,
     val year: String?,
@@ -22,12 +22,12 @@ data class OnlineTitleInfo(
 object OnlineTitleInfoLoader {
     private val cache = ConcurrentHashMap<String, OnlineTitleInfo>()
 
-    /** Null when [refId] has no IMDb identity (live, Xtream, YouTube) or Cinemeta has no entry. */
+    /** Null when [refId] has no IMDb identity (live, Xtream, YouTube) or no installed meta addon has an entry. */
     suspend fun load(refId: String): OnlineTitleInfo? {
         val ref = IntroSkipDatabase.parseRefId(refId) ?: return null
         cache[refId]?.let { return it }
         val type = if (ref.season != null) "series" else "movie"
-        val meta = StremioClient(StremioClient.CINEMETA).meta(type, ref.imdbId) ?: return null
+        val meta = StremioAddons.meta(type, ref.imdbId) ?: return null
         val episode = meta.videos.firstOrNull { it.season == ref.season && it.episode == ref.episode }
         val info = OnlineTitleInfo(
             name = meta.name,

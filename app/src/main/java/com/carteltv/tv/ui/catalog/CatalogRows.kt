@@ -88,11 +88,10 @@ internal suspend fun loadCatalogRows(
 ): List<CatalogRow> {
     val label = if (type == "series") "Series" else "Movies"
     val addons = StremioAddons.refresh()
-    return coroutineScope {
-        addons
-            .flatMap { addon ->
-                addon.manifest.catalogs
-                    .filter { it.type == type && it.extra.none { e -> e.isRequired } }
+    val rows = coroutineScope {
+        catalogSources(addons, type)
+            .flatMap { (addon, decls) ->
+                decls
                     .map { cd ->
                         async {
                             val items =
@@ -110,9 +109,32 @@ internal suspend fun loadCatalogRows(
                     }
             }.take(maxRows)
             .awaitAll()
-            .filter { it.items.isNotEmpty() }
     }
+    return mergeCatalogRows(rows)
 }
+
+/**
+ * The browsable catalogs of [type] per add-on (no required extra such as search). Cinemeta's stock lists are only
+ * the fallback: AIOMetadata, AIOStreams and similar all-in-one add-ons re-serve the same Popular/Featured lists, so
+ * keeping both showed every rail twice. Metadata is unaffected: it comes from whichever installed addon serves meta.
+ */
+internal fun catalogSources(
+    addons: List<StremioAddons.Loaded>,
+    type: String,
+): List<Pair<StremioAddons.Loaded, List<StremioClient.Manifest.CatalogDecl>>> {
+    val browsable =
+        addons.map { a -> a to a.manifest.catalogs.filter { it.type == type && it.extra.none { e -> e.isRequired } } }
+            .filter { it.second.isNotEmpty() }
+    val others = browsable.filterNot { StremioAddons.isCinemeta(it.first) }
+    return others.ifEmpty { browsable }
+}
+
+/** One rail per list name: two add-ons serving "Popular Movies" become one rail, each title once, first source first. */
+internal fun mergeCatalogRows(rows: List<CatalogRow>): List<CatalogRow> =
+    rows.groupBy { r -> r.title.lowercase().filter { it.isLetterOrDigit() } }
+        .values
+        .map { same -> CatalogRow(same.first().title, same.flatMap { it.items }.distinctBy { it.id }.take(ROW_ITEMS)) }
+        .filter { it.items.isNotEmpty() }
 
 /** The Stremio rail tile: portrait poster art at rest, with year, rating and first genre revealing under the focused tile. */
 @Composable

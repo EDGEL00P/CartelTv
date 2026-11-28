@@ -1,6 +1,7 @@
 package com.carteltv.tv.ui.home
 
 import com.carteltv.tv.data.preferences.AppPreferences
+import com.carteltv.tv.data.watch.WatchHistoryStore
 
 /** A title reduced to what makes two spellings the same. */
 internal fun titleKey(raw: String): String = raw.lowercase().filter { it.isLetterOrDigit() }
@@ -9,6 +10,7 @@ internal fun titleKey(raw: String): String = raw.lowercase().filter { it.isLette
 internal fun resumeRecents(recents: List<AppPreferences.RecentEntry>, limit: Int): List<AppPreferences.RecentEntry> =
     recents
         .filterNot { it.ref.startsWith("live:") }
+        .filter { WatchHistoryStore.presentable(splitTitle(it.title).name) }
         .distinctBy { titleKey(splitTitle(it.title).name) }
         .take(limit)
 

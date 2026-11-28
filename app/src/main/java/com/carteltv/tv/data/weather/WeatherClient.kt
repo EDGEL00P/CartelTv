@@ -20,12 +20,16 @@ interface WeatherSource {
 
 class WeatherClient : WeatherSource {
     data class Conditions(
-        val tempC: Double, val humidity: Int, val label: String, val isDay: Boolean,
+        val tempC: Double, val humidity: Int, val isDay: Boolean,
         val highC: Double? = null, val lowC: Double? = null,
         val air: AirQuality? = null,
         /** Open-Meteo's live offset for this location, including its current daylight-saving state. */
         val utcOffsetSec: Int = 0,
-    )
+        /** The WMO weather code; [Sky.describe] names it and [Sky.of] picks the matching art. */
+        val code: Int = 3,
+    ) {
+        val sky: Sky get() = Sky.of(code)
+    }
 
     override suspend fun current(lat: Double, lon: Double): Conditions? = withContext(Dispatchers.IO) {
         suspendRunCatching {
@@ -46,27 +50,15 @@ class WeatherClient : WeatherSource {
                 Conditions(
                     tempC = cur["temperature_2m"]?.jsonPrimitive?.content?.toDoubleOrNull() ?: return@coroutineScope null,
                     humidity = cur["relative_humidity_2m"]?.jsonPrimitive?.content?.toIntOrNull() ?: return@coroutineScope null,
-                    label = describe(code),
                     isDay = cur["is_day"]?.jsonPrimitive?.content == "1",
                     highC = first("temperature_2m_max"),
                     lowC = first("temperature_2m_min"),
                     air = air.await(),
                     utcOffsetSec = root["utc_offset_seconds"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
+                    code = code,
                 )
             }
         }.getOrNull()
-    }
-
-    private fun describe(code: Int) = when (code) {
-        0 -> "Clear"
-        in 1..2 -> "Partly cloudy"
-        3 -> "Overcast"
-        in 45..48 -> "Fog"
-        in 51..57 -> "Drizzle"
-        in 61..67, in 80..82 -> "Rain"
-        in 71..77, in 85..86 -> "Snow"
-        in 95..99 -> "Storm"
-        else -> "—"
     }
 
     companion object {

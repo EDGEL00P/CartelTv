@@ -1,5 +1,6 @@
 package com.carteltv.tv.update
 
+import com.carteltv.tv.data.network.HttpSupport
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -113,7 +114,7 @@ object ReleaseUpdater {
         status = "Checking…"
         runCatching {
             val conn = URL(feedUrl).openConnection() as HttpURLConnection
-            conn.connectTimeout = 8_000; conn.readTimeout = 15_000
+            conn.connectTimeout = HttpSupport.CONNECT_MS; conn.readTimeout = HttpSupport.READ_MS
             val body = try {
                 conn.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
             } finally {

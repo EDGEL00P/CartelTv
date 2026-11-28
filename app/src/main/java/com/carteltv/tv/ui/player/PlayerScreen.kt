@@ -64,7 +64,6 @@ import com.carteltv.tv.ui.player.resolutionClass
 import com.carteltv.tv.ui.player.videoCodecClass
 import com.carteltv.tv.ui.theme.ThemeSemantics
 import com.carteltv.tv.ui.theme.ThemeSpec
-import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -72,6 +71,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/** Channel up/down tunes once the presses have rested this long. */
+private const val ZAP_SETTLE_MS = 400L
 
 /** What is playing: enough to start the same stream here again, or in a recreated Activity. */
 private data class PlayerTune(
@@ -367,10 +369,21 @@ private fun PlayerSurface(
     /** Swap to the next episode in place; the old episode's progress saves in dispose. */
     fun playNext(ne: NextEpisode) = onTune(PlayerTune(ne.url, ne.title, ne.refId))
 
-    /** Channel up/down: the next channel in the guide's order. */
-    fun zap(direction: Int) {
-        neighbourChannel(refId, direction)?.let { onTune(PlayerTune(it.url, it.title, it.refId)) }
+    // Channel up/down names the target at once and tunes once the presses stop, so a run of presses
+    // walks the list without opening every stream on the way.
+    var zapTo by remember(refId) { mutableStateOf<com.carteltv.tv.data.preferences.AppPreferences.MultiViewSlot?>(null) }
+    LaunchedEffect(zapTo) {
+        val target = zapTo ?: return@LaunchedEffect
+        delay(ZAP_SETTLE_MS)
+        onTune(PlayerTune(target.url, target.title, target.refId))
     }
+
+    fun zap(direction: Int) {
+        neighbourChannel(zapTo?.refId ?: refId, direction)?.let { zapTo = it }
+    }
+
+    /** Which live layer is over the picture: the channel list, the guide, or none. */
+    var liveOverlay by remember(refId) { mutableStateOf<LiveOverlay?>(null) }
 
     val numberEntry = remember(refId) { NumberEntry() }
     var typedNumber by remember(refId) { mutableStateOf("") }
@@ -410,20 +423,21 @@ private fun PlayerSurface(
     // Leaving the screen must not leave a decoder and a provider connection slot running unseen.
     DisposableEffect(player, lifecycleOwner) {
         val live = refId.startsWith("live:")
+        var wasPlaying = false
         val observer =
             androidx.lifecycle.LifecycleEventObserver { _, event ->
                 when (event) {
                     androidx.lifecycle.Lifecycle.Event.ON_STOP -> {
                         backgrounded.set(true)
+                        wasPlaying = live || player.playWhenReady
                         runCatching { if (live) player.stop() else player.pause() }
                     }
 
                     androidx.lifecycle.Lifecycle.Event.ON_START -> {
                         if (backgrounded.getAndSet(false)) {
-                            // For live, a stopped player must prepare before play; for VOD the user
-                            // may have paused before backgrounding — resume only what was playing.
                             runCatching { if (live) player.prepare() }
-                            runCatching { if (live || player.playWhenReady) player.play() }
+                            runCatching { if (wasPlaying) player.play() }
+                            wasPlaying = false
                         }
                     }
 
@@ -879,6 +893,12 @@ private fun PlayerSurface(
                     .firstOrNull { it.streamId == id }
             }
         }
+    // Zapping and the channel list read the provider's list; a player opened from outside Live TV warms it.
+    LaunchedEffect(liveId != null) {
+        if (liveId == null) return@LaunchedEffect
+        val client = com.carteltv.tv.data.xtream.ProviderSession.current ?: return@LaunchedEffect
+        suspendRunCatching { com.carteltv.tv.data.xtream.LiveChannels.all(client) }
+    }
     var guideSlots by remember(liveId) { mutableStateOf(emptyList<com.carteltv.tv.data.xtream.GuideModel.Slot>()) }
     LaunchedEffect(liveId) {
         val id = liveId ?: return@LaunchedEffect
@@ -990,6 +1010,17 @@ private fun PlayerSurface(
                     null
                 }
             onLast = if (isLive) ({ goToLastChannel() }) else null
+            if (isLive) {
+                onChannels = {
+                    liveOverlay = LiveOverlay.CHANNELS
+                    true
+                }
+                onGuide = {
+                    liveOverlay = LiveOverlay.GUIDE
+                    true
+                }
+            }
+            sheetUp = { liveOverlay != null }
             // Any input waves off the intro title card without eating the key's normal action.
             onAnyKey = { introUp = false }
             // OK jumps past an intro or recap that is on; otherwise it shows the deck.
@@ -1050,14 +1081,15 @@ private fun PlayerSurface(
         }
     }
 
-    // The video is the backdrop source for the deck's glass. SurfaceView frames may not be
-    // capturable on every device; where they are not, Haze falls back to the smoked tint.
-    val glassState = rememberHazeState(blurEnabled = !com.carteltv.tv.ui.theme.ThemePresets.reduceTransparency)
+    // Player glass is the smoked-tint path (see Modifier.playerGlass): a Media3 SurfaceView is not a
+    // capturable Haze source, and a blur that goes stale on buffering strobes the chips. The provider
+    // is kept so any descendant that does read the backdrop still gets a valid (here, unused) state.
+    val glassState = rememberHazeState(blurEnabled = !com.carteltv.tv.ui.theme.ThemeAccessibility.reduceTransparency)
     androidx.compose.runtime.CompositionLocalProvider(com.carteltv.tv.ui.theme.LocalGlassBackdrop provides glassState) {
         Box(
             Modifier.fillMaxSize().background(PlayerChrome.floor).playerSurface(remote),
         ) {
-            PlayerVideoView(player, geometry, Modifier.fillMaxSize().hazeSource(state = glassState)) { view ->
+            PlayerVideoView(player, geometry, Modifier.fillMaxSize()) { view ->
                 videoViews.clear()
                 videoViews.add(view)
             }
@@ -1076,7 +1108,82 @@ private fun PlayerSurface(
                 chapters = fileChapters.map { it.startMs },
             )
 
-            if (typedNumber.isNotEmpty() || numberNotice != null) {
+            if (isLive) {
+                val closeLive = {
+                    liveOverlay = null
+                    remote.focusSurface()
+                }
+                val tuneLive: (com.carteltv.tv.data.xtream.XtreamClient.LiveStream) -> Unit = { s ->
+                    liveOverlay = null
+                    if ("live:${s.streamId}" == refId) {
+                        remote.focusSurface()
+                    } else {
+                        com.carteltv.tv.data.xtream.ProviderSession.current?.let { c -> onTune(PlayerTune(c.liveUrl(s.streamId), s.name, "live:${s.streamId}")) }
+                    }
+                }
+                when (liveOverlay) {
+                    LiveOverlay.CHANNELS ->
+                        LiveChannelPanel(
+                            playingId = liveId,
+                            onTune = tuneLive,
+                            onGuide = { liveOverlay = LiveOverlay.GUIDE },
+                            onDismiss = closeLive,
+                        )
+                    LiveOverlay.GUIDE -> LiveGuideOverlay(playingId = liveId, onTune = tuneLive, onDismiss = closeLive)
+                    null -> Unit
+                }
+            }
+
+            zapTo?.let { target ->
+                Column(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = ThemeSpec.Safe.vertical, end = ThemeSpec.Safe.horizontal)
+                        .playerGlass(RoundedCornerShape(ThemeSpec.Card.cornerLg), heavy = true, elevation = 18.dp)
+                        .padding(horizontal = ThemeSpec.Space.xl, vertical = ThemeSpec.Space.md),
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    val stream = target.refId.removePrefix("live:").toLongOrNull()?.let { com.carteltv.tv.data.xtream.LiveChannels.byId(it) }
+                    val number = stream?.let { channelNumberOf(com.carteltv.tv.data.xtream.LiveChannels.cached(), it) } ?: 0
+                    if (number > 0) {
+                        Text(
+                            number.toString(),
+                            fontSize = ThemeSpec.Type.display,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = ThemeSpec.Font.mono,
+                            color = PlayerChrome.ink,
+                            maxLines = 1,
+                        )
+                    }
+                    Text(
+                        com.carteltv.tv.data.xtream.GuideModel.displayName(target.title),
+                        fontSize = ThemeSpec.Type.title,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (number > 0) PlayerChrome.inkMuted else PlayerChrome.ink,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                    // What the viewer is landing on, before the stream has loaded.
+                    val onNow =
+                        stream?.let { s ->
+                            val at = System.currentTimeMillis()
+                            com.carteltv.tv.ui.live.GuideData.slots[s.streamId].orEmpty().firstOrNull {
+                                com.carteltv.tv.data.xtream.GuideModel.phase(it, at) == com.carteltv.tv.data.xtream.GuideModel.Phase.LIVE
+                            }
+                        }
+                    if (onNow != null) {
+                        Text(
+                            "${onNow.title}  ·  ${timeLeftLabel(onNow.stopMs - System.currentTimeMillis())}",
+                            fontSize = ThemeSpec.Type.label,
+                            color = PlayerChrome.inkDim,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+
+            if (zapTo == null && (typedNumber.isNotEmpty() || numberNotice != null)) {
                 Column(
                     Modifier
                         .align(Alignment.TopEnd)
@@ -1155,7 +1262,8 @@ private fun PlayerSurface(
             }
 
             AnimatedVisibility(
-                visible = introUp && playbackError == null,
+                // A channel tuned from the guide comes ready while the guide is still up; the card must not draw over it.
+                visible = introUp && playbackError == null && liveOverlay == null,
                 // The house entrance. The exit is the short one: any key waves the card away, and that must not feel slow.
                 enter = fadeIn(ThemeSpec.Motion.tweenSlow()) + slideInVertically(ThemeSpec.Motion.tweenSlow()) { it / 4 },
                 exit = fadeOut(ThemeSpec.Motion.tweenMid()) + slideOutVertically(ThemeSpec.Motion.tweenMid()) { it / 6 },
@@ -1210,7 +1318,7 @@ private fun PlayerSurface(
                                     Modifier
                                         .clip(RoundedCornerShape(ThemeSpec.Card.pill))
                                         .background(if (isLive) ThemeSemantics.live.copy(alpha = 0.22f) else PlayerChrome.well)
-                                        .padding(horizontal = ThemeSpec.Space.cozy, vertical = 2.dp),
+                                        .padding(horizontal = ThemeSpec.Space.cozy, vertical = ThemeSpec.Space.xs),
                                 maxLines = 1,
                             )
                             Spacer(Modifier.height(ThemeSpec.Space.xs))
@@ -1236,7 +1344,7 @@ private fun PlayerSurface(
                                     color = PlayerChrome.inkMuted,
                                     maxLines = 1,
                                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(top = 2.dp),
+                                    modifier = Modifier.padding(top = ThemeSpec.Space.xs),
                                 )
                             }
                             Row(

@@ -1,4 +1,5 @@
 package com.carteltv.tv.ui.components
+import com.carteltv.tv.ui.theme.ThemeSpec
 import androidx.compose.foundation.layout.Box
 import androidx.tv.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,7 +36,7 @@ internal fun AutoSizeText(
     modifier: Modifier = Modifier,
     color: Color = Color.Unspecified,
     fontWeight: FontWeight? = null,
-    fontFamily: FontFamily? = null,
+    fontFamily: FontFamily? = ThemeSpec.Font.body,
     fontStyle: FontStyle? = null,
     letterSpacing: TextUnit = TextUnit.Unspecified,
     fontFeatureSettings: String? = null,

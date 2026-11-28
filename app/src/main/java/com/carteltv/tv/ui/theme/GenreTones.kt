@@ -28,11 +28,11 @@ fun Color.scaleAlpha(factor: Float): Color = copy(alpha = alpha * factor)
 /** Genre tints for guide cells: a categorical data palette from the concept
  *  (sports=orange, news/drama=blue), not chrome. */
 object GenreTones {
-    val sports = Color(0xFF48484A)
-    val news = Color(0xFF48484A)
-    val movies = Color(0xFF48484A)
-    val nature = Color(0xFF48484A)
-    val kids = Color(0xFF48484A)
+    val sports = ThemePrimitives.graphite
+    val news = ThemePrimitives.graphite
+    val movies = ThemePrimitives.graphite
+    val nature = ThemePrimitives.graphite
+    val kids = ThemePrimitives.graphite
 }
 
 /** The one in-progress marker: a small dot and the word, in ink, on nothing. The dot breathes; nothing else on the desk animates. */

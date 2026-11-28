@@ -51,6 +51,7 @@ import com.carteltv.tv.ui.apps.AllAppsOverlay
 
 import com.carteltv.tv.ui.components.OverlayCoordinator
 import com.carteltv.tv.ui.components.awaitFocus
+import com.carteltv.tv.ui.components.tryFocus
 import com.carteltv.tv.ui.theme.CartelTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -163,8 +164,9 @@ class MainActivity : ComponentActivity() {
                 Box(Modifier.fillMaxSize().onFocusChanged { shellFocused = it.hasFocus }) {
                     // focusRestorer: when a dialog or overlay closes, focus returns to the item that opened it.
                     // With nothing to restore the restorer would take the first stop in the tree;
-                    // Home's banner is where the shell wants focus.
-                    Box(Modifier.fillMaxSize().focusGroup().focusRestorer { ShellChrome.lastContentFocus ?: FocusRequester.Default }) {
+                    // Home's banner is where the shell wants focus. The restorer must precede focusGroup(): placed
+                    // after it, it binds to every child group instead, and each move between bar and page snapped back.
+                    Box(Modifier.fillMaxSize().focusRestorer { ShellChrome.lastContentFocus ?: FocusRequester.Default }.focusGroup()) {
                         NavHostLayer()
                         val railTab = SectionNav.tabOf(Nav.current)
                         if (railTab != null && !ShellChrome.barHidden) {
@@ -240,8 +242,31 @@ class MainActivity : ComponentActivity() {
             return true
         }
         if (DpadKeys.isStaleRepeat(event)) return true
-        // Menus use selection-driven keys; input and multi-choice dialogs keep Compose's native traversal.
         val dialog = com.carteltv.tv.ui.components.TvDialogs.current
+        // TV navigation owns Up/Down at the shell boundary. This avoids screen-local preview handlers
+        // swallowing the only route between content and the top bar.
+        if (!OverlayCoordinator.locked && dialog == null) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                when (event.keyCode) {
+                    KeyEvent.KEYCODE_DPAD_UP -> {
+                        // Content moves up row by row first (toolbar chips sit between the catalog and the bar);
+                        // only an Up nothing consumed falls through to the bar.
+                        if (ShellChrome.barFocused) return super.dispatchKeyEvent(event)
+                        if (super.dispatchKeyEvent(event)) return true
+                        if (ShellChrome.barFocus.tryFocus()) return true
+                    }
+                    KeyEvent.KEYCODE_DPAD_DOWN -> {
+                        // A page that runs up under the bar (Home's hero) sits nowhere "below" a title geometrically,
+                        // so a Down the bar did not consume returns to the last content stop.
+                        if (ShellChrome.barFocused) {
+                            if (super.dispatchKeyEvent(event)) return true
+                            if (ShellChrome.lastContentFocus?.tryFocus() == true) return true
+                        }
+                    }
+                }
+            }
+        }
+        // Menus use selection-driven keys; input and multi-choice dialogs keep Compose's native traversal.
         if (dialog != null) {
             if (event.action == KeyEvent.ACTION_DOWN && com.carteltv.tv.ui.components.TvDialogs.dispatchKey(event.keyCode)) return true
             if (!DpadKeys.usesNativeDialogTraversal(dialog) && event.keyCode != KeyEvent.KEYCODE_BACK) return true
@@ -261,6 +286,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        com.carteltv.tv.ui.theme.ThemeAccessibility.install(this)
         // Invalidate the Watch Next cache whenever returning from a launched app.
         WatchNextRepository.invalidate()
         com.carteltv.tv.data.provider.ChannelRepository.start(this)

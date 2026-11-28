@@ -58,6 +58,7 @@ object AppPreferences {
     /** Binds the backing store; tests pass an in-memory SharedPreferences. */
     internal fun install(store: SharedPreferences) {
         sp = store
+        sp.edit().remove("theme_preset").apply()
         val stored = sp.getString("recents", null)
         if (stored != null) {
             val clean = redactStreamCredentials(stored)
@@ -1053,24 +1054,6 @@ object AppPreferences {
         get() = launcherPreferences.switcherNoKill
         set(v) {
             launcherPreferences.switcherNoKill = v
-        }
-
-    var appSizeMultiplier: Float
-        get() = launcherPreferences.appSizeMultiplier
-        set(v) {
-            launcherPreferences.appSizeMultiplier = v
-        }
-
-    var mediaCardFocusScale: Float
-        get() = launcherPreferences.mediaCardFocusScale
-        set(v) {
-            launcherPreferences.mediaCardFocusScale = v
-        }
-
-    var themePreset: String
-        get() = launcherPreferences.themePreset
-        set(v) {
-            launcherPreferences.themePreset = v
         }
 
     var reduceTransparency: Boolean

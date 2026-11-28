@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -66,8 +67,7 @@ import com.carteltv.tv.ui.nav.PageChipRow
 import com.carteltv.tv.ui.nav.PagePadding
 import com.carteltv.tv.ui.nav.ScreenPage
 import com.carteltv.tv.ui.nav.cardSurface
-import com.carteltv.tv.ui.theme.BrassSheen
-import com.carteltv.tv.ui.theme.BrassSolid
+import com.carteltv.tv.ui.theme.controlSurface
 import com.carteltv.tv.ui.theme.LocalAmbientTint
 import com.carteltv.tv.ui.theme.ThemeSemantics
 import com.carteltv.tv.ui.theme.ThemeSpec
@@ -104,6 +104,29 @@ private fun Modifier.cancelChipGutter(): Modifier =
         layout(constraints.maxWidth, placeable.height) { placeable.place(-gutter, 0) }
     }
 
+/** Pushes the page's key art into the ambient stage so the page reads as one canvas while nothing is focused. */
+@Composable
+fun DetailAmbientArt(art: String?) {
+    val ambient = LocalAmbientTint.current
+    val ctx = LocalContext.current
+    LaunchedEffect(art) {
+        ambient?.pageTint = art?.takeIf { it.isNotBlank() }?.let { readArt(ctx, it)?.tint }
+    }
+}
+
+/** The shared detail page scroller: one LazyColumn so movie and series pages pad and space themselves alike. */
+@Composable
+private fun DetailList(content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+    RailFocusLine {
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PagePadding,
+            verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.md),
+            content = content,
+        )
+    }
+}
+
 /**
  * The movie detail page, in the shared detail read: the hero plate, the copy block beneath it, then the actions —
  * the same LazyColumn shape the series and add-on pages use, so all three detail pages line up.
@@ -120,6 +143,7 @@ fun MovieDetailScreen(
     var info by remember { mutableStateOf<XtreamClient.VodInfo?>(null) }
     // Null while the description loads, then whether its request failed: a failure must not read as still loading.
     var infoFailed by remember { mutableStateOf<Boolean?>(null) }
+    var infoRetryTick by remember { mutableIntStateOf(0) }
     val favKey = "movie:$streamId"
     var fav by remember(favKey) { mutableStateOf(AppPreferences.isFav(favKey)) }
     var cert by remember(title) {
@@ -131,101 +155,95 @@ fun MovieDetailScreen(
                 .forTitle("movie", title, info?.releasedate?.take(4))
     }
 
-    LaunchedEffect(streamId) {
+    LaunchedEffect(streamId, infoRetryTick) {
+        infoFailed = null
         val result = suspendRunCatching { client?.vodInfo(streamId) }
         info = result.getOrNull()
         infoFailed = result.isFailure
     }
 
     // The plate's key art holds the stage while nothing is focused, so the page reads as one canvas with its art.
-    val ambient = LocalAmbientTint.current
-    val ctx = LocalContext.current
-    LaunchedEffect(icon) {
-        ambient?.pageTint = icon?.takeIf { it.isNotBlank() }?.let { readArt(ctx, it)?.tint }
-    }
+    DetailAmbientArt(icon)
 
-    ScreenPage(title = title, header = false) {
+    ScreenPage {
         StagedScreen(section = AppSection.MOVIES) {
-            RailFocusLine {
-                LazyColumn(
-                    Modifier.fillMaxSize(),
-                    contentPadding = PagePadding,
-                    verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.md),
-                ) {
-                    item(key = "art") { DetailHeroPlate(art = icon, title = title) }
-                    item(key = "copy") {
-                        Column(Modifier.fillMaxWidth()) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                rating?.let {
-                                    Text(
-                                        it,
-                                        fontSize = ThemeSpec.Type.body,
-                                        color = ThemeSemantics.accentBright,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                    Spacer(Modifier.width(ThemeSpec.Space.md))
-                                }
+            DetailList {
+                item(key = "art") { DetailHeroPlate(art = icon, title = title) }
+                item(key = "copy") {
+                    Column(Modifier.fillMaxWidth()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            rating?.let {
                                 Text(
-                                    androidx.compose.ui.res
-                                        .stringResource(com.carteltv.tv.R.string.detail_movie_kind),
-                                    fontSize = ThemeSpec.Type.label,
-                                    fontFamily = ThemeSpec.Font.broadcast,
-                                    color = ThemeSemantics.textSecondary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                cert?.let {
-                                    Spacer(Modifier.width(ThemeSpec.Space.md))
-                                    RatingBadge(it)
-                                }
-                            }
-                            Spacer(Modifier.height(ThemeSpec.Space.md))
-                            if (com.carteltv.tv.data.trakt.TraktAuth
-                                    .isMovieWatched(title)
-                            ) {
-                                Text(
-                                    "WATCHED",
-                                    fontSize = ThemeSpec.Type.label,
-                                    color = ThemeSemantics.success,
+                                    it,
+                                    fontSize = ThemeSpec.Type.body,
+                                    color = ThemeSemantics.accentBright,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(bottom = ThemeSpec.Space.cozy),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
+                                Spacer(Modifier.width(ThemeSpec.Space.md))
                             }
-                            DetailPlot(
-                                // A description that failed to load says so; only a request still in flight reads as loading.
-                                info?.plot ?: when (infoFailed) {
-                                    null -> "Loading description…"
-                                    true -> "Couldn't load the description."
-                                    else -> ""
-                                },
-                                maxLines = 6,
+                            Text(
+                                androidx.compose.ui.res
+                                    .stringResource(com.carteltv.tv.R.string.detail_movie_kind),
+                                fontSize = ThemeSpec.Type.label,
+                                fontFamily = ThemeSpec.Font.broadcast,
+                                color = ThemeSemantics.textSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
-                            Spacer(Modifier.height(ThemeSpec.Space.cozy))
-                            DetailCredits(
-                                listOfNotNull(
-                                    info?.genre?.let { "Genre · $it" },
-                                    info?.cast?.let { "Cast · ${it.take(120)}" },
-                                    info?.director?.let { "Director · $it" },
-                                    info?.duration?.let { "Duration · $it" },
-                                ),
-                            )
-                            Spacer(Modifier.height(ThemeSpec.Space.lg))
-                            Row(horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.cozy)) {
-                                ActionButton("Play", filled = true, modifier = Modifier.entryFocus()) {
-                                    val c = ProviderSession.current ?: return@ActionButton
-                                    AppPreferences.addRecent("$favKey|$title|${c.movieUrl(streamId, ext)}")
-                                    Nav.push(Route.Player(c.movieUrl(streamId, ext), title, favKey))
-                                }
-                                ActionButton(if (fav) "Remove from favourites" else "Add to favourites", filled = false) {
-                                    AppPreferences.toggleFav(favKey)
-                                    fav = AppPreferences.isFav(favKey)
-                                }
+                            cert?.let {
+                                Spacer(Modifier.width(ThemeSpec.Space.md))
+                                RatingBadge(it)
                             }
                         }
+                        if (com.carteltv.tv.data.trakt.TraktAuth
+                                .isMovieWatched(title)
+                        ) {
+                            Text(
+                                "WATCHED",
+                                fontSize = ThemeSpec.Type.label,
+                                color = ThemeSemantics.success,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(bottom = ThemeSpec.Space.cozy),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        // Play leads, right under the title block, so the primary action is on screen without scrolling.
+                        Row(horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.cozy)) {
+                            ActionButton("Play", filled = true, modifier = Modifier.entryFocus()) {
+                                val c = ProviderSession.current ?: return@ActionButton
+                                AppPreferences.addRecent("$favKey|$title|${c.movieUrl(streamId, ext)}")
+                                Nav.push(Route.Player(c.movieUrl(streamId, ext), title, favKey))
+                            }
+                            ActionButton(if (fav) "Remove from favourites" else "Add to favourites", filled = false) {
+                                AppPreferences.toggleFav(favKey)
+                                fav = AppPreferences.isFav(favKey)
+                            }
+                        }
+                        Spacer(Modifier.height(ThemeSpec.Space.md))
+                        DetailPlot(
+                            info?.plot ?: when (infoFailed) {
+                                null -> "Loading description…"
+                                true -> "Couldn't load the description."
+                                else -> ""
+                            },
+                            maxLines = 6,
+                        )
+                        if (infoFailed == true) {
+                            Spacer(Modifier.height(ThemeSpec.Space.sm))
+                            ActionButton("Retry", filled = true, modifier = Modifier.entryFocus()) { infoRetryTick++ }
+                        }
+                        Spacer(Modifier.height(ThemeSpec.Space.cozy))
+                        DetailCredits(
+                            listOfNotNull(
+                                info?.genre?.let { "Genre · $it" },
+                                info?.cast?.let { "Cast · ${it.take(120)}" },
+                                info?.director?.let { "Director · $it" },
+                                info?.duration?.let { "Duration · $it" },
+                            ),
+                        )
                     }
                 }
             }
@@ -248,6 +266,7 @@ fun SeriesDetailScreen(
     var seasons by remember { mutableStateOf<Map<Int, List<XtreamClient.Episode>>>(emptyMap()) }
     // Null while the episode list loads, then whether its request failed: a failure must not read as a series with no seasons.
     var seasonsFailed by remember { mutableStateOf<Boolean?>(null) }
+    var seasonsRetryTick by remember { mutableIntStateOf(0) }
     var selSeason by remember { mutableStateOf(1) }
     var tvCert by remember(name) {
         mutableStateOf<com.carteltv.tv.data.discovery.Classifications.Rating?>(null)
@@ -258,7 +277,8 @@ fun SeriesDetailScreen(
                 .forTitle("tv", name)
     }
 
-    LaunchedEffect(seriesId) {
+    LaunchedEffect(seriesId, seasonsRetryTick) {
+        seasonsFailed = null
         val result = suspendRunCatching { client?.seriesEpisodes(seriesId) }
         seasons = result.getOrNull() ?: emptyMap()
         seasonsFailed = result.isFailure
@@ -266,123 +286,113 @@ fun SeriesDetailScreen(
     }
 
     // The cover stands in for the page's key art, and it holds the stage while nothing is focused.
-    val ambient = LocalAmbientTint.current
-    val ctx = LocalContext.current
-    LaunchedEffect(cover) {
-        ambient?.pageTint = cover?.takeIf { it.isNotBlank() }?.let { readArt(ctx, it)?.tint }
-    }
+    DetailAmbientArt(cover)
 
-    ScreenPage(title = name, header = false) {
+    ScreenPage {
         StagedScreen(section = AppSection.TV) {
-            RailFocusLine {
-                LazyColumn(
-                    Modifier.fillMaxSize(),
-                    contentPadding = PagePadding,
-                    verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.md),
-                ) {
-                    item(key = "art") { DetailHeroPlate(art = cover, title = name) }
-                    item(key = "copy") {
-                        Column(Modifier.fillMaxWidth()) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
-                            ) {
-                                // A list that failed to load says so; only a request still in flight reads as loading.
-                                Text(
-                                    when (seasonsFailed) {
-                                        null -> {
-                                            androidx.compose.ui.res
-                                                .stringResource(com.carteltv.tv.R.string.addon_loading_episodes)
-                                        }
+            DetailList {
+                item(key = "art") { DetailHeroPlate(art = cover, title = name) }
+                item(key = "copy") {
+                    Column(Modifier.fillMaxWidth()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
+                        ) {
+                            // A list that failed to load says so; only a request still in flight reads as loading.
+                            Text(
+                                when (seasonsFailed) {
+                                    null -> {
+                                        androidx.compose.ui.res
+                                            .stringResource(com.carteltv.tv.R.string.addon_loading_episodes)
+                                    }
 
-                                        true -> {
-                                            "Couldn't load the episodes."
-                                        }
+                                    true -> {
+                                        "Couldn't load the episodes."
+                                    }
 
-                                        else -> {
-                                            "TV series, ${seasons.size} ${if (seasons.size == 1) "season" else "seasons"}"
-                                        }
-                                    },
-                                    fontSize = ThemeSpec.Type.label,
-                                    color = ThemeSemantics.textSecondary,
-                                    maxLines = 1,
-                                )
-                                tvCert?.let { RatingBadge(it) }
+                                    else -> {
+                                        "TV series, ${seasons.size} ${if (seasons.size == 1) "season" else "seasons"}"
+                                    }
+                                },
+                                fontSize = ThemeSpec.Type.label,
+                                color = ThemeSemantics.textSecondary,
+                                maxLines = 1,
+                            )
+                            tvCert?.let { RatingBadge(it) }
+                        }
+                        Spacer(Modifier.height(ThemeSpec.Space.cozy))
+                        DetailPlot(plot ?: "", maxLines = 4)
+                    }
+                }
+                if (seasons.isNotEmpty()) {
+                    item(key = "seasons") {
+                        PageChipRow(Modifier.cancelChipGutter()) {
+                            seasons.keys.sorted().forEach { snum ->
+                                item(key = "season_$snum") { Chip("S$snum", selSeason == snum) { selSeason = snum } }
                             }
-                            Spacer(Modifier.height(ThemeSpec.Space.cozy))
-                            DetailPlot(plot ?: "", maxLines = 4)
                         }
                     }
-                    if (seasons.isNotEmpty()) {
-                        item(key = "seasons") {
-                            PageChipRow(Modifier.cancelChipGutter()) {
-                                seasons.keys.sorted().forEach { snum ->
-                                    item(key = "season_$snum") { Chip("S$snum", selSeason == snum) { selSeason = snum } }
-                                }
-                            }
-                        }
-                        item(key = "episodes") {
-                            val episodes = seasons[selSeason].orEmpty()
-                            val rowState = rememberLazyListState()
-                            val wrapState = rememberRailWrapState()
-                            val wrapFirst = remember { FocusRequester() }
-                            Column(Modifier.fillMaxWidth()) {
-                                SectionTitle("Episodes", Modifier.padding(top = ThemeSpec.Space.sm, bottom = ThemeSpec.Space.sm))
-                                LazyRow(
-                                    state = rowState,
-                                    modifier =
+                    item(key = "episodes") {
+                        val episodes = seasons[selSeason].orEmpty()
+                        val rowState = rememberLazyListState()
+                        val wrapState = rememberRailWrapState()
+                        val wrapFirst = remember { FocusRequester() }
+                        Column(Modifier.fillMaxWidth()) {
+                            SectionTitle("Episodes", Modifier.padding(top = ThemeSpec.Space.sm, bottom = ThemeSpec.Space.sm))
+                            LazyRow(
+                                state = rowState,
+                                modifier =
+                                    Modifier
+                                        .restoreRowFocus()
+                                        .railEdgeFade(rowState)
+                                        .railWrapToStart(wrapState, rowState, episodes.size, wrapFirst),
+                                // Headroom for the Netflix-scale focus lift: a looming tile is never clipped by its rail.
+                                contentPadding = PaddingValues(vertical = RailContentHeadroom),
+                                horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.gutter),
+                            ) {
+                                items(episodes.size, key = { episodes[it].id }) { idx ->
+                                    val ep = episodes[idx]
+                                    val epKey = "series:$seriesId/${ep.id}"
+                                    Box(
                                         Modifier
-                                            .restoreRowFocus()
-                                            .railEdgeFade(rowState)
-                                            .railWrapToStart(wrapState, rowState, episodes.size, wrapFirst),
-                                    // Headroom for the Netflix-scale focus lift: a looming tile is never clipped by its rail.
-                                    contentPadding = PaddingValues(vertical = RailContentHeadroom),
-                                    horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.gutter),
-                                ) {
-                                    items(episodes.size, key = { episodes[it].id }) { idx ->
-                                        val ep = episodes[idx]
-                                        val epKey = "series:$seriesId/${ep.id}"
-                                        Box(
-                                            Modifier
-                                                .width(EpisodeTileWidth)
-                                                .railWrapItem(wrapState, idx)
-                                                .then(
-                                                    if (idx == 0) {
-                                                        Modifier.entryFocus(key = selSeason, requester = wrapFirst)
-                                                    } else {
-                                                        Modifier
-                                                    },
-                                                ),
-                                        ) {
-                                            GridPoster(
-                                                // The episode's own still when the panel sends one; the series cover stands in
-                                                // when it doesn't, and CardArtwork's monogram plate takes over when even that is missing.
-                                                imageUrl = ep.art ?: cover,
-                                                title = ep.title,
-                                                subtitle = "E${ep.episodeNum}",
-                                                badge =
-                                                    if (com.carteltv.tv.data.trakt.TraktAuth.isEpisodeWatched(
-                                                            name,
-                                                            selSeason,
-                                                            ep.episodeNum,
-                                                        )
-                                                    ) {
-                                                        "WATCHED"
-                                                    } else {
-                                                        null
-                                                    },
-                                                onClick = {
-                                                    val c = ProviderSession.current
-                                                    if (c != null) {
-                                                        val url = c.episodeUrl(ep.id, ep.ext)
-                                                        AppPreferences.addRecent(
-                                                            "series:$seriesId|${"$name S${selSeason}E${ep.episodeNum}: ${ep.title}"}|$url",
-                                                        )
-                                                        Nav.push(Route.Player(url, "$name S$selSeason E${ep.episodeNum}", epKey))
-                                                    }
+                                            .width(EpisodeTileWidth)
+                                            .railWrapItem(wrapState, idx)
+                                            .then(
+                                                if (idx == 0) {
+                                                    Modifier.entryFocus(key = selSeason, requester = wrapFirst)
+                                                } else {
+                                                    Modifier
                                                 },
-                                            )
-                                        }
+                                            ),
+                                    ) {
+                                        GridPoster(
+                                            // The episode's own still when the panel sends one; the series cover stands in
+                                            // when it doesn't, and CardArtwork's monogram plate takes over when even that is missing.
+                                            imageUrl = ep.art ?: cover,
+                                            title = ep.title,
+                                            subtitle = "E${ep.episodeNum}",
+                                            badge =
+                                                if (com.carteltv.tv.data.trakt.TraktAuth.isEpisodeWatched(
+                                                        name,
+                                                        selSeason,
+                                                        ep.episodeNum,
+                                                    )
+                                                ) {
+                                                    "WATCHED"
+                                                } else {
+                                                    null
+                                                },
+                                            onClick = {
+                                                val c = ProviderSession.current
+                                                if (c != null) {
+                                                    val url = c.episodeUrl(ep.id, ep.ext)
+                                                    AppPreferences.addRecent(
+                                                        "series:$seriesId|${"$name S${selSeason}E${ep.episodeNum}: ${ep.title}"}|$url",
+                                                    )
+                                                    Nav.push(Route.Player(url, "$name S$selSeason E${ep.episodeNum}", epKey))
+                                                }
+                                            },
+                                        )
                                     }
                                 }
                             }
@@ -401,41 +411,20 @@ fun ActionButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    // The primary action rests on the accent, the way a selected chip does; focus is the same white key light.
     var focused by remember { mutableStateOf(false) }
     AutoSizeText(
         label,
         fontSize = ThemeSpec.Type.meta,
         fontFamily = ThemeSpec.Font.broadcast,
-        fontWeight = FontWeight.SemiBold,
-        color =
-            if (filled) {
-                ThemeSemantics.textInverse
-            } else if (focused) {
-                ThemeSemantics.textEmphatic
-            } else {
-                ThemeSemantics.textPrimary
-            },
+        fontWeight = if (focused || filled) FontWeight.Bold else FontWeight.SemiBold,
+        color = ThemeSemantics.controlInk(focused, filled),
         minScale = 0.75f,
         modifier =
             modifier
                 .widthIn(max = 320.dp)
-                .cardSurface(focused)
-                .background(
-                    when {
-                        filled && focused -> {
-                            BrassSheen
-                        }
-
-                        filled -> {
-                            BrassSolid
-                        }
-
-                        else -> {
-                            androidx.compose.ui.graphics
-                                .SolidColor(Color.Transparent)
-                        }
-                    },
-                ).onFocusChanged { focused = it.isFocused }
+                .controlSurface(focused, filled)
+                .onFocusChanged { focused = it.isFocused }
                 .clickableNoIndication { onClick() }
                 .padding(horizontal = ThemeSpec.Space.lg, vertical = ThemeSpec.Space.cozy),
     )

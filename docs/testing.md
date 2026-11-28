@@ -15,7 +15,7 @@ green run is checkable, not assumed.
   like `Uri` are needed) and the Roborazzi screenshot tests — the Roborazzi Gradle plugin is
   deliberately not applied; the library honours its `-Proborazzi.*` system properties on the plain
   test task (`app/build.gradle.kts` has the note).
-- As of 2026-11-27 a full run is 995 tests, 0 failures/errors/skipped. Any delta from that is a
+- As of 2026-11-27 a full run is 1,010 tests, 0 failures/errors/skipped. Any delta from that is a
   finding to explain, not noise to ignore.
 - House style: plain JUnit4, camelCase test names, `AndroidJUnit4` only where framework types
   require it. The engine's policies (`engine/stability/`) are pure classes, so their behavior is

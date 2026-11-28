@@ -1,5 +1,6 @@
 package com.carteltv.tv.recording
 
+import com.carteltv.tv.data.network.HttpSupport
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -215,7 +216,7 @@ class HlsCapture(
             val conn = URL(playlistUrl).openConnection() as HttpURLConnection
             try {
                 conn.connectTimeout = 10_000
-                conn.readTimeout = 15_000
+                conn.readTimeout = HttpSupport.READ_MS
                 conn.setRequestProperty("User-Agent", USER_AGENT)
                 val code = conn.responseCode
                 if (code !in 200..299) {
@@ -310,7 +311,7 @@ class HlsCapture(
     private fun fetchPlaylist(url: String, depth: Int = 0): Playlist? {
         val conn = URL(url).openConnection() as HttpURLConnection
         try {
-            conn.connectTimeout = 10_000; conn.readTimeout = 15_000
+            conn.connectTimeout = 10_000; conn.readTimeout = HttpSupport.READ_MS
             conn.setRequestProperty("User-Agent", USER_AGENT)
             if (conn.responseCode != 200) return null
             val body = conn.inputStream.bufferedReader().use { it.readText() }
@@ -345,7 +346,7 @@ class HlsCapture(
     private fun fetchSegment(segUrl: String): ByteArray? {
         val conn = URL(segUrl).openConnection() as HttpURLConnection
         try {
-            conn.connectTimeout = 8_000; conn.readTimeout = 15_000
+            conn.connectTimeout = HttpSupport.CONNECT_MS; conn.readTimeout = HttpSupport.READ_MS
             conn.setRequestProperty("User-Agent", USER_AGENT)
             if (conn.responseCode != 200) return null
             return conn.inputStream.use { input ->

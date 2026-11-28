@@ -6,10 +6,18 @@ import com.carteltv.tv.data.preferences.AppPreferences
 import com.carteltv.tv.data.provider.Provider
 import com.carteltv.tv.data.provider.ProviderHealth
 import com.carteltv.tv.data.provider.ProviderType
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /** Active session holder; the saved providers live in AppPreferences. */
 object ProviderSession {
-    var current: XtreamClient? = null
+    private val mutableCurrent = MutableStateFlow<XtreamClient?>(null)
+    val currentFlow: StateFlow<XtreamClient?> = mutableCurrent.asStateFlow()
+
+    var current: XtreamClient?
+        get() = mutableCurrent.value
+        set(value) { mutableCurrent.value = value }
 
     suspend fun login(hostRaw: String, user: String, pass: String): XtreamClient {
         val client = XtreamClient(normalizeHost(hostRaw), user.trim(), pass)

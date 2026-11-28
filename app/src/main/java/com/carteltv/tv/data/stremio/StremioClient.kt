@@ -45,8 +45,27 @@ class StremioClient(val baseUrl: String) {
         val types: List<String> = emptyList(),
         val catalogs: List<CatalogDecl> = emptyList(),
         val resources: List<JsonElement> = emptyList(),
+        val idPrefixes: List<String>? = null,
         @SerialName("logo") val logo: String? = null,
     ) {
+        /**
+         * Protocol request filtering: [resource] is served when a `resources` entry names it, its types
+         * (a string entry falls back to the manifest's) include [type], and [id] starts with one of its
+         * idPrefixes (falling back to the manifest's; none at all matches every id).
+         */
+        fun serves(resource: String, type: String, id: String): Boolean =
+            resources.any { entry ->
+                val obj = entry as? JsonObject
+                val name = if (obj != null) (obj["name"] as? JsonPrimitive)?.content else (entry as? JsonPrimitive)?.content
+                if (name != resource) return@any false
+                val entryTypes = obj?.get("types")?.strings() ?: types
+                val prefixes = obj?.get("idPrefixes")?.strings() ?: idPrefixes
+                type in entryTypes && (prefixes.isNullOrEmpty() || prefixes.any { id.startsWith(it) })
+            }
+
+        private fun JsonElement.strings(): List<String>? =
+            (this as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.content }
+
         @Serializable data class CatalogDecl(
             val type: String = "movie",
             val id: String = "",
@@ -170,11 +189,8 @@ class StremioClient(val baseUrl: String) {
     }
 
     companion object {
-        /** Official Cinemeta — the metadata backbone of the Stremio ecosystem. */
+        /** Official Cinemeta: Stremio's stock metadata addon, installed by default like any other, and removable. */
         const val CINEMETA = "https://v3-cinemeta.strem.io/manifest.json"
-
-        /** Minimal, sane default set. */
-        val DEFAULT_ADDONS = listOf(CINEMETA)
 
         fun normalizeBaseUrl(raw: String): String = raw.trim().let {
             when {

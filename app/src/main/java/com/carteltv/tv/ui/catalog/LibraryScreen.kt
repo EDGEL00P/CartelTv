@@ -55,7 +55,7 @@ fun LibraryScreen() {
     // The player writes resume points while it is away; refresh when the page comes back.
     LaunchedEffect(Unit) { tick++ }
 
-    ScreenPage(title = "Library", header = false) {
+    ScreenPage {
         StagedScreen(section = AppSection.MOVIES) {
             if (recents.isEmpty() && favourites.isEmpty() && saved.isEmpty() && trakt.isEmpty()) {
                 Column(Modifier.fillMaxSize().padding(PagePadding)) {
@@ -81,7 +81,7 @@ fun LibraryScreen() {
                                 start = ThemeSpec.Space.margin,
                                 end = ThemeSpec.Safe.horizontal,
                                 top = ThemeSpec.Space.md,
-                                bottom = ThemeSpec.Safe.vertical,
+                                bottom = ThemeSpec.Space.margin,
                             ),
                         verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.md),
                     ) {

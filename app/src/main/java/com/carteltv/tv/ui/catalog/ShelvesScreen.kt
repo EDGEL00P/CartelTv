@@ -19,12 +19,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
-import com.carteltv.tv.R
 import com.carteltv.tv.data.discovery.DiscoveryFeeds
 import com.carteltv.tv.data.preferences.AppPreferences
 import com.carteltv.tv.nav.AppSection
@@ -49,7 +47,7 @@ fun ShelvesScreen() {
     var tick by remember { mutableIntStateOf(0) }
     val shelves = remember(tick) { AppPreferences.shelves() }
 
-    ScreenPage(stringResource(R.string.nav_shelves)) {
+    ScreenPage {
         StagedScreen(section = AppSection.MOVIES) {
             LazyColumn(contentPadding = PagePadding) {
                 item(key = "head") {

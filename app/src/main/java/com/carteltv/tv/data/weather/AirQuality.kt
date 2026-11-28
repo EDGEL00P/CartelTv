@@ -19,13 +19,13 @@ import java.util.concurrent.ConcurrentHashMap
    with the fine dust behind it for anyone who wants the number.
    ═══════════════════════════════════════════════════════════ */
 
-/** The air's bands on the US index, as the environmental agency names them. */
+/** The air's bands on the US index, with EPA's category descriptors (AQI Technical Assistance Document, Table 1). */
 enum class AirLevel(val label: String, val range: IntRange) {
     GOOD("Good", 0..50),
     MODERATE("Moderate", 51..100),
-    SENSITIVE("Unhealthy for sensitive groups", 101..150),
+    SENSITIVE("Unhealthy for Sensitive Groups", 101..150),
     UNHEALTHY("Unhealthy", 151..200),
-    VERY_UNHEALTHY("Very unhealthy", 201..300),
+    VERY_UNHEALTHY("Very Unhealthy", 201..300),
     HAZARDOUS("Hazardous", 301..500),
     ;
 
@@ -35,15 +35,39 @@ enum class AirLevel(val label: String, val range: IntRange) {
     }
 }
 
-/** The air at one place. [updatedAt] is the hour, in that place's own clock, the reading is for. */
+/** The pollutants the US AQI is built from, each with the feed's sub-index key and its reporting name. */
+enum class Pollutant(val feedKey: String, val label: String) {
+    PM25("us_aqi_pm2_5", "PM2.5"),
+    PM10("us_aqi_pm10", "PM10"),
+    OZONE("us_aqi_ozone", "Ozone"),
+    NO2("us_aqi_nitrogen_dioxide", "NO₂"),
+    SO2("us_aqi_sulphur_dioxide", "SO₂"),
+    CO("us_aqi_carbon_monoxide", "CO"),
+}
+
+/**
+ * The air at one place. [updatedAt] is the hour, in that place's own clock, the reading is for.
+ * [subIndices] holds each pollutant's own US AQI; the overall index is the highest of them.
+ */
 data class AirQuality(
     val usAqi: Int,
     val europeanAqi: Int?,
     val pm25: Double?,
     val pm10: Double?,
     val updatedAt: String,
+    val subIndices: Map<Pollutant, Int> = emptyMap(),
 ) {
     val level: AirLevel get() = AirLevel.of(usAqi)
+
+    /** EPA's "main pollutant": the one with the highest sub-index; the first listed wins a tie. */
+    val mainPollutant: Pollutant? get() = subIndices.maxByOrNull { it.value }?.key
+
+    /** The main pollutant's concentration in µg/m³, where the feed reports it (the two particle sizes). */
+    val mainConcentration: Double? get() = when (mainPollutant) {
+        Pollutant.PM25 -> pm25
+        Pollutant.PM10 -> pm10
+        else -> null
+    }
 }
 
 object AirQualityService {
@@ -61,7 +85,7 @@ object AirQualityService {
         val fresh = withContext(Dispatchers.IO) {
             suspendRunCatching {
                 val url = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon" +
-                    "&current=us_aqi,european_aqi,pm2_5,pm10&timezone=auto"
+                    "&current=us_aqi,european_aqi,pm2_5,pm10,${Pollutant.entries.joinToString(",") { it.feedKey }}&timezone=auto"
                 parse(HttpSupport.get(url, connectMs = 8_000, readMs = 12_000))
             }.getOrNull()
         }
@@ -80,6 +104,9 @@ object AirQualityService {
             pm25 = real("pm2_5"),
             pm10 = real("pm10"),
             updatedAt = current["time"]?.jsonPrimitive?.content.orEmpty(),
+            subIndices = Pollutant.entries
+                .mapNotNull { p -> current[p.feedKey]?.jsonPrimitive?.content?.toIntOrNull()?.let { p to it } }
+                .toMap(),
         )
     }
 }

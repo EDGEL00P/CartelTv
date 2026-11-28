@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import com.carteltv.tv.ui.components.AutoSizeText
 import com.carteltv.tv.ui.components.clickableNoIndication
+import com.carteltv.tv.ui.components.clickableTv
 import com.carteltv.tv.ui.components.glassRow
 import com.carteltv.tv.ui.components.glassRowDim
 import com.carteltv.tv.ui.components.glassRowText
@@ -79,7 +80,7 @@ internal fun CatRow(
         Spacer(Modifier.width(ThemeSpec.Space.md))
         Column(Modifier.weight(1f)) {
             AutoSizeText(title, fontSize = ThemeSpec.Type.body, fontWeight = FontWeight.SemiBold, color = glassRowText(lit), minScale = 0.8f)
-            if (desc.isNotBlank()) Text(desc, fontSize = ThemeSpec.Type.meta, color = glassRowDim(lit), lineHeight = (ThemeSpec.Type.meta.value * 1.4f).sp, modifier = Modifier.padding(top = 2.dp),
+            if (desc.isNotBlank()) Text(desc, fontSize = ThemeSpec.Type.meta, color = glassRowDim(lit), lineHeight = (ThemeSpec.Type.meta.value * 1.4f).sp, modifier = Modifier.padding(top = ThemeSpec.Space.xs),
                 maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
         if (status.isNotBlank()) StatusPill(status, lit)
@@ -165,7 +166,7 @@ internal fun ValueRow(
     ) {
         Column(Modifier.weight(1f)) {
             AutoSizeText(title, fontSize = ThemeSpec.Type.body, fontWeight = FontWeight.Medium, color = glassRowText(f), minScale = 0.8f)
-            if (desc.isNotBlank()) Text(desc, fontSize = ThemeSpec.Type.meta, color = glassRowDim(f), lineHeight = (ThemeSpec.Type.meta.value * 1.4f).sp, modifier = Modifier.padding(top = 2.dp))
+            if (desc.isNotBlank()) Text(desc, fontSize = ThemeSpec.Type.meta, color = glassRowDim(f), lineHeight = (ThemeSpec.Type.meta.value * 1.4f).sp, modifier = Modifier.padding(top = ThemeSpec.Space.xs))
         }
         if (value.isNotBlank()) {
             StatusPill(value, f)
@@ -223,6 +224,7 @@ internal fun ToggleRow(
     desc: String?,
     value: Boolean,
     focus: FocusRequester?,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     var f by remember { mutableStateOf(false) }
@@ -236,7 +238,7 @@ internal fun ToggleRow(
             .glassRow(f, pressed)
             .then(fm)
             .onFocusChanged { f = it.isFocused }
-            .clickableNoIndication(interaction) { onClick() }
+            .clickableTv(interaction, hoverEffect = enabled, enabled = enabled) { onClick() }
             .padding(horizontal = ThemeSpec.Space.md, vertical = ThemeSpec.Space.cozy),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -244,7 +246,7 @@ internal fun ToggleRow(
             Text(title, fontSize = ThemeSpec.Type.body, fontWeight = FontWeight.Medium, color = glassRowText(f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             desc?.let {
                 Text(it, fontSize = ThemeSpec.Type.meta, color = glassRowDim(f), lineHeight = (ThemeSpec.Type.meta.value * 1.4f).sp,
-                    modifier = Modifier.padding(top = 2.dp), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    modifier = Modifier.padding(top = ThemeSpec.Space.xs), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             }
         }
         Spacer(Modifier.width(ThemeSpec.Space.md))

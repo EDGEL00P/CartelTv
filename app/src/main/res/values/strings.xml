@@ -21,11 +21,10 @@
     <string name="nav_search">Search</string>
     <string name="nav_settings">Settings</string>
     <string name="nav_movies_tv">On Demand</string>
-    <string name="nav_more">More</string>
 
     <!-- Schedule and live filters -->
     <string name="filter_all">All</string>
-    <string name="filter_favourites">★ Favorites</string>
+    <string name="filter_favourites">Favorites</string>
     <string name="filter_live_events">Live Events</string>
     <string name="filter_replays">Replays</string>
     <string name="chip_channels">Channels</string>
@@ -107,7 +106,6 @@
     <!-- Add-ons -->
     <string name="addon_add_new_hint">Add new add-ons.</string>
     <string name="addon_installed_count">Installed • %1$d</string>
-    <string name="addon_built_in">Built-in</string>
     <string name="addon_resolving_debrid">Resolving debrid link…</string>
     <string name="addon_loading_episodes">Loading episodes…</string>
     <string name="addon_no_episodes">No episodes available</string>
@@ -162,7 +160,7 @@
     <string name="sky_polar_night">The sun stays below the horizon all day.</string>
     <string name="sky_midnight_sun">The sun stays up all day.</string>
     <string name="sky_moon">Moon</string>
-    <string name="sky_moon_lit">%1$d% lit · day %2$d</string>
+    <string name="sky_moon_lit">%1$d%% lit · day %2$d</string>
     <string name="sky_full_moon">Full moon</string>
     <string name="sky_new_moon">New moon</string>
     <string name="sky_range">Range %1$s</string>

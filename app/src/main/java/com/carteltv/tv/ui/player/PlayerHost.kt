@@ -94,6 +94,16 @@ class PlayerHost {
 
     /** The remote's Last key, back to the channel before. Null when there is none to go back to. */
     var onLast: (() -> Boolean)? = null
+
+    /** True while a host panel over the picture, such as the live channel list, owns the D-pad and Back. */
+    var sheetUp: () -> Boolean = { false }
+
+    /**
+     * Live TV only. Set, they make the idle D-pad a TV remote: up/down change channel, OK opens the
+     * channel list, left the guide and right the deck. True when the panel opened.
+     */
+    var onChannels: (() -> Boolean)? = null
+    var onGuide: (() -> Boolean)? = null
 }
 
 private fun digitOf(key: Key): Int? = when (key) {
@@ -140,7 +150,8 @@ interface PlayerControl {
  *
  * Deck hidden: play/pause keys act at once; FF/RW and left/right take the seek rule; channel keys
  * change item on live and seek on VOD; next/previous change item through the host; OK, up and down
- * show the deck; Back closes. Deck shown: the focused chip takes the D-pad and OK, Back steps the
+ * show the deck; Back closes. Live TV with a channel list instead zaps on up/down, opens the list
+ * on OK and the guide on left; rewind stays on the media keys. Deck shown: the focused chip takes the D-pad and OK, Back steps the
  * deck back, the media keys keep working, and up/down that no chip used move between bar and tiles.
  * While the Up Next card is up, OK and the vertical keys belong to its buttons and Back cancels it.
  */
@@ -187,30 +198,44 @@ class PlayerRemote internal constructor(
         if (ev.type != KeyEventType.KeyDown) return false
         if (host.intercept(ev)) return true
         // The error card and the deck's own dialogs own the remote while they are up; transport still answers.
-        if (host.errorUp() || control?.modal == true) return playPauseKey(player, ev.key)
+        if (host.errorUp() || control?.modal == true || host.sheetUp()) return playPauseKey(player, ev.key)
         control?.touch()
         host.onAnyKey()
         val idle = deck.value == PlayerControlState.HIDDEN
         val card = idle && host.upNextVisible()
+        // Live TV with a channel list: the idle D-pad zaps and opens the list and guide, as a TV remote does.
+        val tv = idle && !card && live() && host.onChannels != null
         val used = when (ev.key) {
             Key.Back -> if (card) { host.onCancelUpNext(); true } else { control?.back(); true }
             // With the Up Next card up, OK and the vertical keys belong to its buttons.
             Key.DirectionUp -> when {
                 card -> false
+                tv -> { changeItem(1); true }
                 idle -> { host.onVolume(1) || run { control?.show(); true } }
                 else -> false
             }
             Key.DirectionDown -> when {
                 card -> false
+                tv -> { changeItem(-1); true }
                 idle -> { host.onVolume(-1) || run { control?.show(); true } }
                 else -> false
             }
-            Key.DirectionLeft -> if (idle) { seek(-1); true } else false
-            Key.DirectionRight -> if (idle) { seek(1); true } else false
+            Key.DirectionLeft -> when {
+                tv && host.onGuide?.invoke() == true -> true
+                idle -> { seek(-1); true }
+                else -> false
+            }
+            Key.DirectionRight -> when {
+                tv -> { control?.show(); true }
+                idle -> { seek(1); true }
+                else -> false
+            }
             Key.Enter, Key.NumPadEnter, Key.DirectionCenter, Key.Spacebar -> when {
                 !idle || card -> false
                 // OK jumps past the intro, otherwise it brings the compact deck up.
-                else -> if (host.onOk()) true else { control?.show(); true }
+                host.onOk() -> true
+                tv && host.onChannels?.invoke() == true -> true
+                else -> { control?.show(); true }
             }
             Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause -> playPauseKey(player, ev.key)
             Key.MediaFastForward -> { seek(1); true }
@@ -232,7 +257,7 @@ class PlayerRemote internal constructor(
 
     /** The keys that come back up from the focused chip, having found no control that used them. */
     internal fun bubble(ev: KeyEvent): Boolean {
-        if (ev.type != KeyEventType.KeyDown || host.errorUp() || control?.modal == true) return false
+        if (ev.type != KeyEventType.KeyDown || host.errorUp() || control?.modal == true || host.sheetUp()) return false
         return when (ev.key) {
             Key.DirectionUp -> { control?.up(); true }
             Key.DirectionDown -> { control?.down(); true }
@@ -352,7 +377,7 @@ fun rememberPlayerRemote(
     }
 
     val shown = remote.deck.value != PlayerControlState.HIDDEN
-    val covered = remote.control?.modal == true || host.upNextVisible() || host.errorUp()
+    val covered = remote.control?.modal == true || host.upNextVisible() || host.errorUp() || host.sheetUp()
 
     // Key events only reach a focusable that has focus: at start, whenever asked, and each time the
     // deck hides, the surface takes it.

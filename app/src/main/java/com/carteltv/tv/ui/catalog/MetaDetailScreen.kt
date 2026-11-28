@@ -34,7 +34,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -52,6 +51,7 @@ import com.carteltv.tv.nav.Route
 import com.carteltv.tv.ui.components.CardArtwork
 import com.carteltv.tv.ui.components.EmptyState
 import com.carteltv.tv.ui.components.FilterChip
+import com.carteltv.tv.ui.components.PageError
 import com.carteltv.tv.ui.components.PageLoading
 import com.carteltv.tv.ui.components.PosterTile
 import com.carteltv.tv.ui.components.RailFocusLine
@@ -60,12 +60,10 @@ import com.carteltv.tv.ui.components.StagedScreen
 import com.carteltv.tv.ui.components.entryFocus
 import com.carteltv.tv.ui.components.railEdgeFade
 import com.carteltv.tv.ui.components.restoreRowFocus
-import com.carteltv.tv.ui.hero.readArt
 import com.carteltv.tv.ui.nav.PageChipRow
 import com.carteltv.tv.ui.nav.PagePadding
 import com.carteltv.tv.ui.nav.ScreenPage
 import com.carteltv.tv.ui.settings.StreamPickerHost
-import com.carteltv.tv.ui.theme.LocalAmbientTint
 import com.carteltv.tv.ui.theme.ThemeSemantics
 import com.carteltv.tv.ui.theme.ThemeSpec
 import kotlinx.coroutines.launch
@@ -89,6 +87,7 @@ fun MetaDetailScreen(
     var episodes by remember(refId, season) { mutableStateOf<List<MetaEpisode>>(emptyList()) }
     var episodesSettled by remember(refId) { mutableStateOf(false) }
     var parts by remember(refId) { mutableStateOf<List<com.carteltv.tv.data.discovery.MetaSummary>>(emptyList()) }
+    var detailRetryTick by remember(refId) { mutableIntStateOf(0) }
     val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     // Watched marks come from the Trakt cache; refresh them when the account comes back to the page.
     androidx.compose.runtime.DisposableEffect(owner) {
@@ -102,19 +101,16 @@ fun MetaDetailScreen(
     // Season and episode the picker opens on; the page's own season by default.
     var picker by remember { mutableStateOf<Pair<Int, Int?>?>(null) }
 
-    LaunchedEffect(refId) {
+    LaunchedEffect(refId, detailRetryTick) {
+        details = null
+        failed = false
         val result = suspendRunCatching { MetaRepository.load(type, id, title, poster) }
         details = result.getOrNull()
         failed = result.isFailure
     }
 
     // The page's key art holds the stage while nothing is focused: the backdrop the plate shows, else its poster.
-    val ambient = LocalAmbientTint.current
-    val ctx = LocalContext.current
-    LaunchedEffect(details) {
-        val art = details?.let { it.backdrop?.takeIf { b -> b.isNotBlank() } ?: it.poster } ?: poster
-        ambient?.pageTint = art?.takeIf { it.isNotBlank() }?.let { readArt(ctx, it)?.tint }
-    }
+    DetailAmbientArt(details?.let { it.backdrop?.takeIf { b -> b.isNotBlank() } ?: it.poster } ?: poster)
     LaunchedEffect(details) {
         val c = details?.collection ?: return@LaunchedEffect
         parts = suspendRunCatching { MetaRepository.collectionParts(c.id) }.getOrDefault(emptyList())
@@ -127,7 +123,7 @@ fun MetaDetailScreen(
         episodesSettled = true
     }
 
-    ScreenPage(title = details?.name ?: title, header = false) {
+    ScreenPage {
         StagedScreen(section = if (type == "series" || type == "tv") AppSection.TV else AppSection.MOVIES) {
             val shown = details
             when {
@@ -136,7 +132,11 @@ fun MetaDetailScreen(
                 }
 
                 shown == null -> {
-                    EmptyState("This title could not be loaded.", hint = "Check the connection and try again.")
+                    PageError(
+                        "This title could not be loaded.",
+                        retryLabel = "Retry",
+                        onRetry = { detailRetryTick++ },
+                    )
                 }
 
                 else -> {
@@ -341,27 +341,7 @@ private fun CopyBlock(
             )
         }
         Spacer(Modifier.height(ThemeSpec.Space.sm))
-        details.overview?.takeIf { it.isNotBlank() }?.let {
-            DetailPlot(it, maxLines = 6)
-            Spacer(Modifier.height(ThemeSpec.Space.sm))
-        }
-        DetailCredits(
-            listOfNotNull(
-                details.directors
-                    .take(3)
-                    .takeIf { it.isNotEmpty() }
-                    ?.let { "Directed by ${it.joinToString(", ")}" },
-                details.cast
-                    .take(4)
-                    .takeIf { it.isNotEmpty() }
-                    ?.let { "Cast · ${it.joinToString(", ") { c -> c.name }}" },
-                details.companies
-                    .take(2)
-                    .takeIf { it.isNotEmpty() }
-                    ?.let { "Studio · ${it.joinToString(", ") { c -> c.name }}" },
-            ),
-        )
-        Spacer(Modifier.height(ThemeSpec.Space.md))
+        // The primary actions sit right under the title block, so Play is on screen without scrolling past the hero.
         Row(horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.cozy)) {
             ActionButton("Play", filled = true, modifier = Modifier.entryFocus()) { onPlay() }
             details.trailerKey?.takeIf { it.isNotBlank() }?.let { key ->
@@ -389,15 +369,36 @@ private fun CopyBlock(
                 filled = false,
             ) { onWatched() }
         }
-        Spacer(Modifier.height(ThemeSpec.Space.sm))
         if (details.playableId.isNullOrBlank()) {
             Text(
                 "No IMDb id for this title yet — add-on streams need one.",
                 fontSize = ThemeSpec.Type.label,
                 color = ThemeSemantics.textSecondary,
                 maxLines = 2,
+                modifier = Modifier.padding(top = ThemeSpec.Space.sm),
             )
         }
+        details.overview?.takeIf { it.isNotBlank() }?.let {
+            Spacer(Modifier.height(ThemeSpec.Space.md))
+            DetailPlot(it, maxLines = 6)
+        }
+        Spacer(Modifier.height(ThemeSpec.Space.sm))
+        DetailCredits(
+            listOfNotNull(
+                details.directors
+                    .take(3)
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { "Directed by ${it.joinToString(", ")}" },
+                details.cast
+                    .take(4)
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { "Cast · ${it.joinToString(", ") { c -> c.name }}" },
+                details.companies
+                    .take(2)
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { "Studio · ${it.joinToString(", ") { c -> c.name }}" },
+            ),
+        )
     }
 }
 

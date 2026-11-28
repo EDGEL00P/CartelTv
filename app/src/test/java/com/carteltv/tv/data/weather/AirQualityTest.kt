@@ -24,6 +24,21 @@ class AirQualityTest {
     }
 
     @Test
+    fun theMainPollutantIsTheHighestSubIndex() {
+        val air = AirQualityService.parse(
+            """{"current":{"time":"2026-11-25T15:00","us_aqi":112,"pm2_5":38.9,"pm10":41.0,
+               "us_aqi_pm2_5":109,"us_aqi_pm10":38,"us_aqi_ozone":112,"us_aqi_nitrogen_dioxide":12,
+               "us_aqi_sulphur_dioxide":2,"us_aqi_carbon_monoxide":4}}""",
+        )!!
+        assertEquals(Pollutant.OZONE, air.mainPollutant)
+        assertNull(air.mainConcentration)
+        assertEquals(6, air.subIndices.size)
+        // An old feed without the sub-indices names no main pollutant rather than guessing one.
+        assertNull(AirQualityService.parse(feed)!!.mainPollutant)
+        assertEquals(17.4, AirQuality(79, null, 17.4, 9.0, "", mapOf(Pollutant.PM25 to 79, Pollutant.PM10 to 9)).mainConcentration!!, 0.0)
+    }
+
+    @Test
     fun aFeedWithoutTheIndexOrWithNoReadingIsNoAnswer() {
         assertNull(AirQualityService.parse("""{"current":{"pm10":3.0}}"""))
         assertNull(AirQualityService.parse("""{"error":true,"reason":"no data"}"""))
@@ -40,7 +55,7 @@ class AirQualityTest {
         assertEquals(AirLevel.VERY_UNHEALTHY, AirLevel.of(201))
         assertEquals(AirLevel.HAZARDOUS, AirLevel.of(301))
         assertEquals(AirLevel.HAZARDOUS, AirLevel.of(500))
-        assertEquals("Unhealthy for sensitive groups", AirLevel.SENSITIVE.label)
+        assertEquals("Unhealthy for Sensitive Groups", AirLevel.SENSITIVE.label)
         assertEquals(AirLevel.MODERATE, AirQualityService.parse(feed)!!.level)
     }
 

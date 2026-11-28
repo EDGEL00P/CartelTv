@@ -152,7 +152,7 @@ internal fun YouTubeConceptPanels(
         Modifier.padding(start = ThemeSpec.Safe.horizontal, top = ThemeSpec.Safe.vertical).widthIn(max = 560.dp)
             .clip(RoundedCornerShape(ThemeSpec.Card.cornerLg))
             .background(PlayerChrome.chip)
-            .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(ThemeSpec.Card.cornerLg))
+            .border(1.dp, ThemeSemantics.hairline, RoundedCornerShape(ThemeSpec.Card.cornerLg))
             .padding(ThemeSpec.Space.md),
         verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.xs),
     ) {
@@ -165,7 +165,7 @@ internal fun YouTubeConceptPanels(
                 }
             }
             Text(channel ?: "YouTube", fontSize = ThemeSpec.Type.meta, color = PlayerChrome.ink, fontWeight = FontWeight.SemiBold, maxLines = 1)
-            Box(Modifier.clip(RoundedCornerShape(ThemeSpec.Card.cornerSm)).background(YouTubeAccent).padding(horizontal = 8.dp, vertical = 3.dp)) {
+            Box(Modifier.clip(RoundedCornerShape(ThemeSpec.Card.cornerSm)).background(YouTubeAccent).padding(horizontal = ThemeSpec.Space.md, vertical = 3.dp)) {
                 Text("Subscribe", fontSize = ThemeSpec.Type.micro, color = ThemeSemantics.textInverse, fontWeight = FontWeight.Bold)
             }
         }
@@ -197,7 +197,7 @@ internal fun YouTubeConceptPanels(
                             Box(Modifier.fillMaxWidth().height(60.dp).clip(RoundedCornerShape(ThemeSpec.Card.cornerSm)).background(ThemeSemantics.surfaceRest)) {
                                 CardArtwork(v.thumb, v.title, Modifier.fillMaxSize())
                                 v.duration?.let { d ->
-                                    Text(d, fontSize = ThemeSpec.Type.micro, color = ThemeSemantics.onMedia, modifier = Modifier.align(Alignment.BottomEnd).padding(2.dp).background(ThemeSemantics.scrimChip, RoundedCornerShape(2.dp)).padding(horizontal = 3.dp, vertical = 1.dp))
+                                    Text(d, fontSize = ThemeSpec.Type.micro, color = ThemeSemantics.onMedia, modifier = Modifier.align(Alignment.BottomEnd).padding(ThemeSpec.Space.xs).background(ThemeSemantics.scrimChip, RoundedCornerShape(2.dp)).padding(horizontal = 3.dp, vertical = 1.dp))
                                 }
                             }
                             Text(v.title, fontSize = ThemeSpec.Type.micro, color = PlayerChrome.ink, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
@@ -218,7 +218,7 @@ internal fun YouTubeCommentsPanel(comments: List<YouTubeApiClient.YouTubeComment
             Modifier.align(Alignment.TopEnd).padding(top = ThemeSpec.Safe.vertical, end = ThemeSpec.Safe.horizontal, bottom = 96.dp).width(200.dp)
                 .clip(RoundedCornerShape(ThemeSpec.Card.cornerLg))
                 .background(PlayerChrome.chip)
-                .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(ThemeSpec.Card.cornerLg))
+                .border(1.dp, ThemeSemantics.hairline, RoundedCornerShape(ThemeSpec.Card.cornerLg))
                 .padding(ThemeSpec.Space.md),
             verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
         ) {
@@ -229,7 +229,7 @@ internal fun YouTubeCommentsPanel(comments: List<YouTubeApiClient.YouTubeComment
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm)) {
                     comments.forEach { c ->
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.xs)) {
                             Row(horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.xs), verticalAlignment = Alignment.CenterVertically) {
                                 Text(c.author, fontSize = ThemeSpec.Type.micro, color = PlayerChrome.ink, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                                 c.time?.let { Text(it, fontSize = ThemeSpec.Type.micro, color = PlayerChrome.inkMuted, maxLines = 1) }

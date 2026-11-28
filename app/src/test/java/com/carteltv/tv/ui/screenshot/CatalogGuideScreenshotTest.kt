@@ -28,7 +28,6 @@ import com.carteltv.tv.ui.components.GridPoster
 import com.carteltv.tv.ui.components.PosterTile
 import com.carteltv.tv.ui.components.SectionTitle
 import com.carteltv.tv.ui.live.GuideProgramCell
-import com.carteltv.tv.ui.nav.ScreenPage
 import com.carteltv.tv.ui.theme.CartelTheme
 import com.carteltv.tv.ui.theme.ThemeSemantics
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -79,19 +78,6 @@ class CatalogGuideScreenshotTest {
             }
         }
         compose.onRoot().captureRoboImage("src/test/screenshots/movies-grid.png")
-    }
-
-    @Test
-    fun masthead_uses_actions_instead_of_a_status_hud() {
-        Nav.resetTo(Route.Home)
-        compose.setContent {
-            CartelTheme {
-                ScreenPage("Movies", icon = R.drawable.ph_film_strip) {
-                    Box(Modifier.fillMaxSize())
-                }
-            }
-        }
-        compose.onRoot().captureRoboImage("src/test/screenshots/masthead-actions.png")
     }
 
     @Test

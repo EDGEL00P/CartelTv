@@ -9,7 +9,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.font.FontWeight
+import androidx.tv.material3.Text
+import com.carteltv.tv.ui.theme.ThemeSemantics
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,6 +38,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.carteltv.tv.R
 import com.carteltv.tv.core.suspendRunCatching
 import com.carteltv.tv.data.preferences.AppPreferences
+import com.carteltv.tv.data.watch.WatchHistoryStore
 import com.carteltv.tv.data.stremio.StremioClient
 import com.carteltv.tv.data.xtream.XtreamClient
 import com.carteltv.tv.ui.components.FilterChip
@@ -84,28 +96,6 @@ internal fun visibleCategoriesFor(
     genre: String?,
 ): List<XtreamClient.Category> = if (genre == null) categories else categories.filter { genreOf(it).equals(genre, ignoreCase = true) }
 
-/** The letter a title files under: its first letter or digit, uppercased — digits file under '#'. */
-internal fun azLetterOf(title: String): Char? {
-    val first = title.trim().firstOrNull { it.isLetterOrDigit() } ?: return null
-    return if (first.isDigit()) '#' else first.uppercaseChar()
-}
-
-/** The strip a page offers: every letter at least one title files under, '#' first. */
-internal fun azIndex(titles: List<String>): List<Char> = titles.mapNotNull(::azLetterOf).distinct().sorted()
-
-/** Where a letter jump lands: the first rail and tile filing under [letter] — or null when none does, which
- *  is the only case in which the strip does not offer the letter at all. */
-internal fun azJump(
-    letter: Char,
-    titlesByRail: List<List<String>>,
-): Pair<Int, Int>? {
-    titlesByRail.forEachIndexed { rail, titles ->
-        val tile = titles.indexOfFirst { azLetterOf(it) == letter }
-        if (tile >= 0) return rail to tile
-    }
-    return null
-}
-
 /** One rail of history is enough: a dozen cards covers a sitting, the way Netflix's own row caps itself. */
 internal const val CONTINUE_WATCHING_CAP = 12
 
@@ -123,7 +113,7 @@ internal fun catalogContinueWatching(
 ): List<AppPreferences.RecentEntry> {
     val prefixes = if (movieCatalog) MOVIE_REF_PREFIXES else listOf("series:")
     return recents
-        .filter { e -> e.url.isNotBlank() && prefixes.any { e.ref.startsWith(it) } }
+        .filter { e -> e.url.isNotBlank() && prefixes.any { e.ref.startsWith(it) } && WatchHistoryStore.presentable(splitTitle(e.title).name) }
         .distinctBy { titleKey(splitTitle(it.title).name) }
         .take(limit)
 }
@@ -185,9 +175,8 @@ private val ToolbarGutter = ThemeSpec.Space.margin + ThemeSpec.Space.sm
 
 /**
  * The On Demand toolbar, on screen above the scrolling catalog the whole time: browse never means losing the
- * controls (NN/g: horizontal-only catalogs fatigue). Search, the sort order, the genre chips and the A–Z
- * strip each hold focus in their own row; nothing here is dead — a control with nothing to act on is simply
- * not composed.
+ * controls (NN/g: horizontal-only catalogs fatigue). The sort row ends in Search; the genre row unfolds only while
+ * the toolbar holds focus. Down from the last row lands on [contentEntry], the catalog's first poster.
  */
 @Composable
 internal fun BrowseToolbar(
@@ -196,16 +185,26 @@ internal fun BrowseToolbar(
     onGenre: (String?) -> Unit,
     sort: CatalogSort,
     onSort: (CatalogSort) -> Unit,
-    letters: List<Char>,
-    letter: Char?,
-    onLetter: (Char?) -> Unit,
+    onSearch: () -> Unit,
+    contentEntry: FocusRequester,
 ) {
     val all = stringResource(R.string.filter_all)
+    // The genre row is a refinement: it opens while focus is in the toolbar and folds away to a one-line summary
+    // of what is applied once it leaves, so the catalog gets the room.
+    var engaged by remember { mutableStateOf(false) }
+    var lastRowFocused by remember { mutableStateOf(false) }
     Column(
-        Modifier.fillMaxWidth().padding(top = ThemeSpec.Space.md),
+        Modifier.fillMaxWidth().padding(top = ThemeSpec.Space.md)
+            .onFocusChanged { engaged = it.hasFocus }
+            // The stock 2D search from the folding row settles back on a toolbar chip, so Down is routed to the
+            // first poster itself; with no poster composed yet, the key falls through to the stock search.
+            .onPreviewKeyEvent { e ->
+                e.type == KeyEventType.KeyDown && e.key == Key.DirectionDown && lastRowFocused &&
+                    runCatching { contentEntry.requestFocus() }.getOrDefault(false)
+            },
         verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
     ) {
-        ChipsRow {
+        ChipsRow(Modifier.onFocusChanged { if (genres.isEmpty()) lastRowFocused = it.hasFocus }) {
             // Sort only: Search, Library, Discover and Shelves already live in the top dock and its
             // Movies & TV folder, so repeating them here just burned a whole row of chrome.
             item(key = "sort:featured") {
@@ -217,22 +216,23 @@ internal fun BrowseToolbar(
             item(key = "sort:top") {
                 FilterChip(stringResource(R.string.catalog_sort_top_rated), sort == CatalogSort.TOP_RATED) { onSort(CatalogSort.TOP_RATED) }
             }
+            item(key = "search") { FilterChip(stringResource(R.string.nav_search), false, onClick = onSearch) }
         }
+        val applied = listOfNotNull(genre).joinToString(" · ")
+        if (!engaged && applied.isNotEmpty()) {
+            Text(
+                applied, fontSize = ThemeSpec.Type.label, fontWeight = FontWeight.SemiBold, color = ThemeSemantics.textTertiary,
+                modifier = Modifier.padding(start = ToolbarGutter + ThemeSpec.Space.sm),
+            )
+        }
+        AnimatedVisibility(visible = engaged) { Column(verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm)) {
         if (genres.isNotEmpty()) {
-            ChipsRow {
+            ChipsRow(Modifier.onFocusChanged { lastRowFocused = it.hasFocus }) {
                 item(key = "genre:all") { FilterChip(all, genre == null) { onGenre(null) } }
                 items(genres, key = { "genre:$it" }) { g -> FilterChip(g, genre == g) { onGenre(g) } }
             }
         }
-        // The strip appears once more than one letter is in play (a one-letter page needs no jump), and stays
-        // while a letter is picked so "All" can always let it go. Letters without a single title are never
-        // composed, so every key on the strip scrolls somewhere real.
-        if (letters.size >= 2 || (letter != null && letters.isNotEmpty())) {
-            ChipsRow(spacing = ThemeSpec.Space.sm) {
-                item(key = "az:all") { FilterChip(all, letter == null, compact = true) { onLetter(null) } }
-                items(letters, key = { "az:$it" }) { l -> FilterChip(l.toString(), letter == l, compact = true) { onLetter(l) } }
-            }
-        }
+        } }
     }
 }
 
@@ -240,11 +240,12 @@ internal fun BrowseToolbar(
  *  rails' own gutter so the chips sit over the posters they act on. */
 @Composable
 private fun ChipsRow(
+    modifier: Modifier = Modifier,
     spacing: Dp = ThemeSpec.Space.md,
     content: LazyListScope.() -> Unit,
 ) {
     LazyRow(
-        Modifier.fillMaxWidth().restoreRowFocus(),
+        modifier.fillMaxWidth(),
         contentPadding = PaddingValues(start = ToolbarGutter, end = ThemeSpec.Safe.horizontal + ThemeSpec.Space.sm),
         horizontalArrangement = Arrangement.spacedBy(spacing),
         content = content,

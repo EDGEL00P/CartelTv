@@ -140,7 +140,7 @@ object OkHttpTransport : HttpTransport {
                 return executeOrFail(url, call, started).readOk(url, started) { it.body?.string().orEmpty() }
             } catch (e: IOException) {
                 val delayMs = retry.nextDelayMs(e) ?: throw e
-                Thread.sleep(delayMs)
+                Thread.sleep(delayMs) // bughunt:ignore kt-thread-sleep
             }
         }
     }

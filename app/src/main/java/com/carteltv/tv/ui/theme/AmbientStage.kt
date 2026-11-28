@@ -28,7 +28,7 @@ private const val AMBIENT_ALPHA = 0.32f
 private const val AMBIENT_TEMPER = 0.30f
 
 /**
- * The colour-thief canvas — Netflix calls the technique "colour thieving": the stage floor
+ * The colour-thief canvas: the stage floor
  * plus a soft wash of the artwork colour that currently holds the banner, rising where the
  * banner's art ends and dissolving into the black floor down the screen. Drawn, not
  * photographed — one colour field, no imagery — so the shelves over it keep all their own

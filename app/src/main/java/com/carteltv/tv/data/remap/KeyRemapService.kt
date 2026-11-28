@@ -280,15 +280,7 @@ class KeyRemapService : AccessibilityService() {
             "notifications_shade" -> runGlobal { performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS) }
             "recents" -> {
                 runCatching {
-                    startActivity(
-                        packageManager.getLaunchIntentForPackage(packageName)!!
-                            .putExtra("goto", "recents")
-                            .addFlags(
-                                Intent.FLAG_ACTIVITY_NEW_TASK or
-                                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                                    Intent.FLAG_ACTIVITY_SINGLE_TOP,
-                            ),
-                    )
+                    startActivity(com.carteltv.tv.nav.AppLauncher.mainIntent(this, "recents"))
                 }.onFailure { runGlobal { performGlobalAction(GLOBAL_ACTION_RECENTS) } }
             }
             "screenshot" -> {

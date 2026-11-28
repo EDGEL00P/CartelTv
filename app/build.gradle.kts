@@ -161,10 +161,19 @@ android {
     // from YT_CLIENT_SECRET env var (CI) or youtube.clientSecret in local.properties.
     val ytClientSecret = System.getenv("YT_CLIENT_SECRET")
         ?: tgProps.getProperty("youtube.clientSecret", "")
+    // YouTube OAuth client ID: defaults to the SmartTube TV-and-Limited-Input client so the
+    // build stays green, but can be overridden (youtube.clientId in local.properties or
+    // YT_CLIENT_ID env) to use your own Google Cloud OAuth client and branding.
+    val ytClientId = System.getenv("YT_CLIENT_ID")
+        ?: tgProps.getProperty(
+            "youtube.clientId",
+            "431299132531-jl6pvavltsevftvisp07hknrqd09813f.apps.googleusercontent.com",
+        )
     defaultConfig {
         buildConfigField("String", "TG_API_ID", "\"$tgApiId\"")
         buildConfigField("String", "TG_API_HASH", "\"$tgApiHash\"")
         buildConfigField("String", "YT_CLIENT_SECRET", "\"$ytClientSecret\"")
+        buildConfigField("String", "YT_CLIENT_ID", "\"$ytClientId\"")
     }
 
     testOptions {
@@ -234,6 +243,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.profileinstaller)
+    implementation(libs.androidx.datastore.preferences)
     "baselineProfile"(project(":baselineprofile"))
 
     // Playback engine: stock Media3 (Apache-2.0) plus CartelTV's own renderers and extractors.

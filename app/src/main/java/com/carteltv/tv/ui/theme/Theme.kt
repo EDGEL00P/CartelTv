@@ -2,13 +2,17 @@ package com.carteltv.tv.ui.theme
 
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -52,41 +56,37 @@ import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.delay
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 /*
  * Design system in three tiers: ThemePrimitives holds the raw concept tokens and is referenced only by
  * ThemeSemantics, the semantic roles feature code imports. ThemeSpec adds component and motion constants.
  */
 object ThemePrimitives {
-    // ink and scrims over media
-    val inkBlack = Color(0xFF000000) // dark ground the scrims over media are built from
-    val smokedGlass = Color(0x4D000000) // dark glass over media, 30%
-    val scrimBand = Color(0x4D000000) // poster caption band anchor
+    val graphite = Color(0xFF48484A) // the one neutral every collapsed accent resolves to
 
     // neutrals
     val warmAsh = Color(0xFFA1A1A6) // muted text — concept --text-secondary
 
     // signals — concept semantic tokens
     val ledgerGreen = Color(0xFF46D369) // success / earned — readable status green
-    val glacier = Color(0xFF48484A) // cool info lanes — graphite
+    val glacier = graphite // cool info lanes — graphite
     val amberLamp = Color(0xFF767676) // tertiary — muted
     val scarlet = Color(0xFFFF3B30) // destructive and error only
 
     // ── data colours that are not chrome ──
-    val mediaInk = Color(0xFF121418) // dark ground under scorebugs, widgets and artwork
     val cornerRed = Color(0xFFC8102E) // red corner for athletes with no brand colour
     val cornerBlue = Color(0xFF1D4ED8) // blue corner
 
-    // ── text + scrim ladder ──
-    val scrimDeep = Color(0x73000000) // gradient anchor over artwork
-    val scrimChip = Color(0x4D000000) // badge chip over artwork
     val trackWhite = Color(0x33000000) // progress track over artwork
 
     // ── concept accent set (reserved, used sparingly) ──
-    val gold = Color(0xFF48484A) // premium tag — graphite
-    val info = Color(0xFF48484A) // info lanes — graphite
+    val gold = graphite // premium tag — graphite
+    val info = graphite // info lanes — graphite
     val warning = Color(0xFFFF9500) // warnings — --warning
-    val sportsOrange = Color(0xFF48484A) // sports tones — graphite
+    val sportsOrange = graphite // sports tones — graphite
 }
 
 /* ── THE APPEARANCE (Liquid Glass dark) ──
@@ -95,23 +95,14 @@ object ThemePrimitives {
    frosts and ghosts through instead of vanishing behind charcoal. Legibility comes from
    the blur, not opacity; reduceTransparency restores near-solid surfaces. */
 object NeutralPrimitives {
-    val stageTop = Color(0xFF080808) // cinematic black with just enough lift to separate chrome
-    val stageBottom = Color(0xFF000000) // Netflix-black stage floor
+    val stageBottom = Color(0xFF000000) // pure-black stage floor
     val ink = Color(0xFFFFFFFF) // primary text — pure white
-    val ink2 = Color(0xFFB3B3B3) // secondary text — Netflix's quiet metadata gray
-    val ink3 = Color(0xFF808080) // tertiary text — still readable at ten feet
-    val hairline = Color(0x38FFFFFF) // glass rim at rest — a real edge, brightest at the top
-    val glass = Color(0x6B141414) // resting glass: 42% charcoal over the blurred backdrop
-    val glassStrong = Color(0x9E1C1C1C) // selected and raised glass: 62%
-    val glassFocus = Color(0x8C1A1A1A) // focused glass: 55%, stepped forward by rim + glow
-    val modalVeil = Color(0xB8080808) // modal glass: 72% over blur — dense copy stays readable
-    val scrimVeil = Color(0xB3000000) // translucent veil over content behind dialogs
-    val numeral = Color(0xFFB3B3B3) // numerals, chrome rules
+    val ink2 = Color(0xFFB3B3B3) // muted ink over artwork; on themed surfaces use the preset's NeutralTones
     val chipOn = Color(0x29FFFFFF) // selected chip fill — quiet white, never red focus
 }
 
 object ThemeSemantics {
-    private fun glass(base: Color): Color = if (ThemePresets.reduceTransparency) base.copy(alpha = maxOf(base.alpha, 0.96f)) else base
+    private fun glass(base: Color): Color = if (ThemeAccessibility.reduceTransparency) base.copy(alpha = maxOf(base.alpha, 0.96f)) else base
 
     // Preset hue tints every glass tier, strongest where focus lands, so a theme is visible
     // in the material itself and not only in badges and rings.
@@ -120,28 +111,33 @@ object ThemeSemantics {
         amount: Float,
     ): Color = lerp(base, accent, amount).copy(alpha = base.alpha)
 
-    private fun focusedGlass(): Color = tinted(NeutralPrimitives.glassFocus, 0.20f)
+    private val neutrals: NeutralTones get() = BroadcastThemes.current.value.neutrals
+
+    private fun focusedGlass(): Color = tinted(neutrals.glassFocus, 0.20f)
+
+    // Veils are the preset's own ground at a given opacity, so a fade over artwork ends in exactly the stage colour.
+    private fun veil(alpha: Float): Color = stage.copy(alpha = alpha)
 
     // stage
-    val stage: Color get() = NeutralPrimitives.stageBottom // every screen's floor
-    val stageLift: Color get() = glass(NeutralPrimitives.glassStrong) // raised / pressed stage
+    val stage: Color get() = BroadcastThemes.current.value.canvasPrimary // every screen's floor
+    val stageLift: Color get() = glass(neutrals.glassStrong) // raised / pressed stage
 
     // Glass surfaces: translucent dark over whatever the backdrop draws, so content
     // behind tints them — a smoked window, not an opaque panel.
-    val panel: Color get() = glass(tinted(NeutralPrimitives.glass, 0.12f)) // resting glass — cards, rows, chips
-    val scrimBlack: Color get() = ThemePrimitives.inkBlack // use .copy(alpha = …) for ad-hoc veils
-    val scrim: Color get() = ThemePrimitives.smokedGlass // glass over media
-    val scrimTitleBand: Color get() = ThemePrimitives.scrimBand // caption gradient anchor
-    val scrimModal: Color get() = NeutralPrimitives.scrimVeil // THE dialog veil
-    val hairline: Color get() = NeutralPrimitives.hairline // dividers, idle strokes
+    val panel: Color get() = glass(neutrals.glass) // resting glass — cards, rows, chips, in the preset's tinted neutral
+    val scrimBlack: Color get() = stage // the preset ground; use .copy(alpha = …) for ad-hoc veils
+    val scrim: Color get() = veil(0.30f) // glass over media
+    val scrimTitleBand: Color get() = veil(0.30f) // caption gradient anchor
+    val scrimModal: Color get() = veil(0.70f) // THE dialog veil
+    val hairline: Color get() = neutrals.hairline // dividers, idle strokes
 
     // typography pigments
     val textPrimary: Color get() = NeutralPrimitives.ink
-    val textMuted: Color get() = NeutralPrimitives.ink2
-    val textInverse: Color get() = ThemePresets.bus.value.onAccent // readable ink on an accent fill
+    val textMuted: Color get() = neutrals.ink2
+    val textInverse: Color get() = BroadcastThemes.current.value.onAccent // readable ink on an accent fill
     val textEmphatic: Color get() = NeutralPrimitives.ink // focused, read-aloud moments
-    val textSecondary: Color get() = NeutralPrimitives.ink2 // subtitles, idle nav tabs
-    val textTertiary: Color get() = NeutralPrimitives.ink3 // counts, captions
+    val textSecondary: Color get() = neutrals.ink2 // subtitles, idle nav tabs
+    val textTertiary: Color get() = neutrals.ink3 // counts, captions
 
     // Ink for text laid directly on artwork or a light scrim, whatever the surface around it is.
     val onMedia: Color = NeutralPrimitives.ink
@@ -149,16 +145,18 @@ object ThemeSemantics {
     val onMediaInk: Color get() = NeutralPrimitives.stageBottom
     val chip: Color get() = panel // idle chip / pill fill
     val chipSelected: Color get() = NeutralPrimitives.chipOn // selected chip fill
-    val scrimDeep: Color get() = ThemePrimitives.scrimDeep // bottom-of-tile / top-of-screen anchor
-    val scrimChip: Color get() = ThemePrimitives.scrimChip // badge over artwork
+    val scrimDeep: Color get() = veil(0.45f) // bottom-of-tile / top-of-screen anchor
+    val scrimChip: Color get() = veil(0.30f) // badge over artwork
     val progressTrack = ThemePrimitives.trackWhite // resume-bar track
-    val numeral: Color get() = NeutralPrimitives.numeral // numerals, chrome rules
+    val numeral: Color get() = neutrals.ink2 // numerals, chrome rules
 
-    // House accents read through ThemePresets.bus so a selection repaints
+    // House accents read through the selected broadcast theme so a selection repaints
     // every semantic color reader without changing feature call sites.
-    val accent: Color get() = ThemePresets.bus.value.primary // selection, ribbons, brand
-    val accentBright: Color get() = ThemePresets.bus.value.glare
-    val accentShadow: Color get() = ThemePresets.bus.value.shadow
+    val accent: Color get() = BroadcastThemes.current.value.accentPrimary // selection, ribbons, brand
+    val accentBright: Color get() = BroadcastThemes.current.value.accentBright
+    val accentShadow: Color get() = BroadcastThemes.current.value.accentShadow
+    val signature: Color get() = BroadcastThemes.current.value.signature // the broadcaster's second brand colour
+    val highlight: Color get() = BroadcastThemes.current.value.highlight // its third tone: pinstripes and key light
     val money = ThemePrimitives.ledgerGreen // CLEARED, ready, linked — earned states
     val win = ThemePrimitives.ledgerGreen // a settled result, shown beside the dimmed loser
     val infoCold = ThemePrimitives.glacier // telemetry, cool info lanes
@@ -171,26 +169,43 @@ object ThemeSemantics {
     // signals
     val danger = ThemePrimitives.scarlet // alarms, destructive
     val live: Color get() = accent // LIVE badges and clocks follow the active preset
-    val mediaInk = ThemePrimitives.mediaInk // ground under scorebugs, widgets and artwork
+    /** Ground under scorebugs, widgets and empty artwork: the stage lifted a little toward the signature. */
+    val mediaInk: Color get() = BroadcastThemes.current.value.let { lerp(it.canvasPrimary, it.signature, 0.12f) }
     val cornerRed = ThemePrimitives.cornerRed // head-to-head corners
     val cornerBlue = ThemePrimitives.cornerBlue
-    val focusRing: Color get() = NeutralPrimitives.ink // crisp focus core — see ThemeSpec.Focus
-    val focusGlow: Color get() = accent // the glow that follows it — concept --focus-glow-color
+    val focusRing: Color get() = BroadcastThemes.current.value.focusRingTint
+    val focusGlow: Color get() = BroadcastThemes.current.value.focusGlowTint
 
     // ── surface ladder: translucent rest, focused, raised and deep glass ──
     val surface1: Color get() = panel // raised rows / cards over stage
-    val surface2: Color get() = glass(tinted(NeutralPrimitives.glassStrong, 0.08f)) // cards on panels, list wells
-    val surface3: Color get() = glass(NeutralPrimitives.modalVeil) // modals, sheets — deep glass
-    val surface4: Color get() = glass(tinted(NeutralPrimitives.glassStrong, 0.08f)) // floating chrome: tooltips, flyouts
-    val surfaceModal: Color get() = glass(NeutralPrimitives.modalVeil)
+    val surface2: Color get() = glass(tinted(neutrals.glassStrong, 0.08f)) // cards on panels, list wells
+    val surface3: Color get() = glass(neutrals.modal) // modals, sheets — deep glass
+    val surface4: Color get() = glass(tinted(neutrals.glassStrong, 0.08f)) // floating chrome: tooltips, flyouts
+    val surfaceModal: Color get() = glass(neutrals.modal)
     val surfaceRest: Color get() = panel
     val surfaceFocus: Color get() = glass(focusedGlass())
-    val surfaceSelected: Color get() = glass(tinted(NeutralPrimitives.glassStrong, 0.14f))
-    val surfaceRaised: Color get() = glass(tinted(NeutralPrimitives.glassStrong, 0.08f))
-    val surfaceFloat: Color get() = glass(NeutralPrimitives.modalVeil)
-    val scrimBase: Color get() = NeutralPrimitives.scrimVeil
+    val surfaceSelected: Color get() = glass(tinted(neutrals.glassStrong, 0.14f))
+    val surfaceRaised: Color get() = glass(tinted(neutrals.glassStrong, 0.08f))
+    val surfaceFloat: Color get() = glass(neutrals.modal)
+    val scrimBase: Color get() = scrimModal
     val success: Color get() = ThemePrimitives.ledgerGreen
     val softEdge: Color get() = hairline
+
+    // One state language for every focusable pill, chip, tab and button: focus is the white key light,
+    // selection is the network accent, rest is glass with a hairline rim. Focus outranks selection.
+    fun controlFill(focused: Boolean, selected: Boolean = false, rest: Color = surfaceRest): Color =
+        when {
+            focused -> textEmphatic
+            selected -> accent
+            else -> rest
+        }
+
+    fun controlInk(focused: Boolean, selected: Boolean = false): Color =
+        when {
+            focused -> stage
+            selected -> textInverse
+            else -> textEmphatic
+        }
 }
 
 object ThemeSpec {
@@ -211,6 +226,7 @@ object ThemeSpec {
     object Type {
         val scale = 1f
         val display = (36 * scale).sp // hero title — displaySmall
+        val temperature = (84 * scale).sp // high-contrast weather temperature — dedicated display numeral
         val titleL = (26 * scale).sp // screen mastheads — headlineMedium
         val title = (20 * scale).sp // row titles, modal heads — titleLarge
         val cardTitle = (18 * scale).sp // card titles — titleMedium
@@ -315,6 +331,20 @@ object ThemeSpec {
         val rowGap = 6.dp // standard list/card row gap — concept 12px
     }
 
+    /** Stable layout components shared across Home, browse screens, overlays and dialogs. */
+    object Layout {
+        val onboardingWidth: Dp = 720.dp
+        val onboardingTopInset: Dp = 96.dp
+        val onboardingBottomSpace: Dp = 42.dp
+        val onboardingButtonPadding: Dp = 34.dp
+        val appOverlaySheetWidth: Dp = 120.dp
+        val dialogCompact: Dp = 320.dp
+        val dialogStandard: Dp = 680.dp
+        val guideChannelWidth: Dp = 176.dp
+        val guideRowHeight: Dp = 68.dp
+        val guideSummaryHeight: Dp = 88.dp
+    }
+
     /** Glass material constants: backdrop blur, rim and rest elevation. */
     object Glass {
         val rimWidth: Dp = 1.dp // glass border width
@@ -338,7 +368,7 @@ object ThemeSpec {
         val lift: Float = 1.06f // clear feedback without colliding with siblings
         val liftHero: Float = 1.02f
         val liftCompact: Float = 1.04f // rows, small tiles — kept tight for density
-        val liftPoster: Float = 1.08f // focused art lifts gently, like Netflix's browse rows
+        val liftPoster: Float = 1.08f // focused art lifts gently
         val liftIcon: Float = 1.06f // tiny round targets
         val pressed: Float = 0.97f // OK held down: a subtle press, not a large dip
         val hoverLift: Float = 1.02f // quiet pointer precursor
@@ -411,7 +441,7 @@ fun focusScaleState(
         }
         settled = true
     }
-    return if (ThemePresets.systemAnimationsRemoved) {
+    return if (ThemeAccessibility.systemAnimationsRemoved) {
         // No spring: focus lifts land instantly instead of animating.
         remember(focused, pressed) {
             mutableStateOf(
@@ -439,6 +469,21 @@ fun focusScaleState(
         )
     }
 }
+
+/** The capsule every control wears: [ThemeSemantics.controlFill] over the house compact lift, with the
+ *  hairline rim only at rest. Pair its content with [ThemeSemantics.controlInk]. */
+@Composable
+fun Modifier.controlSurface(
+    focused: Boolean,
+    selected: Boolean = false,
+    pressed: Boolean = false,
+    rest: Color = ThemeSemantics.surfaceRest,
+): Modifier =
+    this
+        .focusLift(focusScaleState(focused, ThemeSpec.Focus.liftCompact, pressed))
+        .clip(CircleShape)
+        .background(ThemeSemantics.controlFill(focused, selected, rest))
+        .border(ThemeSpec.Focus.idleWidth, if (focused || selected) Color.Transparent else ThemeSemantics.hairline, CircleShape)
 
 /** Applies [focusScaleState] in the draw layer; the State is read there, never in composition. */
 fun Modifier.focusLift(scale: State<Float>): Modifier =
@@ -470,7 +515,7 @@ internal fun Modifier.glassFill(
     blur: Boolean,
 ): Modifier {
     val hazeState = LocalGlassBackdrop.current
-    return if (blur && hazeState != null && !ThemePresets.reduceTransparency) {
+    return if (blur && hazeState != null && !ThemeAccessibility.reduceTransparency) {
         this.hazeEffect(
             state = hazeState,
             style =
@@ -483,8 +528,8 @@ internal fun Modifier.glassFill(
                 ),
         )
     } else {
-        val topAlpha = if (ThemePresets.reduceTransparency) 0.98f else fill.alpha
-        val bottomAlpha = if (ThemePresets.reduceTransparency) 0.96f else (fill.alpha * 0.88f).coerceAtLeast(0.18f)
+        val topAlpha = if (ThemeAccessibility.reduceTransparency) 0.98f else fill.alpha
+        val bottomAlpha = if (ThemeAccessibility.reduceTransparency) 0.96f else (fill.alpha * 0.88f).coerceAtLeast(0.18f)
         this.background(Brush.verticalGradient(listOf(fill.copy(alpha = topAlpha), fill.copy(alpha = bottomAlpha))))
     }
 }
@@ -608,7 +653,7 @@ fun Modifier.glassEdge(
 @Composable
 fun Modifier.enterScene(delayMs: Int = 0): Modifier {
     // System "remove animations" (ANIMATOR_DURATION_SCALE == 0): scenes appear settled, no fade or ascent.
-    if (ThemePresets.systemAnimationsRemoved) return this
+    if (ThemeAccessibility.systemAnimationsRemoved) return this
     var entered by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         withFrameNanos { } // paint one settled frame first
@@ -629,6 +674,7 @@ fun Modifier.enterScene(delayMs: Int = 0): Modifier {
 
 @Composable
 fun CartelTheme(content: @Composable () -> Unit) {
+    val broadcastTheme = BroadcastThemes.current.value
     // Every slot is set explicitly from ThemeSemantics, so the constructor's defaults never surface.
     val colorScheme =
         darkColorScheme(
@@ -715,7 +761,13 @@ fun CartelTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = colorScheme,
         typography = typography,
-        content = content,
+        // Text with no style of its own would fall back to the platform face; this keeps every screen on Outfit.
+        content = {
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.tv.material3.LocalTextStyle provides
+                    androidx.tv.material3.LocalTextStyle.current.merge(androidx.compose.ui.text.TextStyle(fontFamily = ThemeSpec.Font.body)),
+            ) { BroadcastThemeProvider(broadcastTheme, content) }
+        },
     )
 }
 
@@ -732,22 +784,47 @@ val LocalInScreenScaffold = androidx.compose.runtime.staticCompositionLocalOf { 
 fun CartelBackdrop(modifier: Modifier = Modifier) {
     if (LocalInScreenScaffold.current) return
     val accent = ThemeSemantics.accent
-    val glare = ThemeSemantics.accentBright
+    val signature = ThemeSemantics.signature
+    val highlight = ThemeSemantics.highlight
     val shadowTone = ThemeSemantics.accentShadow
+    // The three brand tones drift on slow, offset orbits like moving studio lights. The phase is read only in the
+    // draw lambda, so motion redraws this layer without recomposing; "remove animations" holds them still.
+    val phase: State<Float> = if (ThemeAccessibility.systemAnimationsRemoved) {
+        remember { mutableStateOf(0f) }
+    } else {
+        rememberInfiniteTransition(label = "backdrop").animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(BACKDROP_ORBIT_MS, easing = LinearEasing)),
+            label = "backdropOrbit",
+        )
+    }
     Box(
         modifier
             .fillMaxSize()
             .background(ThemeSemantics.stage)
+            .graphicsLayer() // isolates the per-frame redraw from the content drawn over the backdrop
             .drawBehind {
+                val a = phase.value * 2f * PI.toFloat()
+                fun orbit(x: Float, y: Float, rx: Float, ry: Float, lead: Float) =
+                    Offset(size.width * (x + rx * cos(a + lead)), size.height * (y + ry * sin(a + lead)))
+                // Signature floods from the left like a studio wall.
                 drawCircle(
-                    brush = Brush.radialGradient(listOf(accent.copy(alpha = 0.30f), Color.Transparent)),
-                    radius = size.width * 0.55f,
-                    center = Offset(size.width * 0.88f, size.height * 0.02f),
+                    brush = Brush.radialGradient(listOf(signature.copy(alpha = 0.55f), Color.Transparent)),
+                    radius = size.width * 0.70f,
+                    center = orbit(0.06f, 0.85f, 0.05f, 0.06f, 0f),
                 )
+                // The accent is the key light, top right.
                 drawCircle(
-                    brush = Brush.radialGradient(listOf(glare.copy(alpha = 0.16f), Color.Transparent)),
-                    radius = size.width * 0.48f,
-                    center = Offset(size.width * 0.04f, size.height * 0.96f),
+                    brush = Brush.radialGradient(listOf(accent.copy(alpha = 0.14f), Color.Transparent)),
+                    radius = size.width * 0.55f,
+                    center = orbit(0.88f, 0.02f, 0.05f, 0.08f, 2.1f),
+                )
+                // The third tone is a soft overhead spill crossing between them.
+                drawCircle(
+                    brush = Brush.radialGradient(listOf(highlight.copy(alpha = 0.09f), Color.Transparent)),
+                    radius = size.width * 0.45f,
+                    center = orbit(0.45f, -0.05f, 0.12f, 0.06f, 4.2f),
                 )
                 drawCircle(
                     brush = Brush.radialGradient(listOf(shadowTone.copy(alpha = 0.35f), Color.Transparent)),
@@ -758,17 +835,7 @@ fun CartelBackdrop(modifier: Modifier = Modifier) {
     )
 }
 
-val BrassSheen get() =
-    Brush.linearGradient(
-        listOf(
-            ThemeSemantics.accentShadow,
-            ThemeSemantics.accent,
-            ThemeSemantics.accentBright,
-            ThemeSemantics.accent,
-            ThemeSemantics.accentShadow,
-        ),
-    )
-val BrassSolid get() = Brush.verticalGradient(listOf(ThemeSemantics.accent, ThemeSemantics.accentShadow))
+private const val BACKDROP_ORBIT_MS = 36_000
 
 private enum class GreetingPeriod { MORNING, AFTERNOON, EVENING, NIGHT }
 

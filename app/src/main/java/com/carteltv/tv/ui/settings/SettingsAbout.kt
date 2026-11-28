@@ -81,7 +81,6 @@ import com.carteltv.tv.ui.components.TvTextField
 import com.carteltv.tv.ui.components.OverlayCoordinator
 import com.carteltv.tv.data.events.Holidays
 import com.carteltv.tv.ui.home.NowOn
-import com.carteltv.tv.ui.nav.ScreenMasthead
 import com.carteltv.tv.ui.components.awaitFocus
 import com.carteltv.tv.ui.components.clickableNoIndication
 import com.carteltv.tv.ui.components.dismissScrim

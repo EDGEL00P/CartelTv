@@ -73,6 +73,9 @@ import kotlinx.coroutines.delay
 private const val AUTO_HIDE_MS = 5_000L
 private const val ADVANCED_HIDE_MS = 12_000L
 
+/** Clearance kept top-right so the status badges never run under the clock chip. */
+private val TopStatusClockClearance = 96.dp
+
 /** The deck rises by this fraction of the screen height as it fades in. */
 private const val DECK_RISE_FRACTION = 12
 
@@ -414,7 +417,7 @@ fun PlayerOverlay(
                     modifier = Modifier.align(Alignment.TopStart).padding(
                         top = ThemeSpec.Safe.vertical,
                         start = ThemeSpec.Safe.horizontal,
-                        end = ThemeSpec.Safe.horizontal + 96.dp,
+                        end = ThemeSpec.Safe.horizontal + TopStatusClockClearance,
                     ),
                 )
 

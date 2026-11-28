@@ -19,12 +19,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
-import coil3.SingletonImageLoader
 import coil3.BitmapImage
-import coil3.request.allowHardware
+import coil3.SingletonImageLoader
+import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
+import coil3.request.allowHardware
 import com.carteltv.tv.ui.theme.ThemeSpec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -32,7 +32,10 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.max
 
 /** What one piece of art turns out to be once read: its shape, and the colour that leads it. */
-internal data class ArtRead(val aspect: Float, val tint: Color) {
+internal data class ArtRead(
+    val aspect: Float,
+    val tint: Color,
+) {
     /** Taller than a frame: a poster, which stands whole rather than fills. */
     val poster: Boolean get() = aspect < POSTER_ASPECT
 }
@@ -48,34 +51,46 @@ private val reads = ConcurrentHashMap<String, ArtRead>()
 
 /**
  * Reads [url] small: once for its shape, once for the colour of its left quarter, which is the part of the band
- * the sidebar's glass sits over. Null when there is nothing to read, so the caller falls back on its own ground.
+ * the navigation bar's glass sits over. Null when there is nothing to read, so the caller falls back on its own ground.
  */
-internal suspend fun readArt(ctx: Context, url: String): ArtRead? {
+internal suspend fun readArt(
+    ctx: Context,
+    url: String,
+): ArtRead? {
     reads[url]?.let { return it }
-    val read = withContext(Dispatchers.IO) {
-        // Hardware bitmaps answer no pixel questions, so this one is asked for in software.
-        val request = ImageRequest.Builder(ctx).data(url).size(ART_READ_PX).allowHardware(false).build()
-        val bitmap = (runCatching { SingletonImageLoader.get(ctx).execute(request) }.getOrNull() as? SuccessResult)
-            ?.image?.let { (it as? BitmapImage)?.bitmap }
-        if (bitmap == null || bitmap.width < 2 || bitmap.height < 2) {
-            null
-        } else {
-            var red = 0
-            var green = 0
-            var blue = 0
-            var count = 0
-            for (x in 0 until max(1, bitmap.width / 4)) {
-                for (y in 0 until bitmap.height) {
-                    val p = bitmap.getPixel(x, y)
-                    red += (p shr 16) and 0xFF
-                    green += (p shr 8) and 0xFF
-                    blue += p and 0xFF
-                    count++
+    val read =
+        withContext(Dispatchers.IO) {
+            // Hardware bitmaps answer no pixel questions, so this one is asked for in software.
+            val request =
+                ImageRequest
+                    .Builder(ctx)
+                    .data(url)
+                    .size(ART_READ_PX)
+                    .allowHardware(false)
+                    .build()
+            val bitmap =
+                (runCatching { SingletonImageLoader.get(ctx).execute(request) }.getOrNull() as? SuccessResult)
+                    ?.image
+                    ?.let { (it as? BitmapImage)?.bitmap }
+            if (bitmap == null || bitmap.width < 2 || bitmap.height < 2) {
+                null
+            } else {
+                var red = 0
+                var green = 0
+                var blue = 0
+                var count = 0
+                for (x in 0 until max(1, bitmap.width / 4)) {
+                    for (y in 0 until bitmap.height) {
+                        val p = bitmap.getPixel(x, y)
+                        red += (p shr 16) and 0xFF
+                        green += (p shr 8) and 0xFF
+                        blue += p and 0xFF
+                        count++
+                    }
                 }
+                ArtRead(bitmap.width / bitmap.height.toFloat(), Color(red / count, green / count, blue / count))
             }
-            ArtRead(bitmap.width / bitmap.height.toFloat(), Color(red / count, green / count, blue / count))
         }
-    }
     read?.let { reads[url] = it }
     return read
 }
@@ -103,7 +118,12 @@ private val CrestSize = 150.dp
  * at banner scale. With no logo from the feed a side keeps only its colour.
  */
 @Composable
-internal fun Matchup(awayLogo: String?, homeLogo: String?, away: Color, home: Color) {
+internal fun Matchup(
+    awayLogo: String?,
+    homeLogo: String?,
+    away: Color,
+    home: Color,
+) {
     Box(Modifier.fillMaxSize()) {
         Box(
             Modifier.fillMaxSize().background(
@@ -122,7 +142,10 @@ internal fun Matchup(awayLogo: String?, homeLogo: String?, away: Color, home: Co
 }
 
 @Composable
-private fun Crest(logo: String?, color: Color) {
+private fun Crest(
+    logo: String?,
+    color: Color,
+) {
     if (logo == null) return
     Box(
         Modifier
@@ -131,7 +154,12 @@ private fun Crest(logo: String?, color: Color) {
             .background(Color.White.copy(alpha = 0.08f)),
         contentAlignment = Alignment.Center,
     ) {
-        AsyncImage(model = logo, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(ThemeSpec.Space.lg))
+        AsyncImage(
+            model = logo,
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxSize().padding(ThemeSpec.Space.lg),
+        )
     }
 }
 
@@ -143,13 +171,13 @@ internal fun LeagueCrest(logo: String) {
             model = logo,
             contentDescription = null,
             contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxHeight(0.45f)
-                .widthIn(max = LeagueCrestWidth)
-                .padding(end = ThemeSpec.Space.xl * 4),
+            modifier =
+                Modifier
+                    .fillMaxHeight(0.45f)
+                    .widthIn(max = LeagueCrestWidth)
+                    .padding(end = ThemeSpec.Space.xl * 4),
         )
     }
 }
 
 private val LeagueCrestWidth = 280.dp
-

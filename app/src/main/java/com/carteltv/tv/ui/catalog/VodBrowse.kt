@@ -3,7 +3,6 @@ package com.carteltv.tv.ui.catalog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,13 +19,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Text
 import com.carteltv.tv.R
 import com.carteltv.tv.core.suspendRunCatching
@@ -63,6 +62,7 @@ import com.carteltv.tv.ui.home.resumeLine
 import com.carteltv.tv.ui.home.splitTitle
 import com.carteltv.tv.ui.live.GuideMetadata
 import com.carteltv.tv.ui.nav.ScreenPage
+import com.carteltv.tv.ui.nav.ShellChrome
 import com.carteltv.tv.ui.theme.*
 import com.carteltv.tv.ui.theme.ThemeSemantics
 import com.carteltv.tv.ui.theme.ThemeSpec
@@ -100,8 +100,8 @@ fun NeedProviderNotice() {
     }
 }
 
-/** Rail tile width: the Netflix browse rail — 2:3 portrait posters, ~5 across the 960dp canvas and a peek of the next. */
-private val RAIL_TILE_WIDTH = 160.dp
+/** Rail tile width: the Netflix/Disney+ browse rail — big 2:3 portrait poster boxes, ~4 across the 960dp canvas with a peek of the next. */
+private val RAIL_TILE_WIDTH = 200.dp
 
 private val CatalogGridPadding =
     PaddingValues(
@@ -264,8 +264,8 @@ internal data class HeroPick(
 /** The rail key the billboard rides on. It carries no item keys, so the flat focus-restore index is unshifted. */
 private const val HERO_RAIL_KEY = "hero"
 
-/** The billboard's height on the 540dp canvas: tall enough to read as a hero, short enough to leave the rails room. */
-private val HERO_HEIGHT = 200.dp
+/** The billboard's height on the 540dp canvas: a tall, cinematic feature box that still leaves the rails room. */
+private val HERO_HEIGHT = 264.dp
 
 /**
  * The featured billboard that leads the On Demand page, the way every real catalog opens on a title.
@@ -351,8 +351,8 @@ internal fun CatalogHero(pick: HeroPick) {
  * One On Demand page of horizontal rails fed by every configured source: provider categories
  * (Xtream/M3U/Stalker) load one at a time, then Stremio add-on catalogs append below. No source is
  * hidden behind an either/or split, so whatever the user configured surfaces here automatically.
- * The toolbar above the scrolling catalog keeps search, the genre filter, the sort order and the
- * A–Z strip on screen for the whole browse (NN/g: horizontal-only catalogs fatigue), and the
+ * The toolbar above the scrolling catalog keeps the sort order, Search and the genre filter on
+ * screen for the whole browse (NN/g: horizontal-only catalogs fatigue), and the
  * player's history for this kind of title opens the page as a Continue watching rail.
  */
 @Composable
@@ -373,10 +373,9 @@ private fun <T> CombinedGrid(
     val cwArt = rememberCwArt(continueWatching.entries)
     val cwHeading = stringResource(R.string.catalog_continue_watching)
     val cwRemoveLabel = stringResource(R.string.catalog_remove_continue)
-    // The toolbar's picks: a genre (null = All), a sort order, and the A–Z strip's letter (null = All).
+    // The toolbar's picks: a genre (null = All), a sort order.
     var genre by rememberSaveable { mutableStateOf<String?>(null) }
     var sort by rememberSaveable { mutableStateOf(CatalogSort.FEATURED) }
-    var letter by remember { mutableStateOf<Char?>(null) }
 
     val stremioRows = remember(stremioType) { mutableStateOf<List<CatalogRow>?>(null) }
 
@@ -419,14 +418,16 @@ private fun <T> CombinedGrid(
     }
 
     // Provider categories load one at a time: empty rows have no height, so per-row loading fired every request at once.
-    val rows = remember(providerCats) { androidx.compose.runtime.mutableStateMapOf<String, List<T>>() }
-    var providerLoadComplete by remember(providerCats) { mutableStateOf(false) }
+    val rows = remember(provider, providerCats) { androidx.compose.runtime.mutableStateMapOf<String, List<T>>() }
+    var providerLoadComplete by remember(provider, providerCats) { mutableStateOf(false) }
     // Categories arrive before their rows; keep the skeleton until the sequential requests finish.
-    LaunchedEffect(providerCats) {
+    LaunchedEffect(provider, providerCats) {
         if (provider != null && providerCats == null) return@LaunchedEffect
         providerLoadComplete = false
         for (c in providerCats.orEmpty()) {
-            rows[c.category_id] = suspendRunCatching { loadProvider(c.category_id) }.getOrDefault(emptyList()).take(30)
+            val fresh = suspendRunCatching { loadProvider(c.category_id) }.getOrDefault(emptyList())
+            if (ProviderSession.current !== provider) return@LaunchedEffect
+            rows[c.category_id] = fresh.take(30)
         }
         providerLoadComplete = true
     }
@@ -516,23 +517,22 @@ private fun <T> CombinedGrid(
             }
         }
     val itemKeys = remember(rails) { rails.flatMap { it.keys } }
-    // The A–Z strip offers exactly the letters some visible title files under.
-    val letters = remember(rails) { azIndex(rails.flatMap { it.titles }) }
 
     // Identity-based focus restore: see FocusMemoryStore. The flat index maps back to its rail and tile.
     val columnState = rememberLazyListState()
     // Row states outlive data arrivals, so a late category never resets a rail the user already scrolled.
     val rowStates = remember { mutableMapOf<String, LazyListState>() }
     val focusRegistry = rememberKeyFocusRegistry()
-    // The page's restorer falls back to the first poster, which is also the entry node.
+    // The first poster: the page's entry node and where Down from the toolbar lands.
     val first = remember { FocusRequester() }
     val entryKey = itemKeys.firstOrNull()
     // A filter or a sort is changed from the toolbar, so the remote is on a chip when the rails reshape.
     // The identity restore therefore runs only while nothing on this page holds focus (a first visit, or
-    // a return from another screen) — it must never yank focus off the control the user just pressed.
+    // a return from another screen) — it must never yank focus off the control the user just pressed, nor off
+    // the top bar the user just moved up into.
     var pageHoldsFocus by remember { mutableStateOf(false) }
     LaunchedEffect(itemKeys) {
-        if (!pageHoldsFocus) {
+        if (!pageHoldsFocus && !ShellChrome.barFocused) {
             restoreKeyFocus(focusZone, itemKeys, focusRegistry) { flat ->
                 var offset = 0
                 for ((railIndex, rail) in rails.withIndex()) {
@@ -549,24 +549,6 @@ private fun <T> CombinedGrid(
         }
     }
 
-    // A letter pick jumps: the column to the first rail with a title filing under the letter, then that
-    // rail to the title itself. "All" clears the pick and returns to the top. The tick, not the letter,
-    // keys the jump, so pressing the same letter twice jumps twice.
-    var jumpTick by remember { mutableIntStateOf(0) }
-    LaunchedEffect(jumpTick) {
-        if (jumpTick == 0) return@LaunchedEffect
-        val target = letter?.let { azJump(it, rails.map { rail -> rail.titles }) }
-        if (target == null) {
-            columnState.scrollToItem(0)
-        } else {
-            columnState.scrollToItem(target.first)
-            withFrameNanos { } // let the rail's row attach before it scrolls
-            rowStates[rails[target.first].key]?.scrollToItem(target.second)
-        }
-    }
-    // A genre pick can shrink the page past the chosen letter; the strip then lets the letter go.
-    LaunchedEffect(letters) { if (letter != null && letter !in letters) letter = null }
-
     Box(
         Modifier.fillMaxSize().onFocusChanged { pageHoldsFocus = it.hasFocus },
     ) {
@@ -577,12 +559,8 @@ private fun <T> CombinedGrid(
                 onGenre = { g -> if (g != genre) genre = g },
                 sort = sort,
                 onSort = { s -> if (s != sort) sort = s },
-                letters = letters,
-                letter = letter,
-                onLetter = { l ->
-                    letter = l
-                    jumpTick++
-                },
+                onSearch = { SectionNav.go(AppSection.SEARCH) },
+                contentEntry = first,
             )
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
@@ -610,7 +588,6 @@ private fun <T> CombinedGrid(
                         RailFocusLine {
                             LazyColumn(
                                 state = columnState,
-                                modifier = Modifier.focusGroup().focusRestorer(first),
                                 contentPadding = CatalogGridPadding,
                                 verticalArrangement = Arrangement.spacedBy(RailContentHeadroom),
                             ) {
@@ -803,10 +780,15 @@ private const val CW_RAIL_KEY = "cw"
 
 @Composable
 internal fun MoviesContent() {
-    val client = ProviderSession.current
+    val client by ProviderSession.currentFlow.collectAsStateWithLifecycle()
     var cats by remember { mutableStateOf<List<XtreamClient.Category>?>(null) }
-    LaunchedEffect(Unit) { cats = client?.let { c -> suspendRunCatching { c.movieCategories() }.getOrDefault(emptyList()) } }
-    ScreenPage("Movies", header = false) {
+    LaunchedEffect(client) {
+        cats = null
+        val activeClient = client
+        val fresh = activeClient?.let { suspendRunCatching { it.movieCategories() }.getOrDefault(emptyList()) }
+        if (ProviderSession.current === activeClient) cats = fresh
+    }
+    ScreenPage {
         // The frame owns the backdrop; the staged section only tints it, so Movies and TV Shows read apart.
         StagedScreen(section = com.carteltv.tv.nav.AppSection.MOVIES) {
             CombinedGrid(
@@ -861,10 +843,15 @@ internal fun MoviesContent() {
 
 @Composable
 internal fun SeriesContent() {
-    val client = ProviderSession.current
+    val client by ProviderSession.currentFlow.collectAsStateWithLifecycle()
     var cats by remember { mutableStateOf<List<XtreamClient.Category>?>(null) }
-    LaunchedEffect(Unit) { cats = client?.let { c -> suspendRunCatching { c.seriesCategories() }.getOrDefault(emptyList()) } }
-    ScreenPage("Series", header = false) {
+    LaunchedEffect(client) {
+        cats = null
+        val activeClient = client
+        val fresh = activeClient?.let { suspendRunCatching { it.seriesCategories() }.getOrDefault(emptyList()) }
+        if (ProviderSession.current === activeClient) cats = fresh
+    }
+    ScreenPage {
         StagedScreen(section = com.carteltv.tv.nav.AppSection.TV) {
             CombinedGrid(
                 provider = client,

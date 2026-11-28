@@ -3,6 +3,7 @@ package com.carteltv.tv.data.network
 import com.carteltv.tv.data.EmptySharedPreferences
 import com.carteltv.tv.data.espn.EspnScoreboardClient
 import com.carteltv.tv.data.preferences.AppPreferences
+import com.carteltv.tv.data.weather.Sky
 import com.carteltv.tv.data.weather.WeatherClient
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -48,7 +49,8 @@ class ClientTransportTest {
         val c = WeatherClient().current(40.0, -70.0)!!
         assertEquals(21.5, c.tempC, 0.0)
         assertEquals(60, c.humidity)
-        assertEquals("Rain", c.label)
+        assertEquals(61, c.code)
+        assertEquals("Slight Rain", Sky.describe(c.code))
         assertTrue(c.isDay)
         assertEquals(25.0, c.highC!!, 0.0)
         assertEquals(15.0, c.lowC!!, 0.0)

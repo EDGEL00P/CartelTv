@@ -13,12 +13,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import com.carteltv.tv.R
 import com.carteltv.tv.core.suspendRunCatching
 import com.carteltv.tv.data.discovery.DiscoveryFeeds
 import com.carteltv.tv.data.preferences.AppPreferences
@@ -27,6 +26,7 @@ import com.carteltv.tv.nav.Nav
 import com.carteltv.tv.nav.Route
 import com.carteltv.tv.ui.components.EmptyState
 import com.carteltv.tv.ui.components.FilterChip
+import com.carteltv.tv.ui.components.PageError
 import com.carteltv.tv.ui.components.PageLoading
 import com.carteltv.tv.ui.components.PosterTile
 import com.carteltv.tv.ui.components.RailFocusLine
@@ -57,8 +57,9 @@ fun DiscoverScreen() {
     var genre by remember { mutableStateOf<Pair<String, Int>?>(null) }
     var rows by remember { mutableStateOf<List<DiscoverRow>?>(null) }
     var loadFailed by remember { mutableStateOf(false) }
+    var retryTick by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(key, media, genre) {
+    LaunchedEffect(key, media, genre, retryTick) {
         rows = null
         loadFailed = false
         if (key.isBlank()) {
@@ -110,7 +111,7 @@ fun DiscoverScreen() {
             }
     }
 
-    ScreenPage(stringResource(R.string.nav_discover), header = false) {
+    ScreenPage {
         StagedScreen(section = AppSection.MOVIES) {
             Column(Modifier.fillMaxSize()) {
                 LazyRow(
@@ -157,10 +158,11 @@ fun DiscoverScreen() {
                         }
 
                         shown.isEmpty() && loadFailed -> {
-                            EmptyState(
+                            PageError(
                                 "Couldn't load Discover.",
-                                hint = "Check the connection and try again.",
                                 modifier = Modifier.fillMaxSize(),
+                                retryLabel = "Retry",
+                                onRetry = { retryTick++ },
                             )
                         }
 
@@ -195,7 +197,7 @@ fun DiscoverScreen() {
                                             start = ThemeSpec.Space.margin,
                                             end = ThemeSpec.Safe.horizontal,
                                             top = ThemeSpec.Space.md,
-                                            bottom = ThemeSpec.Space.lg,
+                                            bottom = ThemeSpec.Space.margin,
                                         ),
                                     verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.md),
                                 ) {

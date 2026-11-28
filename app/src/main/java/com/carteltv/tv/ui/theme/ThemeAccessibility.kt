@@ -2,6 +2,9 @@ package com.carteltv.tv.ui.theme
 
 import android.content.Context
 import android.provider.Settings
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.carteltv.tv.data.preferences.AppPreferences
 
 /**
@@ -10,6 +13,9 @@ import com.carteltv.tv.data.preferences.AppPreferences
  * Exposed as a function so the app class wires it with a single call.
  */
 object ThemeAccessibility {
+    var reduceTransparency: Boolean by mutableStateOf(false)
+    var systemHighContrast: Boolean by mutableStateOf(false)
+    var systemAnimationsRemoved: Boolean by mutableStateOf(false)
 
     fun install(context: Context) {
         applyDefaults(
@@ -28,8 +34,9 @@ object ThemeAccessibility {
         systemHighContrast: Boolean,
         systemAnimationsRemoved: Boolean,
     ) {
-        ThemePresets.reduceTransparency = persistedReduceTransparency || systemHighContrast
-        ThemePresets.systemAnimationsRemoved = systemAnimationsRemoved
+        this.systemHighContrast = systemHighContrast
+        reduceTransparency = persistedReduceTransparency || systemHighContrast
+        this.systemAnimationsRemoved = systemAnimationsRemoved
     }
 
     fun highTextContrastEnabled(context: Context): Boolean = runCatching {

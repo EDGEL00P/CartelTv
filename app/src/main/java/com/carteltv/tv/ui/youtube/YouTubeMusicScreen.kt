@@ -5,19 +5,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.tv.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -36,9 +36,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.tv.material3.Text
 import com.carteltv.tv.data.youtube.YouTubeApiClient
-import com.carteltv.tv.data.youtube.YouTubeMusicClient
 import com.carteltv.tv.data.youtube.YouTubeLibrary
+import com.carteltv.tv.data.youtube.YouTubeMusicClient
 import com.carteltv.tv.ui.catalog.ActionButton
 import com.carteltv.tv.ui.components.MusicArtCard
 import com.carteltv.tv.ui.components.MusicShelfHeader
@@ -53,14 +54,17 @@ import com.carteltv.tv.ui.components.shimmer
 import com.carteltv.tv.ui.nav.PagePadding
 import com.carteltv.tv.ui.nav.ScreenPage
 import com.carteltv.tv.ui.theme.CartelBackdrop
+import com.carteltv.tv.ui.theme.PhosphorIcon
 import com.carteltv.tv.ui.theme.ThemeSemantics
 import com.carteltv.tv.ui.theme.ThemeSpec
+import com.carteltv.tv.ui.theme.glassPane
 import kotlinx.coroutines.launch
 
 private fun listenAgainShelf(): YouTubeMusicClient.Shelf? {
-    val entries = YouTubeLibrary.history().take(12).map {
-        YouTubeMusicClient.Entry(it.title, it.channel, it.thumb, it.videoId, playlistId = null)
-    }
+    val entries =
+        YouTubeLibrary.history().take(12).map {
+            YouTubeMusicClient.Entry(it.title, it.channel, it.thumb, it.videoId, playlistId = null)
+        }
     return entries.takeIf { it.isNotEmpty() }?.let { YouTubeMusicClient.Shelf("Your history", "Listen again", it) }
 }
 
@@ -74,8 +78,10 @@ fun YouTubeMusicScreen() {
     var playing by remember { mutableStateOf<YouTubeApiClient.YouTubeVideo?>(null) }
     var streams by remember { mutableStateOf<YouTubeApiClient.YouTubeStreams?>(null) }
     var queue by remember { mutableStateOf<List<YouTubeApiClient.YouTubeVideo>>(emptyList()) }
-    var restoreVideoId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
-    var restoreQueueIds by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
+    var restoreVideoId by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf<String?>(null) }
+    var restoreQueueIds by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     val scope = rememberCoroutineScope()
 
     // Fullscreen immersion while a video is playing, as on the video screen: keep the screen on
@@ -102,7 +108,8 @@ fun YouTubeMusicScreen() {
     }
 
     fun load() {
-        busy = true; notice = null
+        busy = true
+        notice = null
         scope.launch {
             val remote = kotlinx.coroutines.withTimeoutOrNull(15_000L) { YouTubeMusicClient.home() }.orEmpty()
             val listenAgain = listenAgainShelf()
@@ -120,8 +127,12 @@ fun YouTubeMusicScreen() {
         restoreQueueIds = emptyList()
     }
 
-    fun play(track: YouTubeApiClient.YouTubeVideo, list: List<YouTubeApiClient.YouTubeVideo>) {
-        resolving = true; notice = null
+    fun play(
+        track: YouTubeApiClient.YouTubeVideo,
+        list: List<YouTubeApiClient.YouTubeVideo>,
+    ) {
+        resolving = true
+        notice = null
         queue = list.ifEmpty { listOf(track) }
         restoreVideoId = track.videoId
         restoreQueueIds = queue.map { it.videoId }
@@ -143,8 +154,9 @@ fun YouTubeMusicScreen() {
         val id = restoreVideoId ?: return@LaunchedEffect
         val history = YouTubeLibrary.history()
         val restoredQueue = restoreQueueIds.mapNotNull { videoId -> history.firstOrNull { it.videoId == videoId } }
-        val video = history.firstOrNull { it.videoId == id }
-            ?: YouTubeApiClient.YouTubeVideo(id, "YouTube Music", channel = null, duration = null, thumb = null)
+        val video =
+            history.firstOrNull { it.videoId == id }
+                ?: YouTubeApiClient.YouTubeVideo(id, "YouTube Music", channel = null, duration = null, thumb = null)
         play(video, restoredQueue.ifEmpty { listOf(video) })
     }
 
@@ -155,14 +167,24 @@ fun YouTubeMusicScreen() {
     }
 
     fun open(entry: YouTubeMusicClient.Entry) {
-        resolving = true; notice = null
+        resolving = true
+        notice = null
         scope.launch {
             val list = entry.playlistId?.let { YouTubeMusicClient.queue(it, entry.videoId) }.orEmpty()
             val first = list.firstOrNull { it.videoId == entry.videoId } ?: list.firstOrNull()
             when {
-                first != null -> play(first, list)
-                entry.videoId != null -> play(YouTubeApiClient.YouTubeVideo(entry.videoId, entry.title, entry.subtitle, null, entry.art), emptyList())
-                else -> { resolving = false; notice = "Couldn't open that playlist." }
+                first != null -> {
+                    play(first, list)
+                }
+
+                entry.videoId != null -> {
+                    play(YouTubeApiClient.YouTubeVideo(entry.videoId, entry.title, entry.subtitle, null, entry.art), emptyList())
+                }
+
+                else -> {
+                    resolving = false
+                    notice = "Couldn't open that playlist."
+                }
             }
         }
     }
@@ -172,7 +194,8 @@ fun YouTubeMusicScreen() {
     val current = playing
     val live = streams
     // YouTube Music is a full-surface app: the global rail steps aside while it is open.
-    com.carteltv.tv.ui.nav.HideBarWhile()
+    com.carteltv.tv.ui.nav
+        .HideBarWhile()
     Box(Modifier.fillMaxSize().background(YouTubeBg)) {
         if (current != null && live != null) {
             YouTubeEmbeddedPlayer(
@@ -186,30 +209,18 @@ fun YouTubeMusicScreen() {
                 onPlayNext = ::playNextOrClose,
             )
         } else {
-            ScreenPage("YouTube Music", icon = com.carteltv.tv.R.drawable.ph_music_notes, header = false) {
+            ScreenPage {
                 Box(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize()) {
                         when {
-                            busy -> MusicSkeleton()
-                            shelves.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.md),
-                                    modifier = Modifier.padding(horizontal = ThemeSpec.Space.xl),
-                                ) {
-                                    Text(
-                                        "YouTube Music",
-                                        fontSize = ThemeSpec.Type.titleL, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                        fontFamily = ThemeSpec.Font.display, color = ThemeSemantics.textEmphatic,
-                                    )
-                                    Text(
-                                        notice.orEmpty(),
-                                        fontSize = ThemeSpec.Type.body, fontFamily = ThemeSpec.Font.body,
-                                        color = ThemeSemantics.textSecondary, textAlign = TextAlign.Center,
-                                    )
-                                    ActionButton("Retry", filled = true, modifier = Modifier.entryFocus()) { load() }
-                                }
+                            busy -> {
+                                MusicSkeleton()
                             }
+
+                            shelves.isEmpty() -> {
+                                MusicEmptyState(notice, ::load)
+                            }
+
                             else -> {
                                 // Rail scroll offsets live here, not in each item, so a shelf scrolled away and back keeps its place.
                                 val rowStates = remember { mutableStateMapOf<Int, LazyListState>() }
@@ -223,7 +234,20 @@ fun YouTubeMusicScreen() {
                                     ) {
                                         shelves.forEachIndexed { si, shelf ->
                                             item(key = "h:$si:${shelf.title}", contentType = "header") {
-                                                MusicShelfHeader(shelf.title, Modifier.padding(top = if (si == 0) 0.dp else ThemeSpec.Space.xl), shelf.eyebrow)
+                                                MusicShelfHeader(
+                                                    shelf.title,
+                                                    Modifier.padding(
+                                                        top =
+                                                            if (si ==
+                                                                0
+                                                            ) {
+                                                                0.dp
+                                                            } else {
+                                                                ThemeSpec.Space.xl
+                                                            },
+                                                    ),
+                                                    shelf.eyebrow,
+                                                )
                                             }
                                             // One shelf, one slider: the tiles run off the edge and feather away.
                                             item(key = "r:$si:${shelf.title}", contentType = "rail") {
@@ -233,20 +257,30 @@ fun YouTubeMusicScreen() {
                                                 LazyRow(
                                                     state = rowState,
                                                     // The peek of the next tile dissolves into the page instead of being sliced at the viewport.
-                                                    modifier = Modifier
-                                                        .restoreRowFocus()
-                                                        .railEdgeFade(rowState)
-                                                        .railWrapToStart(wrapState, rowState, shelf.entries.size, wrapFirst),
+                                                    modifier =
+                                                        Modifier
+                                                            .restoreRowFocus()
+                                                            .railEdgeFade(rowState)
+                                                            .railWrapToStart(wrapState, rowState, shelf.entries.size, wrapFirst),
                                                     // Vertical room so a lifted tile is not clipped by the row.
                                                     contentPadding = PaddingValues(vertical = ThemeSpec.Space.sm),
                                                     horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.md),
                                                 ) {
-                                                    itemsIndexed(shelf.entries, key = { ei, _ -> "c:$si:$ei" }, contentType = { _, _ -> "card" }) { index, entry ->
+                                                    itemsIndexed(shelf.entries, key = {
+                                                        ei,
+                                                        _,
+                                                        ->
+                                                        "c:$si:$ei"
+                                                    }, contentType = { _, _ -> "card" }) { index, entry ->
                                                         MusicArtCard(
-                                                            entry.title, entry.subtitle, entry.art, width = 220.dp,
-                                                            modifier = Modifier
-                                                                .railWrapItem(wrapState, index)
-                                                                .then(if (index == 0) Modifier.focusRequester(wrapFirst) else Modifier),
+                                                            entry.title,
+                                                            entry.subtitle,
+                                                            entry.art,
+                                                            width = 220.dp,
+                                                            modifier =
+                                                                Modifier
+                                                                    .railWrapItem(wrapState, index)
+                                                                    .then(if (index == 0) Modifier.focusRequester(wrapFirst) else Modifier),
                                                         ) { open(entry) }
                                                     }
                                                 }
@@ -257,16 +291,76 @@ fun YouTubeMusicScreen() {
                             }
                         }
                     }
-                    if (notice != null && shelves.isNotEmpty()) Text(
-                        notice.orEmpty(), fontSize = ThemeSpec.Type.meta, color = ThemeSemantics.textEmphatic,
-                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = ThemeSpec.Space.xl)
-                            .background(ThemeSemantics.scrimChip, androidx.compose.foundation.shape.RoundedCornerShape(ThemeSpec.Card.cornerSm))
-                            .padding(horizontal = ThemeSpec.Space.md, vertical = ThemeSpec.Space.sm),
-                    )
+                    if (notice != null && shelves.isNotEmpty()) {
+                        Text(
+                            notice.orEmpty(),
+                            fontSize = ThemeSpec.Type.meta,
+                            color = ThemeSemantics.textEmphatic,
+                            modifier =
+                                Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = ThemeSpec.Space.xl)
+                                    .background(
+                                        ThemeSemantics.scrimChip,
+                                        androidx.compose.foundation.shape
+                                            .RoundedCornerShape(ThemeSpec.Card.cornerSm),
+                                    ).padding(horizontal = ThemeSpec.Space.md, vertical = ThemeSpec.Space.sm),
+                        )
+                    }
                 }
             }
         }
-        if (resolving) Box(Modifier.fillMaxSize().background(ThemeSemantics.scrimBase.copy(alpha = 0.55f)), Alignment.Center) { LoadingSpinner() }
+        if (resolving) {
+            Box(
+                Modifier.fillMaxSize().background(ThemeSemantics.scrimBase.copy(alpha = 0.55f)),
+                Alignment.Center,
+            ) { LoadingSpinner() }
+        }
+    }
+}
+
+/** The empty / error panel: a glass card with the section glyph, a line of copy and one retry action. */
+@Composable
+private fun MusicEmptyState(
+    message: String?,
+    onRetry: () -> Unit,
+) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.md),
+            modifier =
+                Modifier
+                    .width(520.dp)
+                    .glassPane(RoundedCornerShape(ThemeSpec.Card.cornerLg))
+                    .padding(ThemeSpec.Space.xl),
+        ) {
+            Box(
+                Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(ThemeSpec.Card.corner))
+                    .background(ThemeSemantics.accent),
+                contentAlignment = Alignment.Center,
+            ) {
+                PhosphorIcon(com.carteltv.tv.R.drawable.ph_music_notes, ThemeSemantics.textInverse, 30.dp)
+            }
+            Text(
+                "YouTube Music",
+                fontSize = ThemeSpec.Type.titleL,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                fontFamily = ThemeSpec.Font.display,
+                color = ThemeSemantics.textEmphatic,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                message.orEmpty(),
+                fontSize = ThemeSpec.Type.body,
+                fontFamily = ThemeSpec.Font.body,
+                color = ThemeSemantics.textSecondary,
+                textAlign = TextAlign.Center,
+            )
+            ActionButton("Retry", filled = true, modifier = Modifier.entryFocus()) { onRetry() }
+        }
     }
 }
 
@@ -279,20 +373,62 @@ private fun MusicSkeleton() {
     ) {
         repeat(2) { shelf ->
             Column(verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm)) {
-                Box(Modifier.fillMaxWidth(if (shelf == 0) 0.2f else 0.28f).height(18.dp).clip(RoundedCornerShape(ThemeSpec.Card.cornerSm)).background(ThemeSemantics.surfaceRaised))
-                Box(Modifier.fillMaxWidth(if (shelf == 0) 0.34f else 0.26f).height(24.dp).clip(RoundedCornerShape(ThemeSpec.Card.cornerSm)).background(ThemeSemantics.surfaceRest))
+                Box(
+                    Modifier
+                        .fillMaxWidth(
+                            if (shelf ==
+                                0
+                            ) {
+                                0.2f
+                            } else {
+                                0.28f
+                            },
+                        ).height(18.dp)
+                        .clip(RoundedCornerShape(ThemeSpec.Card.cornerSm))
+                        .background(ThemeSemantics.surfaceRaised),
+                )
+                Box(
+                    Modifier
+                        .fillMaxWidth(
+                            if (shelf ==
+                                0
+                            ) {
+                                0.34f
+                            } else {
+                                0.26f
+                            },
+                        ).height(24.dp)
+                        .clip(RoundedCornerShape(ThemeSpec.Card.cornerSm))
+                        .background(ThemeSemantics.surfaceRest),
+                )
             }
             // A rail, not a grid row: fixed-width tiles that run past the edge the way the loaded shelves do.
             LazyRow(userScrollEnabled = false, horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.md)) {
                 items(6) {
                     Column(Modifier.width(220.dp), verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm)) {
                         Box(
-                            Modifier.fillMaxWidth().aspectRatio(1f)
+                            Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
                                 .clip(RoundedCornerShape(ThemeSpec.Card.corner))
-                                .background(ThemeSemantics.surfaceRest)
+                                .background(ThemeSemantics.surfaceRest),
                         )
-                        Box(Modifier.fillMaxWidth(0.8f).height(12.dp).clip(RoundedCornerShape(ThemeSpec.Card.cornerSm)).background(ThemeSemantics.surfaceRaised))
-                        Box(Modifier.fillMaxWidth(0.55f).height(10.dp).clip(RoundedCornerShape(ThemeSpec.Card.cornerSm)).background(ThemeSemantics.surfaceRaised))
+                        Box(
+                            Modifier
+                                .fillMaxWidth(
+                                    0.8f,
+                                ).height(12.dp)
+                                .clip(RoundedCornerShape(ThemeSpec.Card.cornerSm))
+                                .background(ThemeSemantics.surfaceRaised),
+                        )
+                        Box(
+                            Modifier
+                                .fillMaxWidth(
+                                    0.55f,
+                                ).height(10.dp)
+                                .clip(RoundedCornerShape(ThemeSpec.Card.cornerSm))
+                                .background(ThemeSemantics.surfaceRaised),
+                        )
                     }
                 }
             }

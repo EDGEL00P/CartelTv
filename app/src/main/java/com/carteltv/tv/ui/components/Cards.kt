@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
@@ -438,7 +439,7 @@ fun GridPoster(
 
 /** Shared filter/category chip used across Search, Scores, Sections, Detail, and Debrid; see [Chip].
  *  [onClick] is last so call sites can use trailing-lambda syntax; [compact] and [icon] stay named-arg only.
- *  [icon] is a real vector drawable (Phosphor), tinted to the chip's text so a selected chip stays legible. */
+ *  [icon] is a real vector drawable (Phosphor), tinted with the chip's ink so it follows focus and selection. */
 @Composable
 fun FilterChip(
     label: String,
@@ -455,18 +456,14 @@ fun FilterChip(
     leading =
         icon?.let { id ->
             {
-                PhosphorIcon(
-                    id,
-                    if (selected) ThemeSemantics.textInverse else ThemeSemantics.textEmphatic,
-                    if (compact) 14.dp else 16.dp,
-                )
+                PhosphorIcon(id, LocalContentColor.current, if (compact) 14.dp else 16.dp)
             }
         },
     onClick = onClick,
 )
 
 /**
- * The Netflix browse-row poster: portrait 2:3 art with the title baked into the artwork, so the
+ * The browse-row poster: portrait 2:3 art with the title baked into the artwork, so the
  * tile is art alone at rest. Focus is the drama — the poster looms over its row at
  * [ThemeSpec.Focus.liftPoster] — and the caption reveals beneath the focused tile only, as a
  * bold title over a metadata line. Resume progress and a badge ride the artwork as always.
@@ -544,7 +541,7 @@ fun PosterTile(
                 }
             }
         }
-        // The reveal: Netflix's focused-card caption. Only the focused tile names itself, so a
+        // The reveal: the focused-card caption. Only the focused tile names itself, so a
         // row at rest is pure poster art.
         androidx.compose.animation.AnimatedVisibility(
             visible = focused,

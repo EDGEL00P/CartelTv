@@ -196,21 +196,6 @@ class LauncherPreferences(private val sp: SharedPreferences) {
         get() = sp.getBoolean("switcher_no_kill", false)
         set(v) = sp.edit().putBoolean("switcher_no_kill", v).apply()
 
-    /** App icon size multiplier: 0.8 (smaller) | 1.0 (default) | 1.2 (larger) */
-    var appSizeMultiplier: Float
-        get() = sp.getFloat("app_size_mult", 1.0f).coerceIn(0.5f, 1.5f)
-        set(v) = sp.edit().putFloat("app_size_mult", v.coerceIn(0.5f, 1.5f)).apply()
-
-    /** Focus scale for media cards (1.0 = no scale, 1.12 = default lift). */
-    var mediaCardFocusScale: Float
-        get() = sp.getFloat("media_card_focus_scale", 1.06f).coerceIn(1.0f, 1.2f)
-        set(v) = sp.edit().putFloat("media_card_focus_scale", v.coerceIn(1.0f, 1.2f)).apply()
-
-    /** Saved accent preset id; unknown values fall back to Cartel Red in ThemePresets. */
-    var themePreset: String
-        get() = sp.getString("theme_preset", "cartel") ?: "cartel"
-        set(v) = sp.edit().putString("theme_preset", v).apply()
-
     /** Solid glass surfaces for viewers who need steadier contrast. */
     var reduceTransparency: Boolean
         get() = sp.getBoolean("glass_reduce_transparency", false)

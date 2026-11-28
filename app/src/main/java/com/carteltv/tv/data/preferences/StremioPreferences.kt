@@ -10,9 +10,19 @@ import com.carteltv.tv.data.stremio.StremioClient
  */
 class StremioPreferences(private val sp: SharedPreferences) {
 
-    fun addons(): MutableList<String> =
-        sp.getString("addons", null)?.split("\n")?.filter { it.isNotBlank() }?.toMutableList()
-            ?: mutableListOf()
+    /**
+     * The installed addons in priority order. Cinemeta is seeded once as an ordinary first entry (it used to be
+     * pinned in code), so a fresh install has metadata and the user can then reorder or remove it like Stremio/Nuvio.
+     */
+    fun addons(): MutableList<String> {
+        val saved = sp.getString("addons", null)?.split("\n")?.filter { it.isNotBlank() }?.toMutableList() ?: mutableListOf()
+        if (sp.getBoolean(SEEDED, false)) return saved
+        synchronized(addonLock) {
+            if (StremioClient.CINEMETA !in saved) saved.add(0, StremioClient.CINEMETA)
+            sp.edit().putString("addons", saved.joinToString("\n")).putBoolean(SEEDED, true).apply()
+        }
+        return saved
+    }
 
     fun setAddons(list: List<String>) {
         sp.edit().putString("addons", list.joinToString("\n")).apply()
@@ -40,4 +50,8 @@ class StremioPreferences(private val sp: SharedPreferences) {
     var stremioEmail: String
         get() = sp.getString("stremio_email", "") ?: ""
         set(v) = sp.edit().putString("stremio_email", v.trim()).apply()
+
+    private companion object {
+        const val SEEDED = "addons_cinemeta_seeded"
+    }
 }
