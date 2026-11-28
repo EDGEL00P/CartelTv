@@ -3,25 +3,39 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CartelTV</title>
-  <meta name="description" content="CartelTV — a focused Android TV launcher for live TV, sports, weather, and entertainment.">
-  <style>
-    :root { color-scheme: dark; }
-    * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font: 16px/1.6 system-ui, sans-serif; background: #090b10; color: #f5f7fb; }
-    main { width: min(760px, 90vw); padding: 64px 0; }
-    h1 { margin: 0 0 8px; font-size: clamp(40px, 8vw, 72px); letter-spacing: -0.04em; }
-    p { color: #aab3c5; }
-    a { color: #7dd3fc; }
-    .tag { display: inline-block; margin-bottom: 24px; color: #fbbf24; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
-  </style>
+  <title>CartelTV — Android TV</title>
+  <meta name="description" content="CartelTV — a focused Android TV experience.">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#07090d">
+  <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-  <main>
-    <span class="tag">Android TV</span>
-    <h1>CartelTV</h1>
-    <p>A focused TV experience for live channels, sports scores, weather, and entertainment.</p>
-    <p><a href="privacy.html">Privacy policy</a> · <a href="terms.html">Terms of Service</a></p>
+  <div class="ambient" aria-hidden="true"></div>
+  <header class="shell header">
+    <a class="brand" href="./" aria-label="CartelTV home">
+      <img src="assets/mark.svg" alt="" width="36" height="36">
+      <span>CartelTV</span>
+    </a>
+    <nav class="nav" aria-label="Legal">
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+    </nav>
+  </header>
+
+  <main class="shell hero">
+    <div class="eyebrow"><span class="dot"></span> Android TV</div>
+    <h1>Your TV.<br><span>Tuned to you.</span></h1>
+    <p class="lede">Live channels, sports, weather, and entertainment — in one focused space.</p>
+    <div class="actions">
+      <a class="button primary" href="privacy.html">Privacy</a>
+      <a class="button" href="terms.html">Terms</a>
+    </div>
   </main>
+
+  <footer class="shell footer">
+    <span>© 2026 CartelTV</span>
+    <span>Built for the big screen.</span>
+  </footer>
 </body>
 </html>
