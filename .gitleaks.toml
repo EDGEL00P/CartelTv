@@ -1,7 +1,0 @@
-[extend]
-useDefault = true
-
-# The YouTube TV installed-app OAuth client secret is a public constant shared by all
-# TV apps, but it must never be committed: the raw literal was removed from this
-# allowlist on 2026-11-27 (it lived here as an allowlist regex). No tracked file
-# contains it; if a scan ever flags one, that is a real leak — rotate, don't allowlist.
