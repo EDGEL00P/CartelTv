@@ -1,0 +1,43 @@
+# name<TAB>expected language code, or "-" when the language cannot be told (the title is kept).
+# Add a line whenever a title is wrongly hidden or wrongly shown; LanguageCorpusTest fails until detection matches.
+US| Movies	EN
+[UK] Drama	EN
+EN | Sports	EN
+CA| TSN 1 HD	EN
+FR| Cinema	FR
+[DE] Sport	DE
+AR | Series	AR
+ES| Peliculas	ES
+PT| Filmes	PT
+IT| Serie	IT
+NL| Films	NL
+TR| Dizi	TR
+RU| Kino	RU
+IN| Bollywood	HI
+Arabic Movies	AR
+Latino Series	ES
+Hindi Dubbed	HI
+Les Misérables des Pauvres	FR
+Los Amantes del Círculo Polar	ES
+Das Leben der Anderen und Mehr	DE
+Amélie VOSTFR	FR
+Dark Knight DUBLADO	PT
+Война и мир	RU
+寄生虫	ZH
+となりのトトロ	JA
+기생충	KO
+La La Land	-
+Le Mans '66	-
+El Camino: A Breaking Bad Movie	-
+Die Hard	-
+Café Society	-
+Léon: The Professional	-
+Los Angeles Story	-
+Inception	-
+Up - Pixar	-
+It (2017)	-
+Documentaries	-
+The Godfather Part II	-
+Amélie	-
+Das Boot	-
+La Casa de Papel	-

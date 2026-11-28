@@ -1,0 +1,482 @@
+package com.carteltv.tv.ui.catalog
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Text
+import coil3.compose.AsyncImage
+import com.carteltv.tv.core.suspendRunCatching
+import com.carteltv.tv.data.discovery.MetaDetails
+import com.carteltv.tv.data.discovery.MetaEpisode
+import com.carteltv.tv.data.discovery.MetaRepository
+import com.carteltv.tv.data.preferences.AppPreferences
+import com.carteltv.tv.nav.AppSection
+import com.carteltv.tv.nav.Nav
+import com.carteltv.tv.nav.Route
+import com.carteltv.tv.ui.components.CardArtwork
+import com.carteltv.tv.ui.components.EmptyState
+import com.carteltv.tv.ui.components.FilterChip
+import com.carteltv.tv.ui.components.PageError
+import com.carteltv.tv.ui.components.PageLoading
+import com.carteltv.tv.ui.components.PosterTile
+import com.carteltv.tv.ui.components.RailFocusLine
+import com.carteltv.tv.ui.components.SectionTitle
+import com.carteltv.tv.ui.components.StagedScreen
+import com.carteltv.tv.ui.components.entryFocus
+import com.carteltv.tv.ui.components.railEdgeFade
+import com.carteltv.tv.ui.components.restoreRowFocus
+import com.carteltv.tv.ui.nav.PageChipRow
+import com.carteltv.tv.ui.nav.PagePadding
+import com.carteltv.tv.ui.nav.ScreenPage
+import com.carteltv.tv.ui.settings.StreamPickerHost
+import com.carteltv.tv.ui.theme.ThemeSemantics
+import com.carteltv.tv.ui.theme.ThemeSpec
+import kotlinx.coroutines.launch
+import java.util.Locale
+
+@Composable
+fun MetaDetailScreen(
+    type: String,
+    id: String,
+    title: String,
+    poster: String?,
+) {
+    val refId = remember(type, id) { MetaRepository.refOf(type, id) }
+    val scope = rememberCoroutineScope()
+    var details by remember(refId) { mutableStateOf<MetaDetails?>(null) }
+    var failed by remember(refId) { mutableStateOf(false) }
+    var fav by remember(refId) { mutableStateOf(AppPreferences.isFav(refId)) }
+    var saved by remember(refId) { mutableStateOf(AppPreferences.inLibrary(refId)) }
+    var watchedTick by remember(refId) { mutableIntStateOf(0) }
+    var season by remember(refId) { mutableIntStateOf(1) }
+    var episodes by remember(refId, season) { mutableStateOf<List<MetaEpisode>>(emptyList()) }
+    var episodesSettled by remember(refId) { mutableStateOf(false) }
+    var parts by remember(refId) { mutableStateOf<List<com.carteltv.tv.data.discovery.MetaSummary>>(emptyList()) }
+    var detailRetryTick by remember(refId) { mutableIntStateOf(0) }
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    // Watched marks come from the Trakt cache; refresh them when the account comes back to the page.
+    androidx.compose.runtime.DisposableEffect(owner) {
+        val observer =
+            androidx.lifecycle.LifecycleEventObserver { _, e ->
+                if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) watchedTick++
+            }
+        owner.lifecycle.addObserver(observer)
+        onDispose { owner.lifecycle.removeObserver(observer) }
+    }
+    // Season and episode the picker opens on; the page's own season by default.
+    var picker by remember { mutableStateOf<Pair<Int, Int?>?>(null) }
+
+    LaunchedEffect(refId, detailRetryTick) {
+        details = null
+        failed = false
+        val result = suspendRunCatching { MetaRepository.load(type, id, title, poster) }
+        details = result.getOrNull()
+        failed = result.isFailure
+    }
+
+    // The page's key art holds the stage while nothing is focused: the backdrop the plate shows, else its poster.
+    DetailAmbientArt(details?.let { it.backdrop?.takeIf { b -> b.isNotBlank() } ?: it.poster } ?: poster)
+    LaunchedEffect(details) {
+        val c = details?.collection ?: return@LaunchedEffect
+        parts = suspendRunCatching { MetaRepository.collectionParts(c.id) }.getOrDefault(emptyList())
+    }
+    LaunchedEffect(details, season) {
+        val shown = details ?: return@LaunchedEffect
+        if (!shown.isSeries) return@LaunchedEffect
+        episodesSettled = false
+        episodes = suspendRunCatching { MetaRepository.season(shown, season) }.getOrDefault(emptyList())
+        episodesSettled = true
+    }
+
+    ScreenPage {
+        StagedScreen(section = if (type == "series" || type == "tv") AppSection.TV else AppSection.MOVIES) {
+            val shown = details
+            when {
+                shown == null && !failed -> {
+                    PageLoading()
+                }
+
+                shown == null -> {
+                    PageError(
+                        "This title could not be loaded.",
+                        retryLabel = "Retry",
+                        onRetry = { detailRetryTick++ },
+                    )
+                }
+
+                else -> {
+                    RailFocusLine {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PagePadding,
+                        ) {
+                            item(
+                                key = "art",
+                            ) { DetailHeroPlate(art = shown.backdrop ?: shown.poster, title = shown.name, logo = shown.logo) }
+                            item(key = "copy") {
+                                CopyBlock(
+                                    details = shown,
+                                    fav = fav,
+                                    saved = saved,
+                                    onPlay = { picker = season to episodes.firstOrNull()?.episode },
+                                    onFav = {
+                                        AppPreferences.toggleFav(refId)
+                                        fav = AppPreferences.isFav(refId)
+                                    },
+                                    onSave = {
+                                        saved =
+                                            AppPreferences.toggleLibrary(
+                                                AppPreferences.LibraryEntry(
+                                                    id = refId,
+                                                    type = shown.type,
+                                                    name = shown.name,
+                                                    poster = shown.poster.orEmpty(),
+                                                    backdrop = shown.backdrop.orEmpty(),
+                                                    year = shown.year.orEmpty(),
+                                                    rating = shown.rating?.let { "%.1f".format(Locale.US, it) }.orEmpty(),
+                                                ),
+                                            )
+                                    },
+                                    onWatched = {
+                                        scope.launch {
+                                            markWatched(shown, episodes)
+                                            watchedTick++
+                                        }
+                                    },
+                                )
+                            }
+                            if (shown.isSeries && shown.seasons.isNotEmpty()) {
+                                item(key = "seasons") {
+                                    PageChipRow {
+                                        items(shown.seasons, key = { it.number }) { s ->
+                                            FilterChip(
+                                                label = s.name?.takeIf { it.isNotBlank() } ?: "Season ${s.number}",
+                                                selected = s.number == season,
+                                            ) { season = s.number }
+                                        }
+                                    }
+                                }
+                                item(key = "episodes") {
+                                    EpisodeRail(
+                                        episodes = episodes,
+                                        settled = episodesSettled,
+                                        poster = shown.poster,
+                                        showName = shown.name,
+                                        playableId = shown.playableId,
+                                        watchedTick = watchedTick,
+                                        onPlay = { e -> picker = e.season to e.episode },
+                                    )
+                                }
+                            }
+                            if (shown.cast.isNotEmpty()) {
+                                item(key = "cast-title") { SectionTitle("Cast", Modifier.padding(top = ThemeSpec.Space.lg)) }
+                                item(key = "cast-rail") {
+                                    val castState = rememberLazyListState()
+                                    LazyRow(
+                                        state = castState,
+                                        modifier = Modifier.restoreRowFocus().railEdgeFade(castState),
+                                        contentPadding = PaddingValues(vertical = RailContentHeadroom),
+                                        horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.gutter),
+                                    ) {
+                                        items(shown.cast.take(24), key = { it.name }) { person ->
+                                            Column(Modifier.width(110.dp)) {
+                                                AsyncImage(
+                                                    model = person.photo,
+                                                    contentDescription = person.name,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.size(84.dp).clip(RoundedCornerShape(ThemeSpec.Card.corner)),
+                                                )
+                                                Text(
+                                                    person.name,
+                                                    fontSize = ThemeSpec.Type.label,
+                                                    color = ThemeSemantics.textEmphatic,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                                person.character?.takeIf { it.isNotBlank() }?.let {
+                                                    Text(
+                                                        it,
+                                                        fontSize = ThemeSpec.Type.label,
+                                                        color = ThemeSemantics.textSecondary,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if (parts.isNotEmpty()) {
+                                item(key = "collection") {
+                                    PosterRail(shown.collection?.name ?: "Collection", count = parts.size) {
+                                        items(parts, key = { it.refId }) { part ->
+                                            PosterTile(
+                                                imageUrl = part.poster,
+                                                title = part.name,
+                                                meta = part.year,
+                                                width = EpisodeTileWidth,
+                                                onClick = { Nav.push(Route.Meta(part.type, part.refId, part.name, part.poster)) },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            if (shown.recommendations.isNotEmpty()) {
+                                item(key = "recommendations") {
+                                    PosterRail("More like this", count = shown.recommendations.size) {
+                                        items(shown.recommendations, key = { it.refId }) { r ->
+                                            PosterTile(
+                                                imageUrl = r.poster,
+                                                title = r.name,
+                                                width = EpisodeTileWidth,
+                                                onClick = {
+                                                    Nav.push(
+                                                        Route.Meta(
+                                                            r.type,
+                                                            if (r.refId.startsWith("tmdb:")) r.refId else r.refId.removePrefix("stremio:"),
+                                                            r.name,
+                                                            r.poster,
+                                                        ),
+                                                    )
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    val target = details
+    val at = picker
+    if (target != null && at != null) {
+        StreamPickerHost(
+            met = target.toMetum(),
+            onDismiss = { picker = null },
+            initialSeason = at.first,
+            initialEpisode = at.second,
+        )
+    }
+}
+
+@Composable
+private fun CopyBlock(
+    details: MetaDetails,
+    fav: Boolean,
+    saved: Boolean,
+    onPlay: () -> Unit,
+    onFav: () -> Unit,
+    onSave: () -> Unit,
+    onWatched: () -> Unit,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Spacer(Modifier.height(ThemeSpec.Space.md))
+        details.originalName?.takeIf { it != details.name }?.let {
+            Text(it, fontSize = ThemeSpec.Type.meta, color = ThemeSemantics.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Spacer(Modifier.height(ThemeSpec.Space.xs))
+        val facts =
+            listOfNotNull(
+                details.yearLabel,
+                if (details.isSeries && details.seasons.isNotEmpty()) "${details.seasons.size} seasons" else details.runtimeLabel,
+                details.rating?.let { "★ ${"%.1f".format(Locale.US, it)}" },
+                details.certification,
+            ).joinToString("  ·  ")
+        if (facts.isNotBlank()) {
+            Text(
+                facts,
+                fontSize = ThemeSpec.Type.meta,
+                color = ThemeSemantics.textSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        details.genres.take(3).takeIf { it.isNotEmpty() }?.let {
+            Text(
+                it.joinToString("  ·  "),
+                fontSize = ThemeSpec.Type.meta,
+                color = ThemeSemantics.accent,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.height(ThemeSpec.Space.sm))
+        // The primary actions sit right under the title block, so Play is on screen without scrolling past the hero.
+        Row(horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.cozy)) {
+            ActionButton("Play", filled = true, modifier = Modifier.entryFocus()) { onPlay() }
+            details.trailerKey?.takeIf { it.isNotBlank() }?.let { key ->
+                ActionButton("Trailer", filled = false) {
+                    com.carteltv.tv.ui.youtube.YouTubeDeepLink.post(
+                        com.carteltv.tv.ui.youtube.YouTubeDeepLink
+                            .Request(key, details.name),
+                    )
+                    if (Nav.current != Route.YouTube) Nav.push(Route.YouTube)
+                }
+            }
+            ActionButton(if (fav) "Remove from favourites" else "Add to favourites", filled = false) { onFav() }
+            ActionButton(if (saved) "In library" else "Add to library", filled = false) { onSave() }
+            ActionButton(
+                if (!details.isSeries &&
+                    com.carteltv.tv.data.trakt.TraktAuth
+                        .isMovieWatched(details.name)
+                ) {
+                    "✓ Watched"
+                } else if (details.isSeries) {
+                    "Mark next watched"
+                } else {
+                    "Mark watched"
+                },
+                filled = false,
+            ) { onWatched() }
+        }
+        if (details.playableId.isNullOrBlank()) {
+            Text(
+                "No IMDb id for this title yet — add-on streams need one.",
+                fontSize = ThemeSpec.Type.label,
+                color = ThemeSemantics.textSecondary,
+                maxLines = 2,
+                modifier = Modifier.padding(top = ThemeSpec.Space.sm),
+            )
+        }
+        details.overview?.takeIf { it.isNotBlank() }?.let {
+            Spacer(Modifier.height(ThemeSpec.Space.md))
+            DetailPlot(it, maxLines = 6)
+        }
+        Spacer(Modifier.height(ThemeSpec.Space.sm))
+        DetailCredits(
+            listOfNotNull(
+                details.directors
+                    .take(3)
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { "Directed by ${it.joinToString(", ")}" },
+                details.cast
+                    .take(4)
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { "Cast · ${it.joinToString(", ") { c -> c.name }}" },
+                details.companies
+                    .take(2)
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { "Studio · ${it.joinToString(", ") { c -> c.name }}" },
+            ),
+        )
+    }
+}
+
+@Composable
+private fun EpisodeRail(
+    episodes: List<MetaEpisode>,
+    settled: Boolean,
+    poster: String?,
+    showName: String,
+    playableId: String?,
+    watchedTick: Int,
+    onPlay: (MetaEpisode) -> Unit,
+) {
+    val rowState = rememberLazyListState()
+    when {
+        !settled -> {
+            Box(Modifier.fillMaxWidth().height(EpisodeTileWidth * 1.5f + ThemeSpec.Space.margin)) { PageLoading() }
+        }
+
+        episodes.isEmpty() -> {
+            EmptyState("No episodes for this season yet.")
+        }
+
+        else -> {
+            LazyRow(
+                state = rowState,
+                modifier = Modifier.restoreRowFocus().railEdgeFade(rowState),
+                contentPadding = PaddingValues(vertical = RailContentHeadroom),
+                horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.gutter),
+            ) {
+                items(episodes, key = { it.id }) { e ->
+                    val ref = playableId?.let { "series:$it/${e.season}:${e.episode}" }
+                    val watched =
+                        remember(watchedTick, e.id) {
+                            com.carteltv.tv.data.trakt.TraktAuth
+                                .isEpisodeWatched(showName, e.season, e.episode)
+                        }
+                    val progress =
+                        remember(watchedTick, ref) {
+                            ref?.let { r ->
+                                AppPreferences.recentEntries().firstOrNull { it.ref == r }?.let { entry ->
+                                    if (entry.durationMs > 0) (entry.positionMs.toFloat() / entry.durationMs).coerceIn(0f, 1f) else 0f
+                                }
+                            } ?: 0f
+                        }
+                    Box {
+                        PosterTile(
+                            imageUrl = e.still ?: poster,
+                            title = e.name?.takeIf { it.isNotBlank() } ?: "Episode ${e.episode}",
+                            meta = e.runtimeMinutes?.let { "$it min" },
+                            badge = if (watched) "WATCHED" else "S${e.season}E${e.episode}",
+                            width = EpisodeTileWidth,
+                            progress = progress,
+                            onClick = { onPlay(e) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Marks the title, or the next unwatched episode of a show, watched on Trakt. */
+private suspend fun markWatched(
+    details: MetaDetails,
+    episodes: List<MetaEpisode>,
+) {
+    if (!details.isSeries) {
+        com.carteltv.tv.data.trakt.TraktAuth
+            .scrobbleMovie(details.name, details.year?.toIntOrNull())
+        return
+    }
+    val next =
+        episodes.firstOrNull {
+            !com.carteltv.tv.data.trakt.TraktAuth
+                .isEpisodeWatched(details.name, it.season, it.episode)
+        }
+            ?: episodes.lastOrNull() ?: return
+    com.carteltv.tv.data.trakt.TraktAuth
+        .scrobbleEpisode(details.name, next.season, next.episode)
+}

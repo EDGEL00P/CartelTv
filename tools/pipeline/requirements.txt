@@ -1,0 +1,3 @@
+# Pipeline CLI dependencies only. Pinned; the rest of tools/ is stdlib.
+pydantic==2.14.4
+PyYAML==6.0.3

@@ -1,0 +1,239 @@
+package com.carteltv.tv.ui.catalog
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import com.carteltv.tv.core.suspendRunCatching
+import com.carteltv.tv.data.discovery.DiscoveryFeeds
+import com.carteltv.tv.data.preferences.AppPreferences
+import com.carteltv.tv.nav.AppSection
+import com.carteltv.tv.nav.Nav
+import com.carteltv.tv.nav.Route
+import com.carteltv.tv.ui.components.EmptyState
+import com.carteltv.tv.ui.components.FilterChip
+import com.carteltv.tv.ui.components.PageError
+import com.carteltv.tv.ui.components.PageLoading
+import com.carteltv.tv.ui.components.PosterTile
+import com.carteltv.tv.ui.components.RailFocusLine
+import com.carteltv.tv.ui.components.StagedScreen
+import com.carteltv.tv.ui.components.entryFocus
+import com.carteltv.tv.ui.components.restoreRowFocus
+import com.carteltv.tv.ui.nav.ScreenPage
+import com.carteltv.tv.ui.theme.ThemeSpec
+
+private enum class DiscoverMedia { MIXED, MOVIES, SHOWS }
+
+private val GENRES = DiscoveryFeeds.GENRES
+
+private data class DiscoverRow(
+    val key: String,
+    val title: String,
+    val cards: List<DiscoveryFeeds.Card>,
+)
+
+/**
+ * TMDB discovery rows: what is trending, popular, top rated, in cinemas and coming, with a
+ * movie/show switch and a genre filter. Every tile opens the shared title page.
+ */
+@Composable
+fun DiscoverScreen() {
+    val key = AppPreferences.tmdbKey
+    var media by remember { mutableStateOf(DiscoverMedia.MIXED) }
+    var genre by remember { mutableStateOf<Pair<String, Int>?>(null) }
+    var rows by remember { mutableStateOf<List<DiscoverRow>?>(null) }
+    var loadFailed by remember { mutableStateOf(false) }
+    var retryTick by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(key, media, genre, retryTick) {
+        rows = null
+        loadFailed = false
+        if (key.isBlank()) {
+            rows = emptyList()
+            return@LaunchedEffect
+        }
+        rows =
+            if (genre != null) {
+                val kinds =
+                    when (media) {
+                        DiscoverMedia.MOVIES -> listOf("movie" to "Movies")
+                        DiscoverMedia.SHOWS -> listOf("tv" to "Shows")
+                        DiscoverMedia.MIXED -> listOf("movie" to "Movies", "tv" to "Shows")
+                    }
+                kinds.mapNotNull { (g, label) ->
+                    val cards =
+                        suspendRunCatching { DiscoveryFeeds.discover(key, g, genre?.second) }
+                            .getOrElse {
+                                loadFailed = true
+                                emptyList()
+                            }
+                    DiscoverRow("genre:$g", "${genre?.first} · $label", cards).takeIf { cards.isNotEmpty() }
+                }
+            } else {
+                DiscoveryFeeds.FEEDS_ORDER.mapNotNull { feed ->
+                    val cards =
+                        suspendRunCatching {
+                            when {
+                                media == DiscoverMedia.MIXED -> {
+                                    DiscoveryFeeds.row(key, feed, mixTv = feed.tvPath != null)
+                                }
+
+                                media == DiscoverMedia.SHOWS -> {
+                                    feed.tvPath
+                                        ?.let { tv -> DiscoveryFeeds.row(key, feed, path = tv) }
+                                        ?: DiscoveryFeeds.discover(key, "tv", null)
+                                }
+
+                                else -> {
+                                    DiscoveryFeeds.row(key, feed)
+                                }
+                            }
+                        }.getOrElse {
+                            loadFailed = true
+                            emptyList()
+                        }.distinctBy { it.id }
+                    DiscoverRow("${feed.name}:${media.name}", feed.label, cards).takeIf { cards.isNotEmpty() }
+                }
+            }
+    }
+
+    ScreenPage {
+        StagedScreen(section = AppSection.MOVIES) {
+            Column(Modifier.fillMaxSize()) {
+                LazyRow(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = ThemeSpec.Space.margin,
+                            end = ThemeSpec.Safe.horizontal,
+                            top = ThemeSpec.Space.md,
+                        ).restoreRowFocus(),
+                    horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
+                ) {
+                    item("mixed") {
+                        FilterChip("All", media == DiscoverMedia.MIXED, modifier = Modifier.entryFocus()) {
+                            media =
+                                DiscoverMedia.MIXED
+                        }
+                    }
+                    item("movies") { FilterChip("Movies", media == DiscoverMedia.MOVIES) { media = DiscoverMedia.MOVIES } }
+                    item("shows") { FilterChip("Shows", media == DiscoverMedia.SHOWS) { media = DiscoverMedia.SHOWS } }
+                }
+                LazyRow(
+                    Modifier.fillMaxWidth().padding(start = ThemeSpec.Space.margin, end = ThemeSpec.Safe.horizontal).restoreRowFocus(),
+                    horizontalArrangement = Arrangement.spacedBy(ThemeSpec.Space.sm),
+                ) {
+                    item("all-genres") { FilterChip("Every genre", genre == null) { genre = null } }
+                    items(GENRES, key = { "genre:${it.second}" }) { (name, id) ->
+                        FilterChip(name, genre?.second == id) { genre = if (genre?.second == id) null else name to id }
+                    }
+                }
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    val shown = rows
+                    when {
+                        key.isBlank() -> {
+                            EmptyState(
+                                "Discover needs a TMDB key.",
+                                hint = "Add a free TMDB key in Settings › Accounts to fill these rows.",
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+
+                        shown == null -> {
+                            PageLoading(Modifier.fillMaxSize())
+                        }
+
+                        shown.isEmpty() && loadFailed -> {
+                            PageError(
+                                "Couldn't load Discover.",
+                                modifier = Modifier.fillMaxSize(),
+                                retryLabel = "Retry",
+                                onRetry = { retryTick++ },
+                            )
+                        }
+
+                        shown.isEmpty() -> {
+                            EmptyState("Nothing to discover.", modifier = Modifier.fillMaxSize())
+                        }
+
+                        else -> {
+                            // The billboard leads the default (unfiltered) browse with the first title of the first row.
+                            val hero =
+                                if (genre == null) {
+                                    shown.firstOrNull { it.cards.isNotEmpty() }?.cards?.firstOrNull()?.let { c ->
+                                        val type = if (c.media == "tv") "series" else "movie"
+                                        val art = DiscoveryFeeds.posterUrl(c.poster)
+                                        HeroPick(
+                                            c.title,
+                                            art,
+                                            listOfNotNull(
+                                                c.year,
+                                                c.rating?.let { "★ %.1f".format(it) },
+                                            ).joinToString(" · ").ifBlank { null },
+                                            "More info",
+                                        ) { Nav.push(Route.Meta(type, "tmdb:$type:${c.id}", c.title, art)) }
+                                    }
+                                } else {
+                                    null
+                                }
+                            RailFocusLine {
+                                LazyColumn(
+                                    contentPadding =
+                                        PaddingValues(
+                                            start = ThemeSpec.Space.margin,
+                                            end = ThemeSpec.Safe.horizontal,
+                                            top = ThemeSpec.Space.md,
+                                            bottom = ThemeSpec.Space.margin,
+                                        ),
+                                    verticalArrangement = Arrangement.spacedBy(ThemeSpec.Space.md),
+                                ) {
+                                    if (hero != null) item(key = "hero") { CatalogHero(hero) }
+                                    items(shown, key = { it.key }) { row ->
+                                        PosterRail(row.title, count = row.cards.size) {
+                                            items(row.cards, key = { it.id }) { card ->
+                                                PosterTile(
+                                                    imageUrl = DiscoveryFeeds.posterUrl(card.poster),
+                                                    title = card.title,
+                                                    meta =
+                                                        listOfNotNull(
+                                                            card.year,
+                                                            card.rating?.let { "★ %.1f".format(it) },
+                                                        ).joinToString(" · "),
+                                                    onClick = {
+                                                        val type = if (card.media == "tv") "series" else "movie"
+                                                        Nav.push(
+                                                            Route.Meta(
+                                                                type,
+                                                                "tmdb:$type:${card.id}",
+                                                                card.title,
+                                                                DiscoveryFeeds.posterUrl(card.poster),
+                                                            ),
+                                                        )
+                                                    },
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

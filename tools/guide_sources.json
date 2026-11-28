@@ -1,0 +1,18 @@
+{
+  "_comment": "Free XMLTV guides fetched by tools/fetch_guides.py in addition to EPG Share. kind=linear: real broadcast schedules (feeds epg and events.json). kind=fast: 24/7 streaming-platform channels that replay old shows, so they feed the epg only, never events.json.",
+  "sources": [
+    {"name": "EPGPW_US", "url": "https://epg.pw/xmltv/epg_US.xml.gz", "kind": "linear", "region": "United States"},
+    {"name": "EPGPW_GB", "url": "https://epg.pw/xmltv/epg_GB.xml.gz", "kind": "linear", "region": "United Kingdom"},
+    {"name": "EPGPW_AU", "url": "https://epg.pw/xmltv/epg_AU.xml.gz", "kind": "linear", "region": "Australia"},
+    {"name": "EPGPW_CA", "url": "https://epg.pw/xmltv/epg_CA.xml.gz", "kind": "linear", "region": "Canada"},
+    {"name": "EPGPW_NZ", "url": "https://epg.pw/xmltv/epg_NZ.xml.gz", "kind": "linear", "region": "New Zealand"},
+    {"name": "EPGPW_ZA", "url": "https://epg.pw/xmltv/epg_ZA.xml.gz", "kind": "linear", "region": "South Africa"},
+    {"name": "EPGPW_IN", "url": "https://epg.pw/xmltv/epg_IN.xml.gz", "kind": "linear", "region": "India"},
+    {"name": "EPGPW_SG", "url": "https://epg.pw/xmltv/epg_SG.xml.gz", "kind": "linear", "region": "Singapore"},
+    {"name": "EPGPW_PH", "url": "https://epg.pw/xmltv/epg_PH.xml.gz", "kind": "linear", "region": "Philippines"},
+    {"name": "PLEX_US", "url": "https://i.mjh.nz/Plex/us.xml.gz", "kind": "fast", "region": "United States"},
+    {"name": "ROKU_ALL", "url": "https://i.mjh.nz/Roku/all.xml.gz", "kind": "fast", "region": "United States"},
+    {"name": "PLUTO_US", "url": "https://i.mjh.nz/PlutoTV/us.xml.gz", "kind": "fast", "region": "United States"},
+    {"name": "SAMSUNG_US", "url": "https://i.mjh.nz/SamsungTVPlus/us.xml.gz", "kind": "fast", "region": "United States"}
+  ]
+}

@@ -1,0 +1,10 @@
+HSPLcom/carteltv/tv/MainActivity;->**(**)**
+HSPLcom/carteltv/tv/ui/**;->**(**)**
+HSPLcom/carteltv/tv/ui/theme/**;->**(**)**
+HSPLcom/carteltv/tv/ui/weather/**;->**(**)**
+HSPLcom/carteltv/tv/data/espn/**;->**(**)**
+HSPLcom/carteltv/tv/data/weather/**;->**(**)**
+HSPLcom/carteltv/tv/data/xtream/ChannelLogos;->**(**)**
+Lcom/carteltv/tv/ui/**;
+Lcom/carteltv/tv/ui/theme/**;
+Lcom/carteltv/tv/data/espn/**;

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "skip-github-release": true,
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "package-name": "CartelTV",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": ["app/build.gradle.kts"]
+    }
+  }
+}

@@ -1,0 +1,266 @@
+<resources>
+    <string name="app_name">CartelTV</string>
+
+    <string name="remap_sink_desc">CartelTV remote key service. Assigns physical remote keys to system actions. No screen content is read.</string>
+
+    <!-- Primary navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_apps">Apps</string>
+    <string name="nav_live">Live TV</string>
+    <string name="nav_guide">TV Guide</string>
+    <string name="nav_sports">Sports</string>
+    <string name="nav_weather">Weather</string>
+    <string name="nav_on_demand">Movies</string>
+    <string name="nav_tv_shows">Shows</string>
+    <string name="nav_youtube">YouTube</string>
+    <string name="nav_music">YouTube Music</string>
+    <string name="nav_recents">Recent Apps</string>
+    <string name="nav_library">Library</string>
+    <string name="nav_discover">Discover</string>
+    <string name="nav_shelves">Shelves</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_settings">Settings</string>
+    <string name="nav_movies_tv">On Demand</string>
+
+    <!-- Schedule and live filters -->
+    <string name="filter_all">All</string>
+    <string name="filter_favourites">Favorites</string>
+    <string name="filter_live_events">Live Events</string>
+    <string name="filter_replays">Replays</string>
+    <string name="chip_channels">Channels</string>
+    <string name="chip_schedule">Schedule</string>
+    <string name="up_next">Up Next</string>
+    <string name="guide_select_prompt">Select a program to view its full preview</string>
+
+    <!-- Section mastheads -->
+    <string name="title_sports">Sports</string>
+    <string name="title_on_air">Live TV</string>
+
+    <!-- TransientStatus and states -->
+    <string name="live_badge">LIVE</string>
+    <string name="live_action">LIVE NOW: %1$d</string>
+    <string name="state_empty">No scheduled items</string>
+    <string name="state_signal_lost">Signal Lost</string>
+    <string name="state_off_air">No provider connected</string>
+    <string name="state_off_air_hint">Add your server address, username, and password to load channels, the schedule, and titles.</string>
+    <string name="state_play_error">Playback interrupted</string>
+
+    <!-- Player controls -->
+    <string name="player_audio">Audio</string>
+    <string name="player_subtitles">Subtitles</string>
+    <string name="player_voice_boost">Commentary boost</string>
+    <string name="player_buffer">Buffer</string>
+    <string name="player_av_sync">Audio/Video sync</string>
+    <string name="player_subtitle_size">Subtitle size</string>
+    <string name="player_stream_info">Stream information</string>
+    <string name="player_sources">Feeds</string>
+    <string name="player_multiview">Multiview</string>
+    <string name="player_search">Search</string>
+    <string name="player_schedule">Schedule</string>
+    <string name="player_side_panel">Statistics panel</string>
+    <string name="player_next">Up Next • %1$s</string>
+
+    <!-- Settings root -->
+    <string name="set_provider">TV provider</string>
+    <string name="set_linked_accounts">Linked accounts</string>
+    <string name="set_profiles">Profiles</string>
+    <string name="set_playback">Playback</string>
+    <string name="set_sports">Sports</string>
+    <string name="set_youtube">YouTube</string>
+    <string name="set_recordings">Recordings</string>
+    <string name="set_addons">Add-ons</string>
+    <string name="set_theme">Theme &amp; Home</string>
+    <string name="set_standby">Standby display</string>
+    <string name="set_assistant">Assistant</string>
+    <string name="set_advanced">Advanced</string>
+    <string name="set_about">About</string>
+
+    <!-- Shared -->
+    <string name="common_connecting">Connecting…</string>
+
+    <!-- Apps -->
+    <string name="apps_all_title">All Apps</string>
+    <string name="apps_search_hint">Search apps…</string>
+
+    <!-- Detail -->
+    <string name="detail_movie_kind">Movie · On Demand</string>
+
+    <!-- Recents -->
+    <string name="recents_back_dismiss">Press Back to dismiss.</string>
+
+    <!-- YouTube -->
+    <string name="youtube_sign_in">Sign in</string>
+    <string name="youtube_open_other_device">Open on another device</string>
+    <string name="youtube_scan_or_enter">Scan the QR code or enter it at</string>
+    <string name="youtube_device_hint">Use Chrome on your phone, signed in to a personal Google account — work or school accounts can\'t connect devices.</string>
+    <string name="youtube_enter_auth_code">Then enter this code</string>
+    <string name="youtube_back_close">Press Back to close</string>
+    <string name="youtube_switching_angle">Switching camera angle…</string>
+    <string name="youtube_playback_fumble">Playback failed</string>
+    <string name="youtube_coming_up">Up next in %1$s</string>
+    <string name="youtube_go_live_hint">Press OK to play next. Press Back to cancel.</string>
+    <string name="youtube_recent_videos">%1$d recent videos</string>
+    <string name="youtube_recent_searches">Recent searches</string>
+    <string name="youtube_results_count">%1$d results</string>
+
+    <!-- Add-ons -->
+    <string name="addon_add_new_hint">Add new add-ons.</string>
+    <string name="addon_installed_count">Installed • %1$d</string>
+    <string name="addon_resolving_debrid">Resolving debrid link…</string>
+    <string name="addon_loading_episodes">Loading episodes…</string>
+    <string name="addon_no_episodes">No episodes available</string>
+    <string name="addon_resolving_sources">Resolving sources…</string>
+    <string name="addon_no_sources">No sources available</string>
+
+    <!-- Player -->
+    <string name="player_no_stats">No playback statistics yet.</string>
+    <string name="deck_next">Next • %1$s</string>
+
+    <!-- Login -->
+    <string name="login_signing_in">Signing in…</string>
+    <string name="login_type_from_phone">Type from your phone</string>
+    <string name="login_name">Name</string>
+    <string name="login_name_hint">Optional, e.g., Sports</string>
+    <string name="login_server_url">Server URL</string>
+    <string name="login_playlist_url">Playlist URL</string>
+    <string name="login_portal_url">Portal URL</string>
+    <string name="login_username">Username</string>
+    <string name="login_username_hint">Your username</string>
+    <string name="login_password">Password</string>
+    <string name="login_password_hint">Your password</string>
+    <string name="login_mac_address">MAC address</string>
+
+    <!-- Debrid -->
+    <string name="debrid_error">Error • %1$s</string>
+    <string name="debrid_open">Open ›</string>
+
+    <!-- Companion -->
+    <string name="companion_title">Phone companion</string>
+    <string name="companion_scan_hint">Scan with your phone on the same Wi‑Fi network.</string>
+    <string name="companion_start_failed">Could not start. Check your network connection.</string>
+    <string name="companion_starting">Starting…</string>
+
+    <!-- Profiles -->
+    <string name="profile_whos_watching">Who\'s watching?</string>
+    <string name="profile_switch_hint">Press OK on Home to switch profiles</string>
+    <string name="profile_new">New</string>
+
+    <!-- Shell -->
+    <string name="shell_all_profiles">All profiles</string>
+    <string name="shell_channels_apps">Channels &amp; Apps</string>
+
+    <!-- Weather -->
+    <string name="weather_lost_desk">Weather unavailable</string>
+    <string name="weather_lost_desk_hint">Check your connection and try again.</string>
+    <string name="weather_going_desk">Loading weather…</string>
+    <string name="weather_storm_potential">Potential severe storm</string>
+    <string name="weather_storm_conditions">Conditions favor strong thunderstorms today</string>
+    <string name="weather_storms_link">Storms ›</string>
+    <string name="sky_sun">Sun</string>
+    <string name="sky_polar_night">The sun stays below the horizon all day.</string>
+    <string name="sky_midnight_sun">The sun stays up all day.</string>
+    <string name="sky_moon">Moon</string>
+    <string name="sky_moon_lit">%1$d%% lit · day %2$d</string>
+    <string name="sky_full_moon">Full moon</string>
+    <string name="sky_new_moon">New moon</string>
+    <string name="sky_range">Range %1$s</string>
+    <string name="storm_lightning_threat">Lightning threat</string>
+    <string name="storm_live_lightning">Live lightning</string>
+    <string name="storm_off">Off</string>
+    <string name="radar_title">Radar</string>
+    <string name="radar_strikes">1 lightning strike in 30 minutes</string>
+    <string name="radar_map_tools">Map tools</string>
+    <string name="radar_zoom_in">Zoom in</string>
+    <string name="radar_zoom_out">Zoom out</string>
+    <string name="radar_pan">Pan</string>
+    <string name="radar_storm_3d">Storm 3D</string>
+    <string name="radar_recenter">Recenter</string>
+
+    <!-- Trakt -->
+    <string name="trakt_authorization">Trakt authorization</string>
+    <string name="trakt_client_help">Obtain your client ID and secret at trakt.tv/oauth/applications.</string>
+    <string name="trakt_client_id">Client ID</string>
+    <string name="trakt_client_id_hint">Enter your Trakt client ID</string>
+    <string name="trakt_client_secret">Client Secret</string>
+    <string name="trakt_client_secret_hint">Enter your Trakt client secret</string>
+    <string name="trakt_activate">Visit trakt.tv/activate</string>
+    <string name="trakt_scan">Scan the QR code to visit trakt.tv/activate</string>
+    <string name="trakt_awaiting">Awaiting confirmation…</string>
+    <string name="trakt_linked">Linked</string>
+    <string name="trakt_synchronized">Synchronized • Account: %1$s</string>
+
+    <!-- Home / MultiView -->
+    <string name="home_continue_skip">Press OK to continue. Press Back to skip.</string>
+    <string name="multiview_pick_channel">Select a channel</string>
+
+    <!-- Empty states -->
+    <string name="empty_no_favourites">No favorite channels yet</string>
+    <string name="empty_nothing_watched">Nothing watched yet</string>
+    <string name="empty_nothing_watched_hint">Channels you tune to will appear here.</string>
+    <string name="live_fav_hint">Hold OK on a channel to add to favorites.</string>
+    <string name="live_no_group">No channels in this group</string>
+    <string name="live_no_group_hint">The provider returned nothing for this selection.</string>
+    <string name="guide_fav_hint">Open a program to add to favorites.</string>
+    <string name="scores_no_games">No games on this day</string>
+    <string name="scores_no_games_hint">Try another day or enable additional leagues.</string>
+    <string name="vod_empty">Nothing to show</string>
+    <string name="vod_empty_hint">The provider returned no titles. Check Settings.</string>
+
+    <!-- On Demand browse -->
+    <string name="catalog_sort_featured">Featured</string>
+    <string name="catalog_sort_az">A–Z</string>
+    <string name="catalog_sort_top_rated">Top rated</string>
+    <string name="catalog_titles_count">%1$d titles</string>
+    <string name="catalog_genre_empty">The provider has no titles in this category.</string>
+    <string name="catalog_continue_watching">Continue watching</string>
+    <string name="catalog_remove_continue">Remove from Continue watching</string>
+
+    <!-- Settings: playback and advanced -->
+    <string name="settings_open">Open</string>
+    <string name="settings_section_display">Display</string>
+    <string name="settings_section_still_watching">Still watching?</string>
+    <string name="settings_section_up_next">Up Next</string>
+    <string name="settings_section_playback_options">Playback options</string>
+    <string name="settings_section_buffering">Buffering</string>
+    <string name="settings_section_audio">Audio</string>
+    <string name="settings_section_tools">Tools</string>
+    <string name="settings_seek_previews">Seek previews</string>
+    <string name="settings_seek_previews_desc">Show a preview frame while skipping a video</string>
+    <string name="settings_seek_previews_caption">Opens a second connection to the stream; some providers may refuse it. Applies to the next video you open.</string>
+    <string name="settings_hero_previews">Hero previews</string>
+    <string name="settings_hero_previews_desc">Play a muted preview while the Home banner is focused</string>
+    <string name="settings_still_watching_caption">Pauses and asks if you are still present after a period of inactivity, and stops playback if no response is received. Applies to the next video you open.</string>
+    <string name="settings_player_clock">Player clock</string>
+    <string name="settings_player_clock_desc">Show the clock in the player overlay</string>
+    <string name="settings_advanced_caption">Settings most users rarely need to change. Defaults work well for most TVs.</string>
+    <string name="settings_buffer_caption">Higher buffers improve stability but increase channel-switching delay.</string>
+    <string name="settings_refresh_sync">Refresh sync</string>
+    <string name="settings_refresh_sync_desc">Retune the TV to the video\'s refresh rate for smoother film motion.</string>
+    <string name="settings_refresh_sync_caption">Applies to the next video you open; the screen may briefly blank while the TV switches.</string>
+    <string name="settings_tunneled_video">Tunneled video</string>
+    <string name="settings_tunneled_video_desc">Allow the TV to decode and time video for smoother high-bitrate playback.</string>
+    <string name="settings_tunneled_video_caption">Works on some TVs only. If picture or sound drifts or freezes, disable it. Applies to the next video you open.</string>
+    <string name="settings_audio_offload">Audio offload</string>
+    <string name="settings_audio_offload_desc">Decode compatible audio on the TV\'s DSP to reduce power consumption.</string>
+    <string name="settings_audio_offload_caption">Applies to the next video you open; formats the DSP cannot handle still play normally.</string>
+    <string name="settings_video_enhance">Video enhancement</string>
+    <string name="settings_video_enhance_desc">Deband and sharpen each frame to smooth low-bitrate video.</string>
+    <string name="settings_video_enhance_caption">Applies to the next video you open. Provides smoother gradients and crisper edges at some GPU cost. Tunneled video is ignored while active.</string>
+    <string name="settings_faster_live">Faster live start</string>
+    <string name="settings_faster_live_desc">Request low-latency output from the video decoder for live channels.</string>
+    <string name="settings_faster_live_caption">Used only where the device\'s decoder supports it. Applies to the next channel you open; disable if live video shows glitches.</string>
+    <string name="settings_dv7">Native Dolby Vision 7</string>
+    <string name="settings_dv7_desc">Play Profile 7 using the device\'s own decoder, avoiding conversion.</string>
+    <string name="settings_dv7_caption">Effective only when the device has a Profile 7 decoder and the TV supports Dolby Vision. Applies to the next video you open.</string>
+    <string name="settings_truehd">TrueHD / Atmos bitstream</string>
+    <string name="settings_truehd_desc">Send Dolby TrueHD to your receiver as a lossless MAT stream.</string>
+    <string name="settings_truehd_caption">Requires an HDMI receiver that accepts TrueHD. Applies to the next video you open; disable if audio drops out.</string>
+    <string name="settings_controls">Controls</string>
+    <string name="settings_controls_desc">Launcher and boot controls, and mapping of remote keys.</string>
+    <string name="settings_dns_blocking">DNS blocking</string>
+    <string name="settings_dns_blocking_desc">Private DNS ad blocking.</string>
+    <string name="settings_backup_restore">Backup &amp; restore</string>
+    <string name="settings_backup_restore_desc">Move your configuration via code, the phone companion, or TV sync.</string>
+    <string name="settings_diagnostics">Diagnostics</string>
+    <string name="settings_diagnostics_desc">Timers, notices, smart home, and diagnostic bundle.</string>
+</resources>
